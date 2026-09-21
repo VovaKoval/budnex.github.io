@@ -1,0 +1,2560 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BUDNEX</title>
+<style>
+:root{
+  --bg:#0c0c0c; --panel:#161616; --panel2:#1e1e1e; --border:#2a2a2a;
+  --gold:#F2C200; --gold2:#FFDE59; --text:#f2f2f2; --muted:#9a9a9a;
+  --green:#3ecf5e; --red:#e05656; --blue:#4a9eff; --orange:#ff9f43;
+  --radius:10px; --font: 'Segoe UI', Arial, sans-serif;
+}
+[data-theme="light"]{
+  --bg:#f4f4f4; --panel:#ffffff; --panel2:#f0f0f0; --border:#ddd;
+  --text:#1a1a1a; --muted:#666;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;}
+a{color:inherit;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;font-size:14px;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+/* ---------- app shell ---------- */
+#app{display:flex;flex-direction:column;height:100vh;}
+#topbar{
+  height:56px;flex:0 0 auto;display:flex;align-items:center;gap:16px;
+  padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border);
+}
+#topbar .logo{font-weight:800;font-size:18px;letter-spacing:.5px;display:flex;align-items:center;gap:6px;}
+#topbar .logo .ex{color:var(--gold);}
+#dbstatus{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;}
+#dbstatus .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+#dbstatus.offline .dot{background:var(--red);}
+#searchbox{flex:1;position:relative;max-width:420px;}
+#searchbox input{width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);}
+#searchResults{position:absolute;top:38px;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-radius:8px;max-height:320px;overflow:auto;z-index:50;display:none;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+#searchResults .sr-item{padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;}
+#searchResults .sr-item:hover{background:var(--panel2);}
+#searchResults .sr-item .sr-type{color:var(--gold);font-size:10px;font-weight:700;text-transform:uppercase;margin-right:6px;}
+.top-actions{display:flex;align-items:center;gap:10px;margin-left:auto;}
+.icon-btn{background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px;display:flex;align-items:center;gap:6px;}
+.icon-btn:hover{background:var(--panel2);}
+#bellBtn{position:relative;}
+#bellDot{position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:var(--red);display:none;}
+
+#body{flex:1;display:flex;min-height:0;}
+#sidebar{width:210px;flex:0 0 auto;background:var(--panel);border-right:1px solid var(--border);padding:12px 0;overflow-y:auto;}
+#sidebar .nav-item{display:flex;align-items:center;gap:10px;padding:10px 18px;color:var(--muted);cursor:pointer;font-size:13.5px;font-weight:600;border-left:3px solid transparent;}
+#sidebar .nav-item:hover{color:var(--text);background:var(--panel2);}
+#sidebar .nav-item.active{color:var(--gold);border-left-color:var(--gold);background:var(--panel2);}
+#sidebar .nav-item .ic{width:18px;text-align:center;}
+#main{flex:1;overflow-y:auto;padding:22px 26px;min-width:0;}
+
+/* ---------- generic components ---------- */
+.page-title{font-size:20px;font-weight:800;margin:0 0 4px;}
+.page-sub{color:var(--muted);font-size:12.5px;margin-bottom:18px;}
+.btn{border:none;border-radius:8px;padding:9px 16px;font-weight:700;font-size:13px;background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+.btn:hover{filter:brightness(1.15);}
+.btn.primary{background:var(--gold);color:#1a1a1a;border-color:var(--gold);}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red);}
+.btn.small{padding:5px 10px;font-size:12px;}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+.toolbar input[type=text],.toolbar input[type=search],.toolbar select{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);}
+.spacer{flex:1;}
+
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+.grid{display:grid;gap:14px;}
+.grid.cols-4{grid-template-columns:repeat(4,1fr);}
+.grid.cols-3{grid-template-columns:repeat(3,1fr);}
+.grid.cols-2{grid-template-columns:repeat(2,1fr);}
+@media(max-width:1000px){.grid.cols-4{grid-template-columns:repeat(2,1fr);}.grid.cols-3{grid-template-columns:repeat(2,1fr);}}
+
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+.kpi .kpi-label{color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+.kpi .kpi-value{font-size:24px;font-weight:800;margin-top:6px;}
+.kpi .kpi-breakdown{margin-top:8px;font-size:11.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px;}
+.kpi .kpi-breakdown span b{color:var(--text);}
+
+table.dt{width:100%;border-collapse:collapse;font-size:13px;}
+table.dt th{text-align:left;padding:8px 10px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--border);}
+table.dt td{padding:9px 10px;border-bottom:1px solid var(--border);}
+table.dt tbody tr:hover{background:var(--panel2);cursor:pointer;}
+.badge{display:inline-block;padding:3px 9px;border-radius:12px;font-size:10.5px;font-weight:700;}
+.badge.gray{background:#333;color:#ccc;}
+.badge.green{background:#1e4620;color:#8fe39a;}
+.badge.gold{background:#4a3c00;color:var(--gold2);}
+.badge.red{background:#4a1f1f;color:#ff9d9d;}
+.badge.blue{background:#123354;color:#9ec9ff;}
+
+/* modal */
+#modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:200;}
+#modalOverlay.open{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);width:520px;max-width:92vw;max-height:88vh;overflow:auto;padding:20px 22px;}
+.modal h3{margin:0 0 14px;font-size:16px;}
+.form-row{margin-bottom:12px;}
+.form-row label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);}
+.form-row textarea{min-height:70px;resize:vertical;}
+.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+
+/* toasts */
+#toastWrap{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--panel2);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:8px;padding:12px 16px;font-size:13px;max-width:340px;box-shadow:0 6px 20px rgba(0,0,0,.35);}
+.toast.error{border-left-color:var(--red);}
+.toast.success{border-left-color:var(--green);}
+
+/* kanban */
+.kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;}
+.kanban-col{flex:0 0 250px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:10px;}
+.kanban-col h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;}
+.kanban-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:12.5px;cursor:grab;}
+.kanban-card:active{cursor:grabbing;}
+.kanban-card .kc-title{font-weight:700;margin-bottom:4px;}
+.kanban-card .kc-meta{color:var(--muted);font-size:11px;}
+.kanban-col.dragover{background:#2a2510;}
+
+/* connection banner */
+#connBanner{display:none;background:#4a1f1f;color:#ffcaca;padding:10px 16px;font-size:13px;align-items:center;gap:12px;}
+#connBanner.show{display:flex;}
+
+/* margin warning */
+.margin-warn{background:#4a3c00;color:var(--gold2);border:1px solid var(--gold);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+
+/* setup screen */
+#setupScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;}
+#setupScreen .box{width:480px;max-width:92vw;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:32px;}
+#setupScreen h2{margin:0 0 6px;}
+#setupScreen p{color:var(--muted);font-size:13px;line-height:1.6;}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;}
+.tab-btn{padding:9px 14px;background:none;border:none;color:var(--muted);font-weight:700;font-size:13px;border-bottom:2px solid transparent;}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+.chart-wrap{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+.chart-title{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:10px;}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--muted);}
+.empty-state .btn{margin-top:14px;}
+
+@media(max-width:800px){
+  #sidebar{position:fixed;left:-220px;top:56px;bottom:0;z-index:100;transition:left .2s;}
+  #sidebar.open{left:0;}
+  #searchbox{display:none;}
+  .grid.cols-4,.grid.cols-3,.grid.cols-2{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div id="setupScreen" style="display:none;">
+  <div class="box">
+    <h2>Налаштування BUDNEX</h2>
+    <p>Встав URL Google Apps Script Web App (Deploy → New deployment → Web app → скопіювати /exec URL). Це потрібно один раз — далі BUDNEX сам підключатиметься до твоєї Google Таблиці.</p>
+    <div class="form-row">
+      <label>Apps Script Web App URL</label>
+      <input type="text" id="setupUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div id="setupError" style="color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;"></div>
+    <div class="form-actions" style="justify-content:flex-start;">
+      <button class="btn primary" id="setupConnectBtn">Підключити</button>
+    </div>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+  <div id="topbar">
+    <div class="logo">BUDN<span class="ex">EX</span></div>
+    <div id="dbstatus" class="offline"><span class="dot"></span><span id="dbstatusText">DATABASE OFFLINE</span></div>
+    <div id="searchbox">
+      <input type="text" id="globalSearch" placeholder="Пошук: клієнт, телефон, об'єкт, адреса, робота, ID...">
+      <div id="searchResults"></div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="userChipBtn">👤 —</button>
+      <button class="icon-btn" id="syncBtn">🔄 Синхронізувати</button>
+      <button class="icon-btn" id="bellBtn">🔔<span id="bellDot"></span></button>
+      <button class="icon-btn" id="themeBtn">🌓</button>
+    </div>
+  </div>
+  <div id="connBanner">
+    <span>⚠ Не вдалося підключитися до бази даних.</span>
+    <button class="btn small" id="retryConnBtn">ПОВТОРИТИ</button>
+  </div>
+  <div id="body">
+    <div id="sidebar"></div>
+    <div id="main"></div>
+  </div>
+</div>
+
+<div id="modalOverlay"><div class="modal" id="modalBox"></div></div>
+<div id="toastWrap"></div>
+
+<script>
+'use strict';
+
+/* ============================== CONFIG ================================= */
+var CONFIG = {
+  API_URL: localStorage.getItem('budnex_api_url') || '',
+  APP_NAME: 'BUDNEX'
+};
+
+/* ============================== STATE =================================== */
+var STATE = {
+  online: false,
+  lastSync: null,
+  route: '#/dashboard',
+  db: { settings:{}, clients:[], requests:[], objects:[], works:[], categories:[], estimates:[],
+        estimateItems:[], partners:[], teams:[], assignments:[], payments:[], expenses:[], tasks:[], notifications:[],
+        projects:[], projectRooms:[], projectWalls:[], projectOpenings:[], projectElements:[], boq:[], projectMaterials:[],
+        materials:[], suppliers:[], packages:[], packageItems:[], photos:[], documents:[], users:[], roles:[] },
+  ui: { theme: localStorage.getItem('budnex_theme') || 'dark', priceView: 'internal' },
+  currentUser: null
+};
+
+var NAV = [
+  { id:'dashboard', label:'Дашборд', icon:'📊', roles:null },
+  { id:'clients', label:'Клієнти', icon:'👤', roles:null },
+  { id:'requests', label:'Заявки', icon:'📥', roles:null },
+  { id:'objects', label:"Об'єкти", icon:'🏗️', roles:null },
+  { id:'works', label:'Прайс робіт', icon:'📋', roles:['ADMIN','MANAGER','ESTIMATOR'] },
+  { id:'estimates', label:'Кошториси', icon:'🧾', roles:['ADMIN','MANAGER','ESTIMATOR'] },
+  { id:'partners', label:'Бригади', icon:'👷', roles:null },
+  { id:'materials', label:'Матеріали і пакети', icon:'📦', roles:['ADMIN','MANAGER','ESTIMATOR'] },
+  { id:'finance', label:'Фінанси', icon:'💰', roles:['ADMIN','MANAGER','ACCOUNTANT'] },
+  { id:'calendar', label:'Календар', icon:'📅', roles:null },
+  { id:'tasks', label:'Завдання', icon:'✅', roles:null },
+  { id:'analytics', label:'Аналітика', icon:'📈', roles:['ADMIN','MANAGER','ACCOUNTANT'] },
+  { id:'settings', label:'Налаштування', icon:'⚙️', roles:['ADMIN'] }
+];
+
+// TZ section 65 — UI-level duty segregation (see the ROLES comment in
+// Code.gs for why this can't be a real server-side security boundary on an
+// Apps Script Web App deployed as "Anyone"). ADMIN always sees everything.
+function currentRole_() { return STATE.currentUser ? STATE.currentUser.role : 'ADMIN'; }
+function roleAllows_(navItem) { return !navItem.roles || navItem.roles.indexOf(currentRole_()) !== -1 || currentRole_() === 'ADMIN'; }
+
+var REQUEST_STATUSES = ['NEW','CONTACT','INSPECTION','ESTIMATE','SENT','NEGOTIATION','APPROVED','PREPARATION','IN PROGRESS','ACCEPTANCE','COMPLETED','REJECTED','PAUSED'];
+var REQUEST_STATUS_LABELS = {NEW:'Нова',CONTACT:'Контакт',INSPECTION:'Огляд',ESTIMATE:'Кошторис',SENT:'Надіслано',NEGOTIATION:'Погодження',APPROVED:'Затверджено',PREPARATION:'Підготовка','IN PROGRESS':'У роботі',ACCEPTANCE:'Приймання',COMPLETED:'Завершено',REJECTED:'Відмова',PAUSED:'Пауза'};
+var KANBAN_STATUSES = ['NEW','CONTACT','INSPECTION','ESTIMATE','SENT','NEGOTIATION','APPROVED','PREPARATION','IN PROGRESS','ACCEPTANCE','COMPLETED'];
+
+var OBJECT_STATUSES = ['новий','огляд','кошторис','погодження','підготовка','у роботі','завершено'];
+var TASK_STATUSES = ['TODO','IN PROGRESS','DONE','BLOCKED'];
+var TASK_STATUS_LABELS = {TODO:'Зробити','IN PROGRESS':'У роботі',DONE:'Готово',BLOCKED:'Заблоковано'};
+
+/* ============================== STORAGE ================================= */
+var Storage = {
+  saveCache: function () {
+    try { localStorage.setItem('budnex_cache', JSON.stringify({ db: STATE.db, ts: Date.now() })); } catch (e) {}
+  },
+  loadCache: function () {
+    try {
+      var raw = localStorage.getItem('budnex_cache');
+      if (!raw) return false;
+      var parsed = JSON.parse(raw);
+      STATE.db = parsed.db;
+      return true;
+    } catch (e) { return false; }
+  },
+  queue: {
+    get: function () { try { return JSON.parse(localStorage.getItem('budnex_queue') || '[]'); } catch (e) { return []; } },
+    set: function (q) { localStorage.setItem('budnex_queue', JSON.stringify(q)); },
+    push: function (action, data) { var q = this.get(); q.push({ action: action, data: data, ts: Date.now() }); this.set(q); },
+    clear: function () { this.set([]); }
+  }
+};
+
+var MUTATIONS = ['createClient','updateClient','deleteClient','createRequest','updateRequest','deleteRequest',
+  'createObject','updateObject','deleteObject','createWork','updateWork','deleteWork','createEstimate','updateEstimate',
+  'deleteEstimate','addEstimateItem','updateEstimateItem','deleteEstimateItem','createPartner','updatePartner','deletePartner',
+  'createTeam','updateTeam','deleteTeam','createAssignment','updateAssignment','createPayment','createExpense','createTask',
+  'updateTask','markNotificationRead','saveSetting',
+  // ЕТАП 5-8 mutations (planner, BOQ, materials/suppliers/packages, photos, documents, users) —
+  // these were missing here, so a failed call while offline silently dropped the change
+  // instead of queuing it for retry, which looked identical to "the button doesn't work".
+  'createProject','updateProject','deleteProject',
+  'createProjectRoom','updateProjectRoom','deleteProjectRoom',
+  'createProjectWall','updateProjectWall','deleteProjectWall',
+  'createProjectOpening','updateProjectOpening','deleteProjectOpening',
+  'createProjectElement','updateProjectElement','deleteProjectElement',
+  'generateBOQFromProject','createBOQItem','updateBOQItem','deleteBOQItem',
+  'computeProjectMaterials','generateEstimateFromBOQ',
+  'createDocument','deleteDocument',
+  'createMaterial','updateMaterial','deleteMaterial',
+  'createSupplier','updateSupplier','deleteSupplier',
+  'createPackage','updatePackage','deletePackage','addPackageItem','deletePackageItem','addPackageToEstimate',
+  'uploadPhoto','deletePhoto',
+  'createUser','updateUser','deleteUser','loginAs',
+  'aiGenerateRooms'];
+
+/* ================================ API ==================================== */
+function apiCall(action, data) {
+  if (!CONFIG.API_URL) return Promise.reject(new Error('API_URL не налаштований'));
+  return fetch(CONFIG.API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight against Apps Script
+    body: JSON.stringify({ action: action, data: data || {} })
+  }).then(function (res) { return res.json(); })
+    .then(function (json) {
+      if (!json.success) throw new Error(json.error || 'Невідома помилка сервера');
+      setOnline_(true);
+      return json.data;
+    }).catch(function (err) {
+      setOnline_(false);
+      if (MUTATIONS.indexOf(action) !== -1) {
+        Storage.queue.push(action, data);
+        toast('Дані не втрачені. Зміну додано в чергу синхронізації.', 'error');
+      }
+      throw err;
+    });
+}
+
+function setOnline_(isOnline) {
+  var wasOffline = !STATE.online;
+  STATE.online = isOnline;
+  var el = document.getElementById('dbstatus');
+  var txt = document.getElementById('dbstatusText');
+  var banner = document.getElementById('connBanner');
+  if (isOnline) {
+    el.classList.remove('offline'); txt.textContent = 'DATABASE ONLINE';
+    banner.classList.remove('show');
+    if (wasOffline) flushQueue();
+  } else {
+    el.classList.add('offline'); txt.textContent = 'DATABASE OFFLINE';
+  }
+}
+
+function flushQueue() {
+  var q = Storage.queue.get();
+  if (!q.length) return;
+  Storage.queue.clear();
+  var chain = Promise.resolve();
+  q.forEach(function (item) {
+    chain = chain.then(function () { return apiCall(item.action, item.data).catch(function () {}); });
+  });
+  chain.then(function () { syncAll(); });
+}
+
+function syncAll() {
+  document.getElementById('syncBtn').textContent = '🔄 Синхронізація...';
+  return apiCall('bootstrap', {}).then(function (data) {
+    STATE.db = {
+      settings: data.settings || {}, clients: data.clients || [], requests: data.requests || [],
+      objects: data.objects || [], works: data.works || [], categories: data.categories || [],
+      estimates: data.estimates || [], estimateItems: data.estimateItems || [], partners: data.partners || [],
+      teams: data.teams || [], assignments: data.assignments || [], payments: data.payments || [],
+      expenses: data.expenses || [], tasks: data.tasks || [], notifications: data.notifications || [],
+      projects: data.projects || [], projectRooms: data.projectRooms || [], projectWalls: data.projectWalls || [],
+      projectOpenings: data.projectOpenings || [], projectElements: data.projectElements || [], boq: data.boq || [],
+      projectMaterials: data.projectMaterials || [], materials: data.materials || [], suppliers: data.suppliers || [],
+      packages: data.packages || [], packageItems: data.packageItems || [], photos: data.photos || [],
+      documents: data.documents || [], users: data.users || [], roles: data.roles || []
+    };
+    STATE.lastSync = new Date();
+    Storage.saveCache();
+    document.getElementById('syncBtn').textContent = '🔄 Синхронізувати';
+    renderRoute();
+    updateBellDot();
+  }).catch(function (err) {
+    document.getElementById('syncBtn').textContent = '🔄 Синхронізувати';
+    document.getElementById('connBanner').classList.add('show');
+    console.error(err);
+  });
+}
+
+/* ================================ UI helpers ============================= */
+function el(tag, attrs, children) {
+  var e = document.createElement(tag);
+  attrs = attrs || {};
+  for (var k in attrs) {
+    if (k === 'class') e.className = attrs[k];
+    else if (k === 'html') e.innerHTML = attrs[k];
+    else if (k.indexOf('on') === 0 && typeof attrs[k] === 'function') e.addEventListener(k.slice(2), attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  }
+  (children || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  return e;
+}
+function fmtMoney(n) { n = Number(n) || 0; return n.toLocaleString('uk-UA', { maximumFractionDigits: 0 }) + ' грн'; }
+function fmtNum(n) { n = Number(n) || 0; return n.toLocaleString('uk-UA', { maximumFractionDigits: 2 }); }
+function fmtDate(s) { if (!s) return '—'; var d = new Date(s); if (isNaN(d)) return s; return d.toLocaleDateString('uk-UA'); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function byId(arr, id) { return arr.filter(function (x) { return x.id === id; })[0]; }
+
+function toast(msg, type) {
+  var t = el('div', { class: 'toast' + (type ? ' ' + type : '') }, [msg]);
+  document.getElementById('toastWrap').appendChild(t);
+  setTimeout(function () { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(function () { t.remove(); }, 300); }, 4200);
+}
+
+function openModal(title, bodyEl, opts) {
+  var box = document.getElementById('modalBox');
+  box.innerHTML = '';
+  box.appendChild(el('h3', {}, [title]));
+  box.appendChild(bodyEl);
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+document.getElementById('modalOverlay').addEventListener('click', function (e) { if (e.target.id === 'modalOverlay') closeModal(); });
+
+function formField(label, inputHtml) {
+  var wrap = el('div', { class: 'form-row' });
+  wrap.appendChild(el('label', {}, [label]));
+  wrap.insertAdjacentHTML('beforeend', inputHtml);
+  return wrap;
+}
+
+/* generic confirm-delete */
+function confirmAction(msg, onYes) {
+  var body = el('div', {}, [
+    el('p', {}, [msg]),
+  ]);
+  var actions = el('div', { class: 'form-actions' }, []);
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']);
+  cancel.onclick = closeModal;
+  var yes = el('button', { class: 'btn danger' }, ['Так, видалити']);
+  yes.onclick = function () { closeModal(); onYes(); };
+  actions.appendChild(cancel); actions.appendChild(yes);
+  body.appendChild(actions);
+  openModal('Підтвердження', body);
+}
+
+/* ============================== ROUTER =================================== */
+function renderRoute() {
+  var hash = location.hash || '#/dashboard';
+  STATE.route = hash;
+  var parts = hash.replace('#/', '').split('/');
+  var page = parts[0] || 'dashboard';
+  var param = parts[1];
+
+  document.querySelectorAll('#sidebar .nav-item').forEach(function (n) {
+    n.classList.toggle('active', n.dataset.id === page);
+  });
+
+  var main = document.getElementById('main');
+  main.innerHTML = '';
+  var renderers = {
+    dashboard: renderDashboard, clients: function () { renderClients(main, param); },
+    requests: renderRequests, objects: function () { renderObjects(main, param); },
+    works: renderWorks, estimates: function () { renderEstimatesList(main, param); },
+    partners: renderPartners, materials: renderMaterialsPage, finance: renderFinance,
+    calendar: renderCalendar, tasks: renderTasks, analytics: renderAnalytics, settings: renderSettings
+  };
+  var navItem = NAV.filter(function (n) { return n.id === page; })[0];
+  if (navItem && !roleAllows_(navItem)) {
+    main.appendChild(el('div', { class: 'empty-state' }, [
+      el('div', { style: 'font-size:40px;' }, ['🔒']),
+      el('h3', {}, ['Немає доступу']),
+      el('p', {}, ['Роль "' + currentRole_() + '" не має доступу до розділу "' + navItem.label + '".'])
+    ]));
+    return;
+  }
+  (renderers[page] || renderDashboard)(main);
+}
+window.addEventListener('hashchange', renderRoute);
+
+function buildSidebar() {
+  var sb = document.getElementById('sidebar');
+  sb.innerHTML = '';
+  NAV.filter(roleAllows_).forEach(function (n) {
+    var item = el('div', { class: 'nav-item', 'data-id': n.id }, [
+      el('span', { class: 'ic' }, [n.icon]), el('span', {}, [n.label])
+    ]);
+    item.onclick = function () { location.hash = '#/' + n.id; };
+    sb.appendChild(item);
+  });
+}
+
+/* ============================== DASHBOARD ================================ */
+function renderDashboard(main) {
+  var db = STATE.db;
+  if (db.clients.length === 0) {
+    main.appendChild(el('div', { class: 'empty-state' }, [
+      el('div', { style: 'font-size:40px;' }, ['🏗️']),
+      el('h3', {}, ['База поки порожня']),
+      el('p', {}, ['Завантаж демо-дані, щоб побачити BUDNEX у дії: клієнт → заявка → об’єкт → кошторис → бригада → платіж → завдання.']),
+      (function () { var b = el('button', { class: 'btn primary' }, ['Завантажити демо-дані']); b.onclick = loadDemo; return b; })()
+    ]));
+    return;
+  }
+
+  main.appendChild(el('div', { class: 'page-title' }, ["Дашборд"]));
+  main.appendChild(el('div', { class: 'page-sub' }, [new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' })]));
+
+  // requests KPI
+  var reqByStatus = groupCount_(db.requests, 'status');
+  var reqActive = db.requests.filter(function (r) { return KANBAN_STATUSES.indexOf(r.status) !== -1 && r.status !== 'COMPLETED'; }).length;
+
+  var objByStatus = groupCount_(db.objects, 'status');
+  var teamsByStatus = groupCount_(db.teams, 'status');
+
+  var revenue = sum_(db.payments.filter(function (p) { return p.direction === 'in'; }), 'amount');
+  var expensesIn = sum_(db.payments.filter(function (p) { return p.direction === 'out'; }), 'amount') + sum_(db.expenses, 'amount');
+  var profit = revenue - expensesIn;
+  var estimatesTotal = sum_(db.estimates, 'client_total');
+  var estimatesProfit = sum_(db.estimates, 'profit');
+  var margin = estimatesTotal > 0 ? (estimatesProfit / estimatesTotal * 100) : 0;
+
+  var kpis = el('div', { class: 'grid cols-4', style: 'margin-bottom:18px;' }, [
+    kpiCard('Заявки', db.requests.length, [['нові', reqByStatus.NEW || 0], ['у роботі', reqActive], ['завершено', reqByStatus.COMPLETED || 0], ['відмова', reqByStatus.REJECTED || 0]]),
+    kpiCard("Об'єкти", db.objects.length, OBJECT_STATUSES.map(function (s) { return [s, objByStatus[s] || 0]; }).filter(function (p) { return p[1] > 0; })),
+    kpiCard('Бригади', db.teams.length, [['вільні', teamsByStatus['вільна'] || 0], ['зайняті', teamsByStatus['зайнята'] || 0], ['заброньовані', teamsByStatus['заброньована'] || 0]]),
+    kpiCard('Фінанси', fmtMoney(profit), [['виручка', fmtMoney(revenue)], ['витрати', fmtMoney(expensesIn)], ['маржа кошторисів', margin.toFixed(1) + '%']])
+  ]);
+  main.appendChild(kpis);
+
+  var charts = el('div', { class: 'grid cols-2' }, [
+    chartCard('Заявки по місяцях', monthlySeries_(db.requests, 'date')),
+    chartCard('Надходження по місяцях', monthlySeries_(db.payments.filter(function(p){return p.direction==='in';}), 'date', 'amount'))
+  ]);
+  main.appendChild(charts);
+
+  var notifs = db.notifications.filter(function (n) { return n.status !== 'read'; }).slice(-5).reverse();
+  if (notifs.length) {
+    var nc = el('div', { class: 'card', style: 'margin-top:18px;' });
+    nc.appendChild(el('div', { class: 'chart-title' }, ['Останні сповіщення']));
+    notifs.forEach(function (n) {
+      nc.appendChild(el('div', { style: 'padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;' }, [
+        el('b', {}, [n.title]), ' — ' + (n.description || '')
+      ]));
+    });
+    main.appendChild(nc);
+  }
+}
+
+function kpiCard(label, value, breakdown) {
+  var card = el('div', { class: 'kpi' }, [
+    el('div', { class: 'kpi-label' }, [label]),
+    el('div', { class: 'kpi-value' }, [String(value)])
+  ]);
+  if (breakdown && breakdown.length) {
+    var bd = el('div', { class: 'kpi-breakdown' });
+    breakdown.forEach(function (p) { bd.appendChild(el('span', {}, [p[0] + ': ', el('b', {}, [String(p[1])])])); });
+    card.appendChild(bd);
+  }
+  return card;
+}
+
+function groupCount_(arr, field) {
+  var m = {};
+  arr.forEach(function (x) { var k = x[field] || '—'; m[k] = (m[k] || 0) + 1; });
+  return m;
+}
+function sum_(arr, field) { return arr.reduce(function (s, x) { return s + (Number(x[field]) || 0); }, 0); }
+
+function monthlySeries_(arr, dateField, sumField) {
+  var m = {};
+  arr.forEach(function (x) {
+    var d = new Date(x[dateField]); if (isNaN(d)) return;
+    var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    m[key] = (m[key] || 0) + (sumField ? (Number(x[sumField]) || 0) : 1);
+  });
+  var keys = Object.keys(m).sort().slice(-6);
+  return keys.map(function (k) { return { label: k.slice(5) + '.' + k.slice(2,4), value: m[k] }; });
+}
+
+function chartCard(title, series) {
+  var wrap = el('div', { class: 'chart-wrap' });
+  wrap.appendChild(el('div', { class: 'chart-title' }, [title]));
+  if (!series.length) { wrap.appendChild(el('div', { style: 'color:var(--muted);font-size:12px;' }, ['Недостатньо даних.'])); return wrap; }
+  var max = Math.max.apply(null, series.map(function (s) { return s.value; }), 1);
+  var w = 320, h = 120, barW = w / series.length - 8;
+  var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + w + ' ' + (h + 20));
+  svg.setAttribute('width', '100%'); svg.setAttribute('height', h + 20);
+  series.forEach(function (s, i) {
+    var barH = max > 0 ? (s.value / max) * h : 0;
+    var x = i * (w / series.length) + 4;
+    var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x); rect.setAttribute('y', h - barH);
+    rect.setAttribute('width', Math.max(barW, 4)); rect.setAttribute('height', barH);
+    rect.setAttribute('fill', '#F2C200'); rect.setAttribute('rx', 3);
+    svg.appendChild(rect);
+    var txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    txt.setAttribute('x', x + barW / 2); txt.setAttribute('y', h + 14);
+    txt.setAttribute('font-size', '9'); txt.setAttribute('fill', '#9a9a9a'); txt.setAttribute('text-anchor', 'middle');
+    txt.textContent = s.label;
+    svg.appendChild(txt);
+  });
+  wrap.appendChild(svg);
+  return wrap;
+}
+
+function loadDemo() {
+  apiCall('loadDemoData', {}).then(function (res) {
+    toast(res.message || 'Демо-дані завантажено', 'success');
+    syncAll();
+  }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+}
+
+/* ============================== CLIENTS =================================== */
+function renderClients(main, clientId) {
+  if (clientId) return renderClientCard(main, clientId);
+  main.appendChild(el('div', { class: 'page-title' }, ['Клієнти']));
+  var toolbar = el('div', { class: 'toolbar' });
+  var search = el('input', { type: 'text', placeholder: "Пошук: ім'я, телефон, адреса, ID" });
+  toolbar.appendChild(search);
+  toolbar.appendChild(el('div', { class: 'spacer' }));
+  var csvBtn = el('button', { class: 'btn' }, ['⬇ CSV']);
+  csvBtn.onclick = function () { downloadText_('BUDNEX_клієнти.csv', arrayToCsv_(STATE.db.clients), 'text/csv;charset=utf-8'); };
+  toolbar.appendChild(csvBtn);
+  var addBtn = el('button', { class: 'btn primary' }, ['+ Новий клієнт']);
+  addBtn.onclick = function () { openClientForm(); };
+  toolbar.appendChild(addBtn);
+  main.appendChild(toolbar);
+
+  var tableWrap = el('div', {});
+  main.appendChild(tableWrap);
+
+  function draw(filter) {
+    tableWrap.innerHTML = '';
+    var list = STATE.db.clients.filter(function (c) {
+      if (!filter) return true;
+      var f = filter.toLowerCase();
+      return (c.name || '').toLowerCase().indexOf(f) !== -1 || (c.phone || '').indexOf(f) !== -1 ||
+             (c.address || '').toLowerCase().indexOf(f) !== -1 || c.id.toLowerCase().indexOf(f) !== -1;
+    });
+    if (!list.length) { tableWrap.appendChild(el('div', { class: 'empty-state' }, ['Нічого не знайдено.'])); return; }
+    var table = el('table', { class: 'dt' });
+    table.appendChild(el('thead', {}, [el('tr', {}, ['ID', "Ім'я", 'Телефон', 'Місто', 'Джерело', 'Статус'].map(function (h) { return el('th', {}, [h]); }))]));
+    var tbody = el('tbody');
+    list.forEach(function (c) {
+      var tr = el('tr', {}, [
+        el('td', {}, [c.id]), el('td', {}, [c.name]), el('td', {}, [c.phone || '—']),
+        el('td', {}, [c.city || '—']), el('td', {}, [c.source || '—']),
+        el('td', {}, [el('span', { class: 'badge ' + (c.status === 'active' ? 'green' : 'gray') }, [c.status || '—'])])
+      ]);
+      tr.onclick = function () { location.hash = '#/clients/' + c.id; };
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+  }
+  draw('');
+  search.oninput = function () { draw(search.value); };
+}
+
+function openClientForm(existing) {
+  var c = existing || {};
+  var body = el('div');
+  body.appendChild(formField("Ім'я *", '<input id="f_name" value="' + esc(c.name || '') + '">'));
+  body.appendChild(formField('Телефон', '<input id="f_phone" value="' + esc(c.phone || '') + '">'));
+  body.appendChild(formField('Email', '<input id="f_email" value="' + esc(c.email || '') + '">'));
+  body.appendChild(formField('Місто', '<input id="f_city" value="' + esc(c.city || '') + '">'));
+  body.appendChild(formField('Адреса', '<input id="f_address" value="' + esc(c.address || '') + '">'));
+  body.appendChild(formField('Джерело', '<input id="f_source" placeholder="Instagram, сайт, рекомендація..." value="' + esc(c.source || '') + '">'));
+  body.appendChild(formField('Нотатки', '<textarea id="f_notes">' + esc(c.notes || '') + '</textarea>'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
+  save.onclick = function () {
+    var data = {
+      name: document.getElementById('f_name').value.trim(),
+      phone: document.getElementById('f_phone').value.trim(),
+      email: document.getElementById('f_email').value.trim(),
+      city: document.getElementById('f_city').value.trim(),
+      address: document.getElementById('f_address').value.trim(),
+      source: document.getElementById('f_source').value.trim(),
+      notes: document.getElementById('f_notes').value.trim(),
+      status: c.status || 'active'
+    };
+    if (!data.name) { toast("Вкажи ім'я клієнта", 'error'); return; }
+    var action = existing ? 'updateClient' : 'createClient';
+    if (existing) data.id = existing.id;
+    apiCall(action, data).then(function (res) {
+      if (existing) { var i = STATE.db.clients.findIndex(function(x){return x.id===existing.id;}); STATE.db.clients[i] = res; }
+      else STATE.db.clients.push(res);
+      Storage.saveCache(); closeModal(); toast('Збережено', 'success'); renderRoute();
+    }).catch(function (e) { toast('Помилка збереження: ' + e.message, 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save);
+  body.appendChild(actions);
+  openModal(existing ? 'Редагувати клієнта' : 'Новий клієнт', body);
+}
+
+function renderClientCard(main, clientId) {
+  var c = byId(STATE.db.clients, clientId);
+  if (!c) { main.appendChild(el('div', { class: 'empty-state' }, ['Клієнта не знайдено.'])); return; }
+  var back = el('a', { href: '#/clients', style: 'color:var(--muted);font-size:12px;text-decoration:none;' }, ['← до списку клієнтів']);
+  main.appendChild(back);
+  var head = el('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin:10px 0 18px;' }, [
+    el('div', {}, [el('div', { class: 'page-title' }, [c.name]), el('div', { class: 'page-sub' }, [c.id + ' · ' + (c.phone || '') + ' · ' + (c.city || '')])])
+  ]);
+  var editBtn = el('button', { class: 'btn' }, ['Редагувати']); editBtn.onclick = function () { openClientForm(c); };
+  head.appendChild(editBtn);
+  main.appendChild(head);
+
+  var reqs = STATE.db.requests.filter(function (r) { return r.client_id === c.id; });
+  var objs = STATE.db.objects.filter(function (o) { return o.client_id === c.id; });
+  var pays = STATE.db.payments.filter(function (p) { return p.client_id === c.id; });
+
+  main.appendChild(sectionList_('Заявки (' + reqs.length + ')', reqs, function (r) {
+    return el('div', { class: 'card', style: 'margin-bottom:8px;cursor:pointer;', onclick: function(){location.hash='#/requests';} }, [
+      el('b', {}, [r.description || r.id]), el('div', { class: 'page-sub' }, [REQUEST_STATUS_LABELS[r.status] || r.status])
+    ]);
+  }));
+  main.appendChild(sectionList_("Об'єкти (" + objs.length + ')', objs, function (o) {
+    var d = el('div', { class: 'card', style: 'margin-bottom:8px;cursor:pointer;' }, [el('b', {}, [o.name]), el('div', { class: 'page-sub' }, [o.status])]);
+    d.onclick = function () { location.hash = '#/objects/' + o.id; };
+    return d;
+  }));
+  main.appendChild(sectionList_('Платежі (' + pays.length + ')', pays, function (p) {
+    return el('div', { class: 'card', style: 'margin-bottom:8px;' }, [fmtMoney(p.amount) + ' — ' + p.type + ' (' + fmtDate(p.date) + ')']);
+  }));
+  if (c.notes) {
+    main.appendChild(el('div', { class: 'card', style: 'margin-top:10px;' }, [el('b', {}, ['Нотатки: ']), c.notes]));
+  }
+}
+
+function sectionList_(title, items, renderItem) {
+  var wrap = el('div', { style: 'margin-bottom:18px;' });
+  wrap.appendChild(el('h4', { style: 'margin:0 0 8px;' }, [title]));
+  if (!items.length) { wrap.appendChild(el('div', { class: 'page-sub' }, ['Немає записів.'])); return wrap; }
+  items.forEach(function (it) { wrap.appendChild(renderItem(it)); });
+  return wrap;
+}
+
+/* ============================== REQUESTS (Kanban) ========================= */
+function renderRequests(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Заявки']));
+  var toolbar = el('div', { class: 'toolbar' });
+  toolbar.appendChild(el('div', { class: 'spacer' }));
+  var addBtn = el('button', { class: 'btn primary' }, ['+ Нова заявка']); addBtn.onclick = function () { openRequestForm(); };
+  toolbar.appendChild(addBtn);
+  main.appendChild(toolbar);
+
+  var board = el('div', { class: 'kanban' });
+  KANBAN_STATUSES.concat(['REJECTED', 'PAUSED']).forEach(function (status) {
+    var items = STATE.db.requests.filter(function (r) { return r.status === status; });
+    var col = el('div', { class: 'kanban-col', 'data-status': status }, [
+      el('h4', {}, [REQUEST_STATUS_LABELS[status] || status, el('span', {}, [String(items.length)])])
+    ]);
+    items.forEach(function (r) {
+      var client = byId(STATE.db.clients, r.client_id);
+      var card = el('div', { class: 'kanban-card', draggable: 'true' }, [
+        el('div', { class: 'kc-title' }, [client ? client.name : r.client_id]),
+        el('div', { class: 'kc-meta' }, [(r.description || '').slice(0, 60)]),
+        el('div', { class: 'kc-meta' }, [r.address || '', r.budget ? ' · ' + fmtMoney(r.budget) : ''])
+      ]);
+      card.dataset.id = r.id;
+      card.ondragstart = function (e) { e.dataTransfer.setData('text/plain', r.id); };
+      card.onclick = function () { openRequestForm(r); };
+      col.appendChild(card);
+    });
+    col.ondragover = function (e) { e.preventDefault(); col.classList.add('dragover'); };
+    col.ondragleave = function () { col.classList.remove('dragover'); };
+    col.ondrop = function (e) {
+      e.preventDefault(); col.classList.remove('dragover');
+      var id = e.dataTransfer.getData('text/plain');
+      var req = byId(STATE.db.requests, id);
+      if (req && req.status !== status) {
+        req.status = status;
+        apiCall('updateRequest', { id: id, status: status }).then(function (res) { Storage.saveCache(); renderRoute(); toast('Статус оновлено', 'success'); })
+          .catch(function (e2) { toast('Не вдалося зберегти зміни. Дані не втрачені.', 'error'); renderRoute(); });
+      }
+    };
+    board.appendChild(col);
+  });
+  main.appendChild(board);
+}
+
+function openRequestForm(existing) {
+  var r = existing || {};
+  var body = el('div');
+  var clientOpts = STATE.db.clients.map(function (c) { return '<option value="' + c.id + '"' + (r.client_id === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('');
+  body.appendChild(formField('Клієнт *', '<select id="f_client">' + clientOpts + '</select>'));
+  body.appendChild(formField('Тип обʼєкта', '<input id="f_otype" value="' + esc(r.object_type || '') + '">'));
+  body.appendChild(formField('Адреса', '<input id="f_addr" value="' + esc(r.address || '') + '">'));
+  body.appendChild(formField('Опис', '<textarea id="f_desc">' + esc(r.description || '') + '</textarea>'));
+  body.appendChild(formField('Бюджет', '<input type="number" id="f_budget" value="' + esc(r.budget || '') + '">'));
+  body.appendChild(formField('Джерело', '<input id="f_source" value="' + esc(r.source || '') + '">'));
+  var statusOpts = REQUEST_STATUSES.map(function (s) { return '<option value="' + s + '"' + (r.status === s ? ' selected' : '') + '>' + REQUEST_STATUS_LABELS[s] + '</option>'; }).join('');
+  body.appendChild(formField('Статус', '<select id="f_status">' + statusOpts + '</select>'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  if (existing) {
+    var del = el('button', { class: 'btn danger' }, ['Видалити']);
+    del.onclick = function () { confirmAction('Видалити цю заявку?', function () {
+      apiCall('deleteRequest', { id: existing.id }).then(function () {
+        STATE.db.requests = STATE.db.requests.filter(function (x) { return x.id !== existing.id; });
+        Storage.saveCache(); renderRoute(); toast('Видалено', 'success');
+      }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+    }); };
+    actions.appendChild(del);
+  }
+  var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
+  save.onclick = function () {
+    var data = {
+      client_id: document.getElementById('f_client').value,
+      object_type: document.getElementById('f_otype').value.trim(),
+      address: document.getElementById('f_addr').value.trim(),
+      description: document.getElementById('f_desc').value.trim(),
+      budget: Number(document.getElementById('f_budget').value) || 0,
+      source: document.getElementById('f_source').value.trim(),
+      status: document.getElementById('f_status').value,
+      date: r.date || new Date().toISOString()
+    };
+    var action = existing ? 'updateRequest' : 'createRequest';
+    if (existing) data.id = existing.id;
+    apiCall(action, data).then(function (res) {
+      if (existing) { var i = STATE.db.requests.findIndex(function(x){return x.id===existing.id;}); STATE.db.requests[i] = res; }
+      else STATE.db.requests.push(res);
+      Storage.saveCache(); closeModal(); toast('Збережено', 'success'); renderRoute();
+    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save);
+  body.appendChild(actions);
+  openModal(existing ? 'Заявка ' + existing.id : 'Нова заявка', body);
+}
+
+/* ============================== OBJECTS ==================================== */
+function renderObjects(main, objectId) {
+  if (objectId) return renderObjectCard(main, objectId);
+  main.appendChild(el('div', { class: 'page-title' }, ["Об'єкти"]));
+  var toolbar = el('div', { class: 'toolbar' });
+  toolbar.appendChild(el('div', { class: 'spacer' }));
+  var addBtn = el('button', { class: 'btn primary' }, ["+ Новий об'єкт"]); addBtn.onclick = function () { openObjectForm(); };
+  toolbar.appendChild(addBtn);
+  main.appendChild(toolbar);
+
+  if (!STATE.db.objects.length) { main.appendChild(el('div', { class: 'empty-state' }, ["Ще немає об'єктів."])); return; }
+  var table = el('table', { class: 'dt' });
+  table.appendChild(el('thead', {}, [el('tr', {}, ['ID', 'Назва', 'Клієнт', 'Площа', 'Статус', 'Менеджер'].map(function (h) { return el('th', {}, [h]); }))]));
+  var tbody = el('tbody');
+  STATE.db.objects.forEach(function (o) {
+    var client = byId(STATE.db.clients, o.client_id);
+    var tr = el('tr', {}, [
+      el('td', {}, [o.id]), el('td', {}, [o.name]), el('td', {}, [client ? client.name : '—']),
+      el('td', {}, [o.area ? o.area + ' м²' : '—']),
+      el('td', {}, [el('span', { class: 'badge blue' }, [o.status || '—'])]),
+      el('td', {}, [o.manager || '—'])
+    ]);
+    tr.onclick = function () { location.hash = '#/objects/' + o.id; };
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  main.appendChild(table);
+}
+
+function openObjectForm(existing) {
+  var o = existing || {};
+  var body = el('div');
+  var clientOpts = STATE.db.clients.map(function (c) { return '<option value="' + c.id + '"' + (o.client_id === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('');
+  body.appendChild(formField('Клієнт *', '<select id="f_client">' + clientOpts + '</select>'));
+  body.appendChild(formField('Назва обʼєкта *', '<input id="f_name" value="' + esc(o.name || '') + '">'));
+  body.appendChild(formField('Адреса', '<input id="f_addr" value="' + esc(o.address || '') + '">'));
+  body.appendChild(formField('Тип обʼєкта', '<input id="f_otype" placeholder="квартира, будинок, офіс..." value="' + esc(o.object_type || '') + '">'));
+  body.appendChild(formField('Площа, м²', '<input type="number" id="f_area" value="' + esc(o.area || '') + '">'));
+  body.appendChild(formField('Менеджер', '<input id="f_manager" value="' + esc(o.manager || 'Богдана') + '">'));
+  var statusOpts = OBJECT_STATUSES.map(function (s) { return '<option value="' + s + '"' + (o.status === s ? ' selected' : '') + '>' + s + '</option>'; }).join('');
+  body.appendChild(formField('Статус', '<select id="f_status">' + statusOpts + '</select>'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
+  save.onclick = function () {
+    var data = {
+      client_id: document.getElementById('f_client').value,
+      name: document.getElementById('f_name').value.trim(),
+      address: document.getElementById('f_addr').value.trim(),
+      object_type: document.getElementById('f_otype').value.trim(),
+      area: Number(document.getElementById('f_area').value) || 0,
+      manager: document.getElementById('f_manager').value.trim(),
+      status: document.getElementById('f_status').value
+    };
+    if (!data.name) { toast("Вкажи назву об'єкта", 'error'); return; }
+    var action = existing ? 'updateObject' : 'createObject';
+    if (existing) data.id = existing.id;
+    apiCall(action, data).then(function (res) {
+      if (existing) { var i = STATE.db.objects.findIndex(function(x){return x.id===existing.id;}); STATE.db.objects[i] = res; location.hash = '#/objects/' + existing.id; }
+      else { STATE.db.objects.push(res); location.hash = '#/objects/' + res.id; }
+      Storage.saveCache(); closeModal(); toast('Збережено', 'success'); renderRoute();
+    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save);
+  body.appendChild(actions);
+  openModal(existing ? "Редагувати об'єкт" : "Новий об'єкт", body);
+}
+
+function renderObjectCard(main, objectId) {
+  var o = byId(STATE.db.objects, objectId);
+  if (!o) { main.appendChild(el('div', { class: 'empty-state' }, ["Об'єкт не знайдено."])); return; }
+  var client = byId(STATE.db.clients, o.client_id);
+  main.appendChild(el('a', { href: '#/objects', style: 'color:var(--muted);font-size:12px;text-decoration:none;' }, ["← до списку об'єктів"]));
+  var head = el('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin:10px 0 18px;' }, [
+    el('div', {}, [el('div', { class: 'page-title' }, [o.name]), el('div', { class: 'page-sub' }, [o.id + ' · ' + (client ? client.name : '') + ' · ' + (o.address || '')])])
+  ]);
+  var editBtn = el('button', { class: 'btn' }, ['Редагувати']); editBtn.onclick = function () { openObjectForm(o); };
+  head.appendChild(editBtn);
+  main.appendChild(head);
+
+  var tabs = el('div', { class: 'tabs' });
+  var tabContent = el('div');
+  var tabDefs = [
+    ['estimate', 'Кошторис', function (c) { renderObjectEstimateTab(c, o); }],
+    ['planning', 'Планування', function (c) { renderObjectPlanningTab(c, o); }],
+    ['team', 'Бригада', function (c) { renderObjectTeamTab(c, o); }],
+    ['finance', 'Платежі/Витрати', function (c) { renderObjectFinanceTab(c, o); }],
+    ['tasks', 'Завдання', function (c) { renderObjectTasksTab(c, o); }],
+    ['photos', 'Фото/Документи', function (c) { renderObjectPhotosTab(c, o); }]
+  ];
+  // Every save inside a tab calls the full renderRoute(), which rebuilds this
+  // card from scratch — persisting the active tab on STATE.ui (rather than a
+  // fresh local var reset to 'estimate' each time) keeps the user's place
+  // after every edit instead of bouncing them back to the first tab.
+  if (!STATE.ui.objectTab) STATE.ui.objectTab = 'estimate';
+  function drawTabs() {
+    tabs.innerHTML = '';
+    tabDefs.forEach(function (t) {
+      var b = el('button', { class: 'tab-btn' + (t[0] === STATE.ui.objectTab ? ' active' : '') }, [t[1]]);
+      b.onclick = function () { STATE.ui.objectTab = t[0]; drawTabs(); };
+      tabs.appendChild(b);
+    });
+    tabContent.innerHTML = '';
+    var match = tabDefs.filter(function (t) { return t[0] === STATE.ui.objectTab; })[0] || tabDefs[0];
+    match[2](tabContent);
+  }
+  main.appendChild(tabs);
+  main.appendChild(tabContent);
+  drawTabs();
+}
+
+function renderObjectEstimateTab(container, o) {
+  var estimate = STATE.db.estimates.filter(function (e) { return e.object_id === o.id; }).sort(function(a,b){return b.version-a.version;})[0];
+  if (!estimate) {
+    container.appendChild(el('div', { class: 'empty-state' }, [
+      el('p', {}, ['Для цього об’єкта ще немає кошторису.']),
+      (function () {
+        var b = el('button', { class: 'btn primary' }, ['+ Створити кошторис']);
+        b.onclick = function () {
+          apiCall('createEstimate', { object_id: o.id, client_id: o.client_id }).then(function (res) {
+            STATE.db.estimates.push(res); Storage.saveCache(); renderRoute(); toast('Кошторис створено', 'success');
+          }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+        };
+        return b;
+      })()
+    ]));
+    return;
+  }
+  renderEstimateEditor(container, estimate);
+}
+
+function renderEstimateEditor(container, estimate) {
+  var settings = STATE.db.settings;
+  var minMargin = Number(settings.min_margin) || 15;
+  var targetMargin = Number(settings.target_margin) || 25;
+  var items = STATE.db.estimateItems.filter(function (it) { return it.estimate_id === estimate.id; });
+
+  container.appendChild(el('div', { class: 'page-sub' }, ['Кошторис ' + estimate.id + ' · версія ' + estimate.version + ' · статус: ' + estimate.status]));
+
+  if (Number(estimate.margin) < minMargin) {
+    container.appendChild(el('div', { class: 'margin-warn' }, ['⚠ УВАГА: маржа (' + Number(estimate.margin).toFixed(1) + '%) нижче встановленого мінімуму (' + minMargin + '%). Цільова маржа: ' + targetMargin + '%.']));
+  }
+
+  var toolbar = el('div', { class: 'toolbar' });
+  var addItemBtn = el('button', { class: 'btn primary small' }, ['+ Додати позицію з прайсу']);
+  addItemBtn.onclick = function () { openAddEstimateItem(estimate); };
+  var aiBtn = el('button', { class: 'btn small' }, ['🤖 AI-помічник']);
+  aiBtn.onclick = function () { openEstimateAiPanel(estimate); };
+  var pdfBtn = el('button', { class: 'btn small' }, ['📄 PDF кошторису']);
+  pdfBtn.onclick = function () {
+    toast('Готую PDF...', 'success');
+    apiCall('exportEstimatePdf', { id: estimate.id }).then(function (res) { downloadBase64_(res.filename, res.base64, res.mimeType); })
+      .catch(function (e) { toast('Помилка PDF: ' + e.message, 'error'); });
+  };
+  toolbar.appendChild(addItemBtn); toolbar.appendChild(aiBtn); toolbar.appendChild(pdfBtn);
+  container.appendChild(toolbar);
+
+  var table = el('table', { class: 'dt' });
+  table.appendChild(el('thead', {}, [el('tr', {}, ['Робота', 'Од.', 'К-сть', 'Ціна викон.', 'Націнка', 'Ціна клієнту', 'Сума клієнту', ''].map(function (h) { return el('th', {}, [h]); }))]));
+  var tbody = el('tbody');
+  items.forEach(function (it) {
+    var tr = el('tr', {}, [
+      el('td', {}, [it.name]), el('td', {}, [it.unit]),
+      el('td', {}, [inlineNumInput_(it.quantity, function (val) { updateEstimateItem_(it.id, { quantity: val }); })]),
+      el('td', {}, [fmtMoney(it.contractor_price)]),
+      el('td', {}, [it.markup_type === 'percent' ? '+' + it.markup_value + '%' : (it.markup_type === 'manual' ? 'вручну' : '+' + fmtMoney(it.markup_value))]),
+      el('td', {}, [fmtMoney(it.client_price)]),
+      el('td', {}, [fmtMoney(it.client_total)]),
+      el('td', {}, [(function () { var b = el('button', { class: 'btn small danger' }, ['✕']); b.onclick = function (e) { e.stopPropagation(); deleteEstimateItem_(it.id); }; return b; })()])
+    ]);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+
+  var totals = el('div', { class: 'grid cols-4', style: 'margin-top:16px;' }, [
+    kpiCard('Собівартість (виконавцю)', fmtMoney(estimate.contractor_total)),
+    kpiCard('Матеріали + логістика', fmtMoney((Number(estimate.materials_total)||0) + (Number(estimate.logistics_total)||0))),
+    kpiCard('Ціна клієнту', fmtMoney(estimate.client_total)),
+    kpiCard('Прибуток BUDNEX', fmtMoney(estimate.profit) + ' (' + Number(estimate.margin).toFixed(1) + '%)')
+  ]);
+  container.appendChild(totals);
+
+  var logi = el('div', { class: 'card', style: 'margin-top:16px;' });
+  logi.appendChild(el('div', { class: 'chart-title' }, ['Виїзд / логістика']));
+  var distRow = el('div', { style: 'display:flex;gap:10px;align-items:center;' }, [
+    el('input', { type: 'number', id: 'distInput', placeholder: 'відстань, км', style: 'width:140px;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' })
+  ]);
+  var calcBtn = el('button', { class: 'btn small' }, ['Порахувати']);
+  var resultSpan = el('span', { style: 'margin-left:10px;color:var(--muted);' }, ['']);
+  calcBtn.onclick = function () {
+    var km = Number(document.getElementById('distInput').value) || 0;
+    apiCall('calcLogistics', { distance_km: km }).then(function (res) {
+      resultSpan.textContent = 'Паливо: ' + fmtMoney(res.fuel) + ' · Амортизація: ' + fmtMoney(res.amortization) + ' · Разом: ' + fmtMoney(res.logistics_total);
+      var applyBtn = el('button', { class: 'btn small primary', style: 'margin-left:10px;' }, ['Застосувати до кошторису']);
+      applyBtn.onclick = function () {
+        apiCall('updateEstimate', { id: estimate.id, logistics_total: res.logistics_total }).then(function () {
+          syncAll();
+          toast('Логістику застосовано', 'success');
+        }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+      };
+      resultSpan.appendChild(applyBtn);
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  distRow.appendChild(calcBtn); distRow.appendChild(resultSpan);
+  logi.appendChild(distRow);
+  container.appendChild(logi);
+}
+
+// TZ section 39: every suggestion here is shown for the person to accept
+// individually — nothing from this panel is ever written to the estimate
+// on its own.
+function openEstimateAiPanel(estimate) {
+  var body = el('div');
+  body.appendChild(el('p', { class: 'page-sub' }, ['Порада щодо маржі, пошук робіт за типом приміщення, швидке додавання позиції звичайною мовою. Нічого не застосовується автоматично.']));
+
+  var adviceWrap = el('div', { class: 'card', style: 'margin-bottom:10px;' });
+  adviceWrap.appendChild(el('div', { class: 'chart-title' }, ['Порада щодо маржі']));
+  var adviceBody = el('div', { class: 'page-sub' }, ['Рахую...']);
+  adviceWrap.appendChild(adviceBody);
+  apiCall('aiMarginAdvice', { estimate_id: estimate.id }).then(function (res) { adviceBody.textContent = res.message; }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  body.appendChild(adviceWrap);
+
+  var quickWrap = el('div', { class: 'card', style: 'margin-bottom:10px;' });
+  quickWrap.appendChild(el('div', { class: 'chart-title' }, ['Швидке додавання (звичайною мовою)']));
+  var quickInput = el('input', { placeholder: 'напр. "плитка на підлогу 15 м2"', style: 'width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' });
+  var quickResults = el('div', { style: 'margin-top:8px;' });
+  var quickBtn = el('button', { class: 'btn small', style: 'margin-top:6px;' }, ['Знайти']);
+  quickBtn.onclick = function () {
+    apiCall('aiQuickAddParse', { text: quickInput.value }).then(function (res) {
+      quickResults.innerHTML = '';
+      if (!res.candidates.length) { quickResults.appendChild(el('div', { class: 'page-sub' }, ['Нічого не знайдено в прайсі за цим описом.'])); return; }
+      res.candidates.forEach(function (w) {
+        var row = el('div', { style: 'display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);' }, [
+          el('span', {}, [w.name + ' (' + fmtMoney(w.contractor_price) + '/' + w.unit + ')'])
+        ]);
+        var addB = el('button', { class: 'btn small primary' }, ['+ Додати, к-сть ' + (res.quantity || 1)]);
+        addB.onclick = function () {
+          apiCall('addEstimateItem', { estimate_id: estimate.id, work_id: w.id, quantity: res.quantity || 1 }).then(function (r) {
+            STATE.db.estimateItems.push(r.item);
+            var ei = STATE.db.estimates.findIndex(function (x) { return x.id === r.estimate.id; }); STATE.db.estimates[ei] = r.estimate;
+            Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success');
+          }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+        };
+        row.appendChild(addB);
+        quickResults.appendChild(row);
+      });
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  quickWrap.appendChild(quickInput); quickWrap.appendChild(quickBtn); quickWrap.appendChild(quickResults);
+  body.appendChild(quickWrap);
+
+  var actions = el('div', { class: 'form-actions' });
+  var closeBtn = el('button', { class: 'btn' }, ['Закрити']); closeBtn.onclick = closeModal;
+  actions.appendChild(closeBtn); body.appendChild(actions);
+  openModal('AI-помічник кошторису', body);
+}
+
+function inlineNumInput_(value, onChange) {
+  var input = el('input', { type: 'number', value: value, style: 'width:70px;padding:5px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' });
+  input.onchange = function () { onChange(Number(input.value) || 0); };
+  return input;
+}
+
+function updateEstimateItem_(itemId, patch) {
+  apiCall('updateEstimateItem', Object.assign({ id: itemId }, patch)).then(function (res) {
+    var i = STATE.db.estimateItems.findIndex(function (x) { return x.id === itemId; });
+    STATE.db.estimateItems[i] = res.item;
+    var ei = STATE.db.estimates.findIndex(function (x) { return x.id === res.estimate.id; });
+    STATE.db.estimates[ei] = res.estimate;
+    Storage.saveCache(); renderRoute();
+  }).catch(function (e) { toast('Не вдалося зберегти зміни. Дані не втрачені.', 'error'); });
+}
+function deleteEstimateItem_(itemId) {
+  apiCall('deleteEstimateItem', { id: itemId }).then(function (res) {
+    STATE.db.estimateItems = STATE.db.estimateItems.filter(function (x) { return x.id !== itemId; });
+    if (res.estimate) { var ei = STATE.db.estimates.findIndex(function (x) { return x.id === res.estimate.id; }); STATE.db.estimates[ei] = res.estimate; }
+    Storage.saveCache(); renderRoute();
+  }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+}
+
+function openAddEstimateItem(estimate) {
+  var body = el('div');
+  var topRow = el('div', { style: 'display:flex;gap:8px;margin-bottom:10px;' });
+  var searchInput = el('input', { type: 'text', placeholder: 'Пошук роботи в прайсі...', style: 'flex:1;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' });
+  var catSelect = el('select', { style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' }, [el('option', { value: '' }, ['Всі категорії'])]);
+  STATE.db.categories.forEach(function (c) { catSelect.appendChild(el('option', { value: c.name }, [c.num + '. ' + c.name])); });
+  topRow.appendChild(searchInput); topRow.appendChild(catSelect);
+  body.appendChild(topRow);
+  var countLabel = el('div', { class: 'page-sub', style: 'margin-bottom:6px;' });
+  body.appendChild(countLabel);
+  var results = el('div', { style: 'max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:8px;' });
+  body.appendChild(results);
+  var qtyRow = formField('Кількість', '<input type="number" id="f_qty" value="1" step="0.1">');
+  qtyRow.style.marginTop = '12px';
+  body.appendChild(qtyRow);
+  var selectedWork = null;
+  var CAP = 150;
+  function drawResults() {
+    results.innerHTML = '';
+    var q = fuzzyPrep_(searchInput.value);
+    var list = STATE.db.works.filter(function (w) {
+      if (catSelect.value && w.category !== catSelect.value) return false;
+      if (q && !fuzzyMatch_(w.name, q) && !fuzzyMatch_(w.category, q) && !fuzzyMatch_(w.subcategory, q)) return false;
+      return true;
+    });
+    list.sort(function (a, b) { return (a.category + a.name).localeCompare(b.category + b.name, 'uk'); });
+    countLabel.textContent = 'Знайдено ' + list.length + ' з ' + STATE.db.works.length + (list.length > CAP ? ' (показано перші ' + CAP + ' — уточни пошук)' : '');
+    list.slice(0, CAP).forEach(function (w) {
+      var row = el('div', { style: 'padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12.5px;' + (selectedWork && selectedWork.id === w.id ? 'background:var(--panel2);' : '') }, [
+        el('div', {}, [el('b', {}, [w.name])]),
+        el('div', { class: 'page-sub' }, [w.category + (w.subcategory ? ' / ' + w.subcategory : '') + ' · ' + fmtMoney(w.contractor_price) + ' / ' + w.unit])
+      ]);
+      row.onclick = function () { selectedWork = w; drawResults(); };
+      results.appendChild(row);
+    });
+    if (!list.length) results.appendChild(el('div', { class: 'page-sub', style: 'padding:10px;' }, ['Нічого не знайдено. Спробуй іншу назву або обери категорію.']));
+  }
+  drawResults();
+  searchInput.oninput = drawResults; catSelect.onchange = drawResults;
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var add = el('button', { class: 'btn primary' }, ['Додати']);
+  add.onclick = function () {
+    if (!selectedWork) { toast('Вибери роботу зі списку', 'error'); return; }
+    var qty = Number(document.getElementById('f_qty').value) || 1;
+    apiCall('addEstimateItem', { estimate_id: estimate.id, work_id: selectedWork.id, quantity: qty }).then(function (res) {
+      STATE.db.estimateItems.push(res.item);
+      var ei = STATE.db.estimates.findIndex(function (x) { return x.id === res.estimate.id; });
+      STATE.db.estimates[ei] = res.estimate;
+      Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success');
+    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(add);
+  body.appendChild(actions);
+  openModal('Додати роботу з прайсу', body);
+}
+
+function renderObjectTeamTab(container, o) {
+  var assignments = STATE.db.assignments.filter(function (a) { return a.object_id === o.id; });
+  container.appendChild(el('div', { class: 'chart-title' }, ['Призначені бригади']));
+  if (!assignments.length) container.appendChild(el('div', { class: 'page-sub' }, ['Ще не призначено.']));
+  assignments.forEach(function (a) {
+    var team = byId(STATE.db.teams, a.team_id);
+    container.appendChild(el('div', { class: 'card', style: 'margin-bottom:8px;' }, [
+      el('b', {}, [team ? team.name : a.team_id]), ' — ' + a.status + (a.price ? (' · ' + fmtMoney(a.price)) : '')
+    ]));
+  });
+  container.appendChild(el('div', { class: 'chart-title', style: 'margin-top:18px;' }, ['Знайти вільну бригаду']));
+  var specInput = el('input', { type: 'text', placeholder: 'спеціалізація (плитка, електрика...)', style: 'padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' });
+  var findBtn = el('button', { class: 'btn small', style: 'margin-left:8px;' }, ['Знайти']);
+  var resultsWrap = el('div', {});
+  findBtn.onclick = function () {
+    apiCall('findTeams', { specialization: specInput.value }).then(function (teams) {
+      resultsWrap.innerHTML = '';
+      if (!teams.length) { resultsWrap.appendChild(el('div', { class: 'page-sub' }, ['Вільних бригад не знайдено.'])); return; }
+      teams.forEach(function (t) {
+        var row = el('div', { class: 'card', style: 'margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;' }, [
+          el('div', {}, [el('b', {}, [t.name]), el('div', { class: 'page-sub' }, [t.specialization + ' · ' + t.city])])
+        ]);
+        var assignBtn = el('button', { class: 'btn small primary' }, ['Призначити']);
+        assignBtn.onclick = function () {
+          apiCall('createAssignment', { object_id: o.id, team_id: t.id, start_date: new Date().toISOString(), status: 'заброньована' }).then(function (a) {
+            STATE.db.assignments.push(a); Storage.saveCache(); syncAll(); toast('Бригаду призначено', 'success');
+          }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+        };
+        row.appendChild(assignBtn);
+        resultsWrap.appendChild(row);
+      });
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  container.appendChild(el('div', {}, [specInput, findBtn]));
+  container.appendChild(resultsWrap);
+}
+
+function renderObjectFinanceTab(container, o) {
+  var pays = STATE.db.payments.filter(function (p) { return p.object_id === o.id; });
+  var exps = STATE.db.expenses.filter(function (e) { return e.object_id === o.id; });
+  var addPayBtn = el('button', { class: 'btn small primary' }, ['+ Платіж']);
+  addPayBtn.onclick = function () { openPaymentForm(o); };
+  var addExpBtn = el('button', { class: 'btn small' }, ['+ Витрата'], );
+  addExpBtn.onclick = function () { openExpenseForm(o); };
+  container.appendChild(el('div', { style: 'margin-bottom:12px;' }, [addPayBtn, ' ', addExpBtn]));
+  container.appendChild(el('div', { class: 'chart-title' }, ['Платежі']));
+  pays.forEach(function (p) { container.appendChild(el('div', { class: 'card', style: 'margin-bottom:6px;' }, [(p.direction === 'in' ? '⬅ ' : '➡ ') + fmtMoney(p.amount) + ' — ' + p.type + ' · ' + fmtDate(p.date)])); });
+  if (!pays.length) container.appendChild(el('div', { class: 'page-sub' }, ['Немає платежів.']));
+  container.appendChild(el('div', { class: 'chart-title', style: 'margin-top:14px;' }, ['Витрати']));
+  exps.forEach(function (e) { container.appendChild(el('div', { class: 'card', style: 'margin-bottom:6px;' }, [fmtMoney(e.amount) + ' — ' + e.category + ' · ' + (e.description || '') + ' · ' + fmtDate(e.date)])); });
+  if (!exps.length) container.appendChild(el('div', { class: 'page-sub' }, ['Немає витрат.']));
+}
+
+function openPaymentForm(o) {
+  var body = el('div');
+  body.appendChild(formField('Тип', '<input id="f_type" value="аванс" placeholder="аванс, оплата, розрахунок">'));
+  body.appendChild(formField('Напрям', '<select id="f_dir"><option value="in">Надходження (від клієнта)</option><option value="out">Виплата (виконавцю)</option></select>'));
+  body.appendChild(formField('Сума', '<input type="number" id="f_amount">'));
+  body.appendChild(formField('Опис', '<input id="f_desc">'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, ['Додати']);
+  save.onclick = function () {
+    var data = { object_id: o.id, client_id: o.client_id, type: document.getElementById('f_type').value, direction: document.getElementById('f_dir').value,
+      amount: Number(document.getElementById('f_amount').value) || 0, date: new Date().toISOString(), payment_method: 'переказ', status: 'paid', description: document.getElementById('f_desc').value };
+    apiCall('createPayment', data).then(function (res) { STATE.db.payments.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success'); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
+  openModal('Новий платіж', body);
+}
+function openExpenseForm(o) {
+  var body = el('div');
+  body.appendChild(formField('Категорія', '<input id="f_cat" placeholder="матеріали, бригада, паливо...">'));
+  body.appendChild(formField('Сума', '<input type="number" id="f_amount">'));
+  body.appendChild(formField('Опис', '<input id="f_desc">'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, ['Додати']);
+  save.onclick = function () {
+    var data = { object_id: o.id, category: document.getElementById('f_cat').value, amount: Number(document.getElementById('f_amount').value) || 0,
+      date: new Date().toISOString(), description: document.getElementById('f_desc').value };
+    apiCall('createExpense', data).then(function (res) { STATE.db.expenses.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success'); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
+  openModal('Нова витрата', body);
+}
+
+function renderObjectTasksTab(container, o) {
+  var tasks = STATE.db.tasks.filter(function (t) { return t.object_id === o.id; });
+  var addBtn = el('button', { class: 'btn small primary' }, ['+ Завдання']);
+  addBtn.onclick = function () { openTaskForm(o); };
+  container.appendChild(el('div', { style: 'margin-bottom:12px;' }, [addBtn]));
+  if (!tasks.length) container.appendChild(el('div', { class: 'page-sub' }, ['Немає завдань.']));
+  tasks.forEach(function (t) {
+    var row = el('div', { class: 'card', style: 'margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;' }, [
+      el('div', {}, [el('b', {}, [t.title]), el('div', { class: 'page-sub' }, [t.responsible + ' · ' + (t.priority || '') + ' · ' + fmtDate(t.deadline)])])
+    ]);
+    var sel = el('select', {});
+    TASK_STATUSES.forEach(function (s) { var opt = el('option', { value: s }, [TASK_STATUS_LABELS[s]]); if (t.status === s) opt.selected = true; sel.appendChild(opt); });
+    sel.onchange = function () { apiCall('updateTask', { id: t.id, status: sel.value }).then(function (res) { var i = STATE.db.tasks.findIndex(function(x){return x.id===t.id;}); STATE.db.tasks[i]=res; Storage.saveCache(); toast('Оновлено','success'); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+    row.appendChild(sel);
+    container.appendChild(row);
+  });
+}
+function openTaskForm(o) {
+  var body = el('div');
+  body.appendChild(formField('Назва *', '<input id="f_title">'));
+  body.appendChild(formField('Відповідальний', '<input id="f_resp" value="Богдана">'));
+  body.appendChild(formField('Пріоритет', '<select id="f_prio"><option>висока</option><option>середня</option><option>низька</option></select>'));
+  body.appendChild(formField('Дедлайн', '<input type="date" id="f_deadline">'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, ['Додати']);
+  save.onclick = function () {
+    var title = document.getElementById('f_title').value.trim();
+    if (!title) { toast('Вкажи назву завдання', 'error'); return; }
+    var data = { object_id: o.id, title: title, responsible: document.getElementById('f_resp').value, priority: document.getElementById('f_prio').value,
+      status: 'TODO', deadline: document.getElementById('f_deadline').value };
+    apiCall('createTask', data).then(function (res) { STATE.db.tasks.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success'); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
+  openModal('Нове завдання', body);
+}
+
+/* ==================== ЕТАП 5/6: PLANNING TAB (SVG PLANNER + BOQ) =========== */
+function svgEl(tag, attrs, children) {
+  var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  attrs = attrs || {};
+  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  (children || []).forEach(function (c) { e.appendChild(c); });
+  return e;
+}
+
+var PLANNER_PX_PER_M = 40;
+var PLANNER_LAYER_COLORS = { electrical: '#F2C200', plumbing: '#3B82F6', heating: '#EF4444', ventilation: '#22C55E' };
+var PLANNER_LAYER_LABELS = { electrical: 'Електрика', plumbing: 'Сантехніка', heating: 'Опалення', ventilation: 'Вентиляція' };
+
+function renderObjectPlanningTab(container, o) {
+  var project = STATE.db.projects.filter(function (p) { return p.object_id === o.id; })[0];
+  if (!project) {
+    container.appendChild(el('div', { class: 'empty-state' }, [
+      el('p', {}, ['Для цього обʼєкта ще немає проєкту планування.']),
+      (function () {
+        var b = el('button', { class: 'btn primary' }, ['+ Створити проєкт планування']);
+        b.onclick = function () {
+          apiCall('createProject', { object_id: o.id, name: 'План — ' + o.name }).then(function (res) {
+            STATE.db.projects.push(res); Storage.saveCache(); renderRoute();
+          }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+        };
+        return b;
+      })()
+    ]));
+    return;
+  }
+  renderPlanner(container, project, o);
+}
+
+function renderPlanner(container, project, o) {
+  var mode = { current: 'select', pendingPoint: null, engLayer: 'electrical' };
+  var visibleLayers = { electrical: true, plumbing: true, heating: true, ventilation: true };
+
+  container.appendChild(el('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;' }, [
+    el('div', {}, [el('b', {}, [project.name]), el('div', { class: 'page-sub' }, ['Загальна площа: ' + fmtNum(project.area) + ' м²'])]),
+  ]));
+
+  var toolbar = el('div', { class: 'toolbar', style: 'flex-wrap:wrap;gap:6px;' });
+  function modeBtn(id, label) {
+    var b = el('button', { class: 'btn small' + (mode.current === id ? ' primary' : '') }, [label]);
+    b.onclick = function () { mode.current = id; mode.pendingPoint = null; redrawToolbar(); redrawCanvas(); };
+    return b;
+  }
+  var toolbarButtons = [];
+  function redrawToolbar() {
+    toolbar.innerHTML = '';
+    toolbarButtons = [
+      modeBtn('select', '↕ Вибір / перетягнути'),
+      modeBtn('draw-wall', '📏 Малювати стіну'),
+      modeBtn('add-door', '🚪 Додати двері'),
+      modeBtn('add-window', '🪟 Додати вікно')
+    ];
+    toolbarButtons.forEach(function (b) { toolbar.appendChild(b); });
+    var layerSelect = el('select', { style: 'margin-left:8px;' });
+    Object.keys(PLANNER_LAYER_LABELS).forEach(function (k) { layerSelect.appendChild(el('option', { value: k }, [PLANNER_LAYER_LABELS[k]])); });
+    layerSelect.value = mode.engLayer;
+    layerSelect.onchange = function () { mode.engLayer = layerSelect.value; };
+    toolbar.appendChild(layerSelect);
+    var addElBtn = el('button', { class: 'btn small' + (mode.current === 'add-element' ? ' primary' : '') }, ['+ Інж. елемент']);
+    addElBtn.onclick = function () { mode.current = 'add-element'; redrawToolbar(); redrawCanvas(); };
+    toolbar.appendChild(addElBtn);
+    var addRoomBtn = el('button', { class: 'btn small primary' }, ['+ Приміщення (точно)']);
+    addRoomBtn.onclick = function () { openRoomForm(project); };
+    toolbar.appendChild(addRoomBtn);
+    var aiBtn = el('button', { class: 'btn small' }, ['🤖 AI-планування приміщень']);
+    aiBtn.onclick = function () { openAiRoomGenModal(project); };
+    toolbar.appendChild(aiBtn);
+  }
+  redrawToolbar();
+  container.appendChild(toolbar);
+
+  var layerToggleRow = el('div', { style: 'display:flex;gap:14px;margin:8px 0;font-size:12px;color:var(--muted);' });
+  Object.keys(PLANNER_LAYER_LABELS).forEach(function (k) {
+    var lbl = el('label', { style: 'display:flex;align-items:center;gap:4px;cursor:pointer;' });
+    var cb = el('input', { type: 'checkbox' }); cb.checked = true;
+    cb.onchange = function () { visibleLayers[k] = cb.checked; redrawCanvas(); };
+    lbl.appendChild(cb); lbl.appendChild(document.createTextNode(PLANNER_LAYER_LABELS[k]));
+    layerToggleRow.appendChild(lbl);
+  });
+  container.appendChild(layerToggleRow);
+
+  var svgWrap = el('div', { class: 'card', style: 'padding:0;overflow:auto;' });
+  var svg = svgEl('svg', { width: '760', height: '460', style: 'background:var(--panel2);display:block;cursor:crosshair;' });
+  svgWrap.appendChild(svg);
+  container.appendChild(svgWrap);
+  container.appendChild(el('div', { class: 'page-sub', style: 'margin-top:6px;' }, [
+    '"Малювати стіну": клікни початкову і кінцеву точку. "Двері"/"Вікно": клікни на стіні. "Інж. елемент": обери шар вище і клікни на плані. "Вибір": перетягуй приміщення мишею.'
+  ]));
+
+  function m2px(m) { return m * PLANNER_PX_PER_M + 20; }
+  function px2m(px) { return (px - 20) / PLANNER_PX_PER_M; }
+
+  // Single shared drag state + one set of window listeners for the whole
+  // planner instance (not re-added per room per redraw), so dragging never
+  // accumulates duplicate handlers across re-renders. A drag that moved less
+  // than 4px is treated as a plain click (opens the room's edit form) rather
+  // than a position change — see the mouseup handler below.
+  var dragState = null;
+  var justDragged = false;
+  window.addEventListener('mousemove', function (e) {
+    if (!dragState) return;
+    var dx = e.clientX - dragState.startClientX, dy = e.clientY - dragState.startClientY;
+    if (Math.sqrt(dx * dx + dy * dy) > 4) dragState.moved = true;
+    if (!dragState.moved) return;
+    var svgRect = svg.getBoundingClientRect();
+    var localX = e.clientX - svgRect.left, localY = e.clientY - svgRect.top;
+    var r = dragState.room;
+    var newX = Math.max(0, round2(px2m(localX) - r.width / 2)), newY = Math.max(0, round2(px2m(localY) - r.length / 2));
+    dragState.rect.setAttribute('x', m2px(newX)); dragState.rect.setAttribute('y', m2px(newY));
+    dragState.label.setAttribute('x', m2px(newX) + 6); dragState.label.setAttribute('y', m2px(newY) + 16);
+    dragState.pendingX = newX; dragState.pendingY = newY;
+  });
+  window.addEventListener('mouseup', function () {
+    if (!dragState) return;
+    var ds = dragState; dragState = null;
+    if (ds.moved && ds.pendingX != null) {
+      justDragged = true; // suppress the click that follows a real drag
+      apiCall('updateProjectRoom', { id: ds.room.id, x: ds.pendingX, y: ds.pendingY }).then(function (res) {
+        var i = STATE.db.projectRooms.findIndex(function (x) { return x.id === ds.room.id; });
+        STATE.db.projectRooms[i] = res.room; Storage.saveCache();
+      }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+    } else if (!ds.moved && mode.current === 'select') {
+      openRoomForm(project, ds.room); // a click, not a drag — open the room for editing
+    }
+  });
+
+  function nearestWall_(xm, ym) {
+    var walls = STATE.db.projectWalls.filter(function (w) { return w.project_id === project.id; });
+    var best = null, bestDist = Infinity;
+    walls.forEach(function (w) {
+      var dx = w.x2 - w.x1, dy = w.y2 - w.y1;
+      var len2 = dx * dx + dy * dy || 1;
+      var t = Math.max(0, Math.min(1, ((xm - w.x1) * dx + (ym - w.y1) * dy) / len2));
+      var px = w.x1 + t * dx, py = w.y1 + t * dy;
+      var dist = Math.sqrt(Math.pow(xm - px, 2) + Math.pow(ym - py, 2));
+      if (dist < bestDist) { bestDist = dist; best = { wall: w, x: px, y: py }; }
+    });
+    return best;
+  }
+
+  function redrawCanvas() {
+    svg.innerHTML = '';
+    var rooms = STATE.db.projectRooms.filter(function (r) { return r.project_id === project.id; });
+    var walls = STATE.db.projectWalls.filter(function (w) { return w.project_id === project.id; });
+    var openings = STATE.db.projectOpenings.filter(function (op) { return op.project_id === project.id; });
+    var elements = STATE.db.projectElements.filter(function (e) { return e.project_id === project.id; });
+
+    rooms.forEach(function (r) {
+      var g = svgEl('g', { style: 'cursor:' + (mode.current === 'select' ? 'move' : 'default') });
+      var rect = svgEl('rect', {
+        x: m2px(r.x), y: m2px(r.y), width: r.width * PLANNER_PX_PER_M, height: r.length * PLANNER_PX_PER_M,
+        fill: 'rgba(242,194,0,0.12)', stroke: '#F2C200', 'stroke-width': '2'
+      });
+      var label = svgEl('text', { x: m2px(r.x) + 6, y: m2px(r.y) + 16, fill: 'var(--text)', 'font-size': '11' }, []);
+      label.textContent = r.name + ' (' + fmtNum(r.area) + ' м²)';
+      g.appendChild(rect); g.appendChild(label);
+      // Only "select" mode reacts to room mousedown at all — in every drawing
+      // mode (wall/door/window/element) a click over a room must fall through
+      // untouched to the svg-level click handler below, not open the room's
+      // edit form on top of it.
+      if (mode.current === 'select') {
+        g.addEventListener('mousedown', function (e) {
+          e.stopPropagation();
+          dragState = { room: r, rect: rect, label: label, startClientX: e.clientX, startClientY: e.clientY, moved: false };
+        });
+      }
+      svg.appendChild(g);
+    });
+
+    walls.forEach(function (w) {
+      svg.appendChild(svgEl('line', { x1: m2px(w.x1), y1: m2px(w.y1), x2: m2px(w.x2), y2: m2px(w.y2), stroke: 'var(--text)', 'stroke-width': String(Math.max(2, w.thickness * PLANNER_PX_PER_M)) }));
+    });
+
+    openings.forEach(function (op) {
+      var color = op.type === 'вікно' ? '#3B82F6' : '#8B5E3C';
+      svg.appendChild(svgEl('rect', { x: m2px(op.x) - 5, y: m2px(op.y) - 5, width: 10, height: 10, fill: color, stroke: '#fff', 'stroke-width': '1' }));
+    });
+
+    elements.forEach(function (e) {
+      if (!visibleLayers[e.type]) return;
+      svg.appendChild(svgEl('circle', { cx: m2px(e.x), cy: m2px(e.y), r: 5, fill: PLANNER_LAYER_COLORS[e.type] || '#888' }));
+    });
+
+    if (mode.pendingPoint) {
+      svg.appendChild(svgEl('circle', { cx: m2px(mode.pendingPoint.x), cy: m2px(mode.pendingPoint.y), r: 4, fill: 'red' }));
+    }
+  }
+
+  svg.addEventListener('click', function (e) {
+    if (justDragged) { justDragged = false; return; }
+    if (mode.current === 'select') return;
+    var svgRect = svg.getBoundingClientRect();
+    var xm = round2(px2m(e.clientX - svgRect.left)), ym = round2(px2m(e.clientY - svgRect.top));
+    if (mode.current === 'draw-wall') {
+      if (!mode.pendingPoint) { mode.pendingPoint = { x: xm, y: ym }; redrawCanvas(); return; }
+      apiCall('createProjectWall', { project_id: project.id, x1: mode.pendingPoint.x, y1: mode.pendingPoint.y, x2: xm, y2: ym }).then(function (res) {
+        STATE.db.projectWalls.push(res); Storage.saveCache(); mode.pendingPoint = null; redrawCanvas(); toast('Стіну додано', 'success');
+      }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+    } else if (mode.current === 'add-door' || mode.current === 'add-window') {
+      var near = nearestWall_(xm, ym);
+      apiCall('createProjectOpening', { project_id: project.id, type: mode.current === 'add-door' ? 'двері' : 'вікно', wall_id: near ? near.wall.id : '', x: near ? near.x : xm, y: near ? near.y : ym }).then(function (res) {
+        STATE.db.projectOpenings.push(res); Storage.saveCache(); redrawCanvas(); toast((mode.current === 'add-door' ? 'Двері' : 'Вікно') + ' додано' + (near ? '' : ' (стіну поруч не знайдено)'), 'success');
+      }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+    } else if (mode.current === 'add-element') {
+      apiCall('createProjectElement', { project_id: project.id, type: mode.engLayer, x: xm, y: ym }).then(function (res) {
+        STATE.db.projectElements.push(res); Storage.saveCache(); redrawCanvas(); toast('Елемент додано (' + PLANNER_LAYER_LABELS[mode.engLayer] + ')', 'success');
+      }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+    }
+  });
+
+  redrawCanvas();
+
+  // ---- rooms/walls/openings/elements management lists ----
+  container.appendChild(el('h4', { style: 'margin-top:18px;' }, ['Приміщення']));
+  var roomsList = el('div'); container.appendChild(roomsList);
+  STATE.db.projectRooms.filter(function (r) { return r.project_id === project.id; }).forEach(function (r) {
+    var row = el('div', { class: 'card', style: 'margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;' }, [
+      el('div', {}, [el('b', {}, [r.name]), el('span', { class: 'page-sub' }, [' · ' + r.type + ' · ' + fmtNum(r.width) + '×' + fmtNum(r.length) + ' м = ' + fmtNum(r.area) + ' м²'])])
+    ]);
+    var editB = el('button', { class: 'btn small' }, ['✎']); editB.onclick = function () { openRoomForm(project, r); };
+    var delB = el('button', { class: 'btn small danger' }, ['✕']);
+    delB.onclick = function () { apiCall('deleteProjectRoom', { id: r.id }).then(function (res) { STATE.db.projectRooms = STATE.db.projectRooms.filter(function (x) { return x.id !== r.id; }); var pi = STATE.db.projects.findIndex(function (x) { return x.id === project.id; }); if (pi !== -1 && res.project) STATE.db.projects[pi] = res.project; Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+    row.appendChild(editB); row.appendChild(delB);
+    roomsList.appendChild(row);
+  });
+
+  // ---- BOQ section (ЕТАП 6) ----
+  container.appendChild(el('h4', { style: 'margin-top:18px;' }, ['Специфікація робіт (BOQ)']));
+  var boqToolbar = el('div', { class: 'toolbar' });
+  var genBoqBtn = el('button', { class: 'btn small primary' }, ['⚙ Згенерувати BOQ з плану']);
+  genBoqBtn.onclick = function () {
+    apiCall('generateBOQFromProject', { project_id: project.id }).then(function (res) {
+      STATE.db.boq = STATE.db.boq.filter(function (x) { return x.project_id !== project.id; }).concat(res.boq);
+      Storage.saveCache(); renderRoute(); toast('BOQ згенеровано: ' + res.boq.length + ' позицій', 'success');
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  var matBtn = el('button', { class: 'btn small' }, ['📦 Порахувати матеріали']);
+  matBtn.onclick = function () {
+    apiCall('computeProjectMaterials', { project_id: project.id }).then(function (res) {
+      STATE.db.projectMaterials = STATE.db.projectMaterials.filter(function (x) { return x.project_id !== project.id; }).concat(res);
+      Storage.saveCache(); renderRoute(); toast('Матеріали пораховано: ' + res.length + ' позицій', 'success');
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  var genEstBtn = el('button', { class: 'btn small' }, ['🧾 Сформувати кошторис з BOQ']);
+  genEstBtn.onclick = function () {
+    var existingEst = STATE.db.estimates.filter(function (e) { return e.object_id === o.id; }).sort(function (a, b) { return b.version - a.version; })[0];
+    apiCall('generateEstimateFromBOQ', { project_id: project.id, object_id: o.id, client_id: o.client_id, estimate_id: existingEst ? existingEst.id : null }).then(function (res) {
+      var ei = STATE.db.estimates.findIndex(function (x) { return x.id === res.estimate.id; });
+      if (ei === -1) STATE.db.estimates.push(res.estimate); else STATE.db.estimates[ei] = res.estimate;
+      Storage.saveCache();
+      toast('Кошторис оновлено з BOQ' + (res.unmatched.length ? ('. Без ціни: ' + res.unmatched.length + ' — уточни вручну на вкладці "Кошторис"') : ''), res.unmatched.length ? 'error' : 'success');
+      renderRoute();
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  boqToolbar.appendChild(genBoqBtn); boqToolbar.appendChild(matBtn); boqToolbar.appendChild(genEstBtn);
+  container.appendChild(boqToolbar);
+
+  var boqRows = STATE.db.boq.filter(function (b) { return b.project_id === project.id; });
+  if (!boqRows.length) {
+    container.appendChild(el('div', { class: 'page-sub' }, ['BOQ ще не згенеровано. Додай приміщення й натисни "Згенерувати BOQ з плану".']));
+  } else {
+    var boqTable = el('table', { class: 'dt' });
+    boqTable.appendChild(el('thead', {}, [el('tr', {}, ['Позиція', 'Од.', 'К-сть', 'Примітка', ''].map(function (h) { return el('th', {}, [h]); }))]));
+    var boqBody = el('tbody');
+    boqRows.forEach(function (b) {
+      var delB = el('button', { class: 'btn small danger' }, ['✕']);
+      delB.onclick = function () { apiCall('deleteBOQItem', { id: b.id }).then(function () { STATE.db.boq = STATE.db.boq.filter(function (x) { return x.id !== b.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+      boqBody.appendChild(el('tr', {}, [el('td', {}, [b.name]), el('td', {}, [b.unit]), el('td', {}, [fmtNum(b.quantity)]), el('td', {}, [b.notes || '']), el('td', {}, [delB])]));
+    });
+    boqTable.appendChild(boqBody);
+    container.appendChild(boqTable);
+  }
+
+  var matRows = STATE.db.projectMaterials.filter(function (m) { return m.project_id === project.id; });
+  if (matRows.length) {
+    container.appendChild(el('h4', { style: 'margin-top:14px;' }, ['Матеріали (розраховано з BOQ)']));
+    var matTable = el('table', { class: 'dt' });
+    matTable.appendChild(el('thead', {}, [el('tr', {}, ['Матеріал', 'К-сть', 'Од.', 'Ціна', 'Сума'].map(function (h) { return el('th', {}, [h]); }))]));
+    var matBody = el('tbody');
+    matRows.forEach(function (m) {
+      var material = byId(STATE.db.materials, m.material_id);
+      matBody.appendChild(el('tr', {}, [el('td', {}, [material ? material.name : m.material_id]), el('td', {}, [fmtNum(m.quantity)]), el('td', {}, [m.unit]), el('td', {}, [fmtMoney(m.price)]), el('td', {}, [fmtMoney(m.total)])]));
+    });
+    matTable.appendChild(matBody);
+    container.appendChild(matTable);
+  }
+}
+function round2(n) { return Math.round(n * 100) / 100; }
+
+function openRoomForm(project, existing) {
+  var r = existing || {};
+  var body = el('div');
+  body.appendChild(formField('Назва *', '<input id="f_rname" value="' + esc(r.name || '') + '">'));
+  body.appendChild(formField('Тип', '<input id="f_rtype" value="' + esc(r.type || 'кімната') + '">'));
+  body.appendChild(formField('Ширина, м *', '<input type="number" step="0.1" id="f_rwidth" value="' + esc(r.width || '') + '">'));
+  body.appendChild(formField('Довжина, м *', '<input type="number" step="0.1" id="f_rlength" value="' + esc(r.length || '') + '">'));
+  body.appendChild(formField('X, м', '<input type="number" step="0.1" id="f_rx" value="' + esc(r.x || 0) + '">'));
+  body.appendChild(formField('Y, м', '<input type="number" step="0.1" id="f_ry" value="' + esc(r.y || 0) + '">'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Додати']);
+  save.onclick = function () {
+    var data = {
+      name: document.getElementById('f_rname').value.trim() || 'Приміщення',
+      type: document.getElementById('f_rtype').value.trim(),
+      width: Number(document.getElementById('f_rwidth').value) || 0,
+      length: Number(document.getElementById('f_rlength').value) || 0,
+      x: Number(document.getElementById('f_rx').value) || 0,
+      y: Number(document.getElementById('f_ry').value) || 0
+    };
+    if (!data.width || !data.length) { toast('Вкажи ширину і довжину', 'error'); return; }
+    var action = existing ? 'updateProjectRoom' : 'createProjectRoom';
+    if (existing) data.id = existing.id; else data.project_id = project.id;
+    apiCall(action, data).then(function (res) {
+      if (existing) { var i = STATE.db.projectRooms.findIndex(function (x) { return x.id === existing.id; }); STATE.db.projectRooms[i] = res.room; }
+      else STATE.db.projectRooms.push(res.room);
+      var pi = STATE.db.projects.findIndex(function (x) { return x.id === project.id; });
+      if (pi !== -1) STATE.db.projects[pi] = res.project;
+      Storage.saveCache(); closeModal(); renderRoute(); toast('Збережено', 'success');
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
+  openModal(existing ? 'Приміщення' : 'Нове приміщення', body);
+}
+
+function openAiRoomGenModal(project) {
+  var body = el('div');
+  body.appendChild(el('p', { class: 'page-sub' }, ['Без налаштованого AI-ключа (Налаштування → AI) працює вбудований алгоритм розподілу площі за типовими нормами. З ключем — запит до реального AI з тим самим форматом відповіді.']));
+  body.appendChild(formField('Загальна площа, м² *', '<input type="number" id="f_ai_area" value="' + esc(project.area || 50) + '">'));
+  body.appendChild(formField('Тип обʼєкта', '<select id="f_ai_type"><option>квартира</option><option>будинок</option><option>офіс</option><option>ванна кімната</option></select>'));
+  var previewWrap = el('div', { style: 'margin-top:12px;' });
+  body.appendChild(previewWrap);
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var previewBtn = el('button', { class: 'btn' }, ['Показати варіант']);
+  var applyBtn = el('button', { class: 'btn primary' }, ['Застосувати до плану']); applyBtn.style.display = 'none';
+  var lastResult = null;
+  previewBtn.onclick = function () {
+    var area = Number(document.getElementById('f_ai_area').value) || 50;
+    var otype = document.getElementById('f_ai_type').value;
+    apiCall('aiGenerateRooms', { total_area: area, object_type: otype }).then(function (res) {
+      lastResult = res;
+      previewWrap.innerHTML = '';
+      previewWrap.appendChild(el('div', { class: 'page-sub' }, ['Режим: ' + (res.mode === 'ai' ? 'AI' : 'вбудований алгоритм') + ' · ' + res.rooms.length + ' приміщень']));
+      res.rooms.forEach(function (r) { previewWrap.appendChild(el('div', {}, ['• ' + r.name + ' — ' + fmtNum(r.area) + ' м²'])); });
+      applyBtn.style.display = '';
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  applyBtn.onclick = function () {
+    var area = Number(document.getElementById('f_ai_area').value) || 50;
+    var otype = document.getElementById('f_ai_type').value;
+    apiCall('aiGenerateRooms', { total_area: area, object_type: otype, apply: true, project_id: project.id }).then(function (res) {
+      res.rooms.forEach(function (rm) { STATE.db.projectRooms.push(rm); });
+      Storage.saveCache(); closeModal(); renderRoute(); toast('Приміщення додано до плану (' + res.rooms.length + ')', 'success');
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(previewBtn); actions.appendChild(applyBtn);
+  body.appendChild(actions);
+  openModal('AI-планування приміщень', body);
+}
+
+/* ==================== PHOTOS / DOCUMENTS TAB (ЕТАП 8/51) =================== */
+function renderObjectPhotosTab(container, o) {
+  container.appendChild(el('h4', { style: 'margin-top:0;' }, ['Фото']));
+  var uploadRow = el('div', { style: 'margin-bottom:12px;' });
+  var fileInput = el('input', { type: 'file', accept: 'image/*' });
+  var catInput = el('input', { placeholder: 'категорія (до/після/проблема...)', style: 'margin-left:8px;' });
+  var uploadBtn = el('button', { class: 'btn small primary', style: 'margin-left:8px;' }, ['Завантажити фото']);
+  uploadBtn.onclick = function () {
+    var file = fileInput.files[0];
+    if (!file) { toast('Обери файл', 'error'); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var base64 = reader.result.split(',')[1];
+      apiCall('uploadPhoto', { object_id: o.id, base64: base64, filename: file.name, mimeType: file.type, category: catInput.value }).then(function (res) {
+        STATE.db.photos.push(res); Storage.saveCache(); renderRoute(); toast('Фото завантажено', 'success');
+      }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+    };
+    reader.readAsDataURL(file);
+  };
+  uploadRow.appendChild(fileInput); uploadRow.appendChild(catInput); uploadRow.appendChild(uploadBtn);
+  container.appendChild(uploadRow);
+
+  var photos = STATE.db.photos.filter(function (p) { return p.object_id === o.id; });
+  if (!photos.length) container.appendChild(el('div', { class: 'page-sub' }, ['Ще немає фото.']));
+  var grid = el('div', { class: 'grid cols-4' });
+  photos.forEach(function (p) {
+    var card = el('div', { class: 'card' }, [
+      el('a', { href: p.url, target: '_blank' }, [el('div', { style: 'font-size:11px;word-break:break-all;' }, ['🖼 ' + (p.category || 'фото')])]),
+      el('div', { class: 'page-sub' }, [fmtDate(p.date)])
+    ]);
+    var delB = el('button', { class: 'btn small danger', style: 'margin-top:6px;' }, ['✕']);
+    delB.onclick = function () { apiCall('deletePhoto', { id: p.id }).then(function () { STATE.db.photos = STATE.db.photos.filter(function (x) { return x.id !== p.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+    card.appendChild(delB);
+    grid.appendChild(card);
+  });
+  container.appendChild(grid);
+
+  container.appendChild(el('h4', { style: 'margin-top:20px;' }, ['Документи']));
+  var docRow = el('div', { style: 'margin-bottom:12px;display:flex;gap:8px;' });
+  var docName = el('input', { placeholder: 'назва документа' });
+  var docUrl = el('input', { placeholder: 'посилання (Google Drive тощо)', style: 'width:280px;' });
+  var docType = el('input', { placeholder: 'тип (договір, акт...)' });
+  var docAddBtn = el('button', { class: 'btn small primary' }, ['Додати']);
+  docAddBtn.onclick = function () {
+    if (!docName.value.trim() || !docUrl.value.trim()) { toast('Вкажи назву і посилання', 'error'); return; }
+    apiCall('createDocument', { object_id: o.id, name: docName.value.trim(), url: docUrl.value.trim(), type: docType.value.trim(), date: nowIsoClient_() }).then(function (res) {
+      STATE.db.documents.push(res); Storage.saveCache(); renderRoute(); toast('Документ додано', 'success');
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  docRow.appendChild(docName); docRow.appendChild(docType); docRow.appendChild(docUrl); docRow.appendChild(docAddBtn);
+  container.appendChild(docRow);
+  var docs = STATE.db.documents.filter(function (d) { return d.object_id === o.id; });
+  if (!docs.length) container.appendChild(el('div', { class: 'page-sub' }, ['Ще немає документів.']));
+  docs.forEach(function (d) {
+    var row = el('div', { class: 'card', style: 'margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;' }, [
+      el('a', { href: d.url, target: '_blank' }, [d.name + (d.type ? ' (' + d.type + ')' : '')])
+    ]);
+    var delB = el('button', { class: 'btn small danger' }, ['✕']);
+    delB.onclick = function () { apiCall('deleteDocument', { id: d.id }).then(function () { STATE.db.documents = STATE.db.documents.filter(function (x) { return x.id !== d.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+    row.appendChild(delB);
+    container.appendChild(row);
+  });
+}
+function nowIsoClient_() { return new Date().toISOString().slice(0, 19); }
+
+/* ============================== WORKS / PRICE LIST ========================= */
+function renderWorks(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Прайс робіт']));
+  main.appendChild(el('div', { class: 'page-sub' }, [STATE.db.works.length + ' позицій']));
+  var toolbar = el('div', { class: 'toolbar' });
+  var search = el('input', { type: 'text', placeholder: 'Пошук роботи...' });
+  var catSelect = el('select', {}, [el('option', { value: '' }, ['Всі категорії'])]);
+  STATE.db.categories.forEach(function (c) { catSelect.appendChild(el('option', { value: c.name }, [c.num + '. ' + c.name])); });
+  var viewToggle = el('select', {}, [
+    el('option', { value: 'internal' }, ['Внутрішній вигляд']),
+    el('option', { value: 'client' }, ['Клієнтський вигляд'])
+  ]);
+  viewToggle.value = STATE.ui.priceView;
+  if (STATE.ui.worksSearchPrefill) { search.value = STATE.ui.worksSearchPrefill; delete STATE.ui.worksSearchPrefill; }
+  if (STATE.ui.worksCatPrefill) { catSelect.value = STATE.ui.worksCatPrefill; delete STATE.ui.worksCatPrefill; }
+  toolbar.appendChild(search); toolbar.appendChild(catSelect); toolbar.appendChild(viewToggle);
+  toolbar.appendChild(el('div', { class: 'spacer' }));
+  var csvBtn = el('button', { class: 'btn' }, ['⬇ CSV']);
+  csvBtn.onclick = function () { downloadText_('BUDNEX_прайс.csv', arrayToCsv_(STATE.db.works), 'text/csv;charset=utf-8'); };
+  toolbar.appendChild(csvBtn);
+  var addBtn = el('button', { class: 'btn primary' }, ['+ Нова робота']); addBtn.onclick = function () { openWorkForm(); };
+  toolbar.appendChild(addBtn);
+  main.appendChild(toolbar);
+
+  var tableWrap = el('div', {});
+  main.appendChild(tableWrap);
+
+  function draw() {
+    tableWrap.innerHTML = '';
+    var internal = viewToggle.value === 'internal';
+    var q = fuzzyPrep_(search.value);
+    var list = STATE.db.works.filter(function (w) {
+      if (catSelect.value && w.category !== catSelect.value) return false;
+      if (q && !fuzzyMatch_(w.name, q) && !fuzzyMatch_(w.subcategory, q) && !fuzzyMatch_(w.description, q)) return false;
+      return true;
+    });
+    list.sort(function (a, b) { return (a.category + a.name).localeCompare(b.category + b.name, 'uk'); });
+    var table = el('table', { class: 'dt' });
+    var headCols = internal ? ['Категорія', 'Робота', 'Од.', 'Ціна виконавця', 'Націнка', 'Ціна клієнту', ''] : ['Категорія', 'Робота', 'Од.', 'Ціна'];
+    table.appendChild(el('thead', {}, [el('tr', {}, headCols.map(function (h) { return el('th', {}, [h]); }))]));
+    var tbody = el('tbody');
+    var CAP = 600;
+    list.slice(0, CAP).forEach(function (w) {
+      var client = w.default_markup_type === 'percent' ? w.contractor_price * (1 + w.default_markup / 100) : Number(w.contractor_price) + Number(w.default_markup);
+      var nameCell = w.name + (w.subcategory ? ' <span class="page-sub" style="display:inline">(' + esc(w.subcategory) + ')</span>' : '');
+      var cells;
+      if (internal) {
+        cells = [w.category, nameCell, w.unit, fmtMoney(w.contractor_price), (w.default_markup_type === 'percent' ? '+' + w.default_markup + '%' : '+' + fmtMoney(w.default_markup)), fmtMoney(client)];
+      } else {
+        cells = [w.category, nameCell, w.unit, fmtMoney(client)];
+      }
+      var tr = el('tr', {}, cells.map(function (c, i) { var td = el('td', {}); td.innerHTML = String(c); return td; }));
+      if (internal) {
+        tr.style.cursor = 'pointer';
+        tr.onclick = function () { openWorkForm(w); };
+        var actionsTd = el('td', { style: 'white-space:nowrap;' });
+        var editBtn = el('button', { class: 'btn small' }, ['✎']);
+        editBtn.onclick = function (e) { e.stopPropagation(); openWorkForm(w); };
+        var delBtn = el('button', { class: 'btn small danger' }, ['✕']);
+        delBtn.onclick = function (e) {
+          e.stopPropagation();
+          if (!confirm('Видалити роботу "' + w.name + '" з прайсу?')) return;
+          apiCall('deleteWork', { id: w.id }).then(function () {
+            STATE.db.works = STATE.db.works.filter(function (x) { return x.id !== w.id; });
+            Storage.saveCache(); toast('Роботу видалено', 'success'); draw();
+          }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+        };
+        actionsTd.appendChild(editBtn); actionsTd.appendChild(delBtn);
+        tr.appendChild(actionsTd);
+      }
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    if (list.length > CAP) tableWrap.appendChild(el('div', { class: 'page-sub' }, ['Показано перші ' + CAP + ' з ' + list.length + '. Уточни пошук або категорію.']));
+    else tableWrap.appendChild(el('div', { class: 'page-sub' }, ['Показано ' + list.length + ' з ' + STATE.db.works.length + ' позицій.']));
+  }
+  draw();
+  search.oninput = draw; catSelect.onchange = draw;
+  viewToggle.onchange = function () { STATE.ui.priceView = viewToggle.value; draw(); };
+}
+
+function openWorkForm(existing) {
+  var w = existing || {};
+  var body = el('div');
+  body.appendChild(formField('Категорія *', '<input id="f_cat" value="' + esc(w.category || '') + '" list="catlist">'));
+  var dl = el('datalist', { id: 'catlist' });
+  STATE.db.categories.forEach(function (c) { dl.appendChild(el('option', { value: c.name })); });
+  body.appendChild(dl);
+  body.appendChild(formField('Підкатегорія', '<input id="f_subcat" value="' + esc(w.subcategory || '') + '">'));
+  body.appendChild(formField('Назва роботи *', '<input id="f_name" value="' + esc(w.name || '') + '">'));
+  body.appendChild(formField('Одиниця', '<input id="f_unit" value="' + esc(w.unit || 'м²') + '">'));
+  body.appendChild(formField('Ціна виконавця, грн *', '<input type="number" id="f_price" value="' + esc(w.contractor_price || '') + '">'));
+  body.appendChild(formField('Тип націнки', '<select id="f_mtype"><option value="percent"' + (w.default_markup_type==='percent'?' selected':'') + '>Відсоток</option><option value="fixed"' + (w.default_markup_type==='fixed'?' selected':'') + '>Фіксована сума</option></select>'));
+  body.appendChild(formField('Націнка (% або грн)', '<input type="number" id="f_mval" value="' + esc(w.default_markup != null ? w.default_markup : 25) + '">'));
+  body.appendChild(formField('Матеріали, грн (собівартість)', '<input type="number" id="f_matcost" value="' + esc(w.material_cost != null ? w.material_cost : '') + '">'));
+  body.appendChild(formField('Праця, грн (собівартість)', '<input type="number" id="f_laborcost" value="' + esc(w.labor_cost != null ? w.labor_cost : '') + '">'));
+  body.appendChild(formField('Норма (напр. м²/люд-день)', '<input id="f_norm" value="' + esc(w.norm || '') + '">'));
+  body.appendChild(formField('Опис / примітки', '<textarea id="f_desc" rows="2">' + esc(w.description || '') + '</textarea>'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
+  save.onclick = function () {
+    var data = {
+      category: document.getElementById('f_cat').value.trim(), subcategory: document.getElementById('f_subcat').value.trim(),
+      name: document.getElementById('f_name').value.trim(),
+      unit: document.getElementById('f_unit').value.trim(), contractor_price: Number(document.getElementById('f_price').value) || 0,
+      default_markup_type: document.getElementById('f_mtype').value, default_markup: Number(document.getElementById('f_mval').value) || 0,
+      material_cost: Number(document.getElementById('f_matcost').value) || 0, labor_cost: Number(document.getElementById('f_laborcost').value) || 0,
+      norm: document.getElementById('f_norm').value.trim(), description: document.getElementById('f_desc').value.trim(), active: true
+    };
+    if (!data.name || !data.category) { toast('Заповни категорію і назву', 'error'); return; }
+    var action = existing ? 'updateWork' : 'createWork';
+    if (existing) data.id = existing.id;
+    apiCall(action, data).then(function (res) {
+      if (existing) { var i = STATE.db.works.findIndex(function(x){return x.id===existing.id;}); STATE.db.works[i] = res; }
+      else STATE.db.works.push(res);
+      if (!STATE.db.categories.some(function(c){return c.name===res.category;})) STATE.db.categories.push({num:'?',name:res.category});
+      Storage.saveCache(); closeModal(); toast('Збережено', 'success'); renderRoute();
+    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save);
+  body.appendChild(actions);
+  openModal(existing ? 'Редагувати роботу' : 'Нова робота', body);
+}
+
+/* ============================== ESTIMATES LIST ============================= */
+function renderEstimatesList(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Кошториси']));
+  if (!STATE.db.estimates.length) { main.appendChild(el('div', { class: 'empty-state' }, ['Ще немає кошторисів. Створи його на сторінці об’єкта.'])); return; }
+  var csvBtn = el('button', { class: 'btn small' }, ['⬇ CSV']);
+  csvBtn.onclick = function () { downloadText_('BUDNEX_кошториси.csv', arrayToCsv_(STATE.db.estimates), 'text/csv;charset=utf-8'); };
+  main.appendChild(el('div', { class: 'toolbar' }, [el('div', { class: 'spacer' }), csvBtn]));
+  var table = el('table', { class: 'dt' });
+  table.appendChild(el('thead', {}, [el('tr', {}, ['ID', "Об'єкт", 'Клієнт', 'Статус', 'Собівартість', 'Ціна клієнту', 'Прибуток', 'Маржа'].map(function (h) { return el('th', {}, [h]); }))]));
+  var tbody = el('tbody');
+  var settings = STATE.db.settings;
+  var minMargin = Number(settings.min_margin) || 15;
+  STATE.db.estimates.forEach(function (e) {
+    var o = byId(STATE.db.objects, e.object_id);
+    var c = byId(STATE.db.clients, e.client_id);
+    var marginBadge = el('span', { class: 'badge ' + (Number(e.margin) < minMargin ? 'red' : 'green') }, [Number(e.margin).toFixed(1) + '%']);
+    var tr = el('tr', {}, [
+      el('td', {}, [e.id]), el('td', {}, [o ? o.name : e.object_id]), el('td', {}, [c ? c.name : e.client_id]),
+      el('td', {}, [el('span', { class: 'badge gray' }, [e.status])]),
+      el('td', {}, [fmtMoney(e.contractor_total)]), el('td', {}, [fmtMoney(e.client_total)]), el('td', {}, [fmtMoney(e.profit)]),
+      el('td', {}, [marginBadge])
+    ]);
+    tr.onclick = function () { location.hash = '#/objects/' + e.object_id; };
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  main.appendChild(table);
+}
+
+/* ============================== PARTNERS / TEAMS ============================ */
+function renderPartners(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Бригади та партнери']));
+  var toolbar = el('div', { class: 'toolbar' });
+  toolbar.appendChild(el('div', { class: 'spacer' }));
+  var addBtn = el('button', { class: 'btn primary' }, ['+ Новий партнер']); addBtn.onclick = function () { openPartnerForm(); };
+  toolbar.appendChild(addBtn);
+  main.appendChild(toolbar);
+
+  if (!STATE.db.partners.length) { main.appendChild(el('div', { class: 'empty-state' }, ['Ще немає партнерів.'])); return; }
+  var table = el('table', { class: 'dt' });
+  table.appendChild(el('thead', {}, [el('tr', {}, ['Назва', 'Телефон', 'Місто', 'Спеціалізація', 'Людей', 'Статус'].map(function (h) { return el('th', {}, [h]); }))]));
+  var tbody = el('tbody');
+  STATE.db.partners.forEach(function (p) {
+    var statusClass = p.status === 'вільна' ? 'green' : (p.status === 'зайнята' ? 'red' : 'gold');
+    var tr = el('tr', {}, [
+      el('td', {}, [p.name]), el('td', {}, [p.phone || '—']), el('td', {}, [p.city || '—']),
+      el('td', {}, [p.specialization || '—']), el('td', {}, [String(p.team_size || '—')]),
+      el('td', {}, [el('span', { class: 'badge ' + statusClass }, [p.status || '—'])])
+    ]);
+    tr.onclick = function () { openPartnerForm(p); };
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  main.appendChild(table);
+}
+
+function openPartnerForm(existing) {
+  var p = existing || {};
+  var body = el('div');
+  body.appendChild(formField('Назва бригади *', '<input id="f_name" value="' + esc(p.name || '') + '">'));
+  body.appendChild(formField('Телефон', '<input id="f_phone" value="' + esc(p.phone || '') + '">'));
+  body.appendChild(formField('Місто', '<input id="f_city" value="' + esc(p.city || '') + '">'));
+  body.appendChild(formField('Регіон', '<input id="f_region" value="' + esc(p.region || '') + '">'));
+  body.appendChild(formField('Спеціалізація', '<input id="f_spec" value="' + esc(p.specialization || '') + '">'));
+  body.appendChild(formField('Кількість людей', '<input type="number" id="f_size" value="' + esc(p.team_size || '') + '">'));
+  body.appendChild(formField('Досвід, років', '<input type="number" id="f_exp" value="' + esc(p.experience || '') + '">'));
+  body.appendChild(formField('Статус', '<select id="f_status">' + ['вільна','зайнята','заброньована','недоступна'].map(function(s){return '<option'+(p.status===s?' selected':'')+'>'+s+'</option>';}).join('') + '</select>'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
+  save.onclick = function () {
+    var data = {
+      name: document.getElementById('f_name').value.trim(), phone: document.getElementById('f_phone').value.trim(),
+      city: document.getElementById('f_city').value.trim(), region: document.getElementById('f_region').value.trim(),
+      specialization: document.getElementById('f_spec').value.trim(), team_size: Number(document.getElementById('f_size').value) || 0,
+      experience: Number(document.getElementById('f_exp').value) || 0, status: document.getElementById('f_status').value
+    };
+    if (!data.name) { toast('Вкажи назву бригади', 'error'); return; }
+    var action = existing ? 'updatePartner' : 'createPartner';
+    if (existing) data.id = existing.id;
+    apiCall(action, data).then(function (res) {
+      if (existing) { var i = STATE.db.partners.findIndex(function(x){return x.id===existing.id;}); STATE.db.partners[i] = res; }
+      else {
+        STATE.db.partners.push(res);
+        apiCall('createTeam', { partner_id: res.id, name: res.name, team_size: res.team_size, specialization: res.specialization, status: res.status })
+          .then(function (t) { STATE.db.teams.push(t); Storage.saveCache(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+      }
+      Storage.saveCache(); closeModal(); toast('Збережено', 'success'); renderRoute();
+    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save);
+  body.appendChild(actions);
+  openModal(existing ? 'Редагувати партнера' : 'Новий партнер', body);
+}
+
+/* ==================== МАТЕРІАЛИ / ПОСТАЧАЛЬНИКИ / ПАКЕТИ (ЕТАП 6/8) ======== */
+function renderMaterialsPage(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Матеріали і пакети']));
+  var subtabs = el('div', { class: 'tabs' });
+  var content = el('div');
+  var defs = [
+    ['materials', 'Матеріали', renderMaterialsSubtab],
+    ['suppliers', 'Постачальники', renderSuppliersSubtab],
+    ['packages', 'Пакети "під ключ"', renderPackagesSubtab]
+  ];
+  var active = 'materials';
+  function draw() {
+    subtabs.innerHTML = '';
+    defs.forEach(function (d) {
+      var b = el('button', { class: 'tab-btn' + (d[0] === active ? ' active' : '') }, [d[1]]);
+      b.onclick = function () { active = d[0]; draw(); };
+      subtabs.appendChild(b);
+    });
+    content.innerHTML = '';
+    defs.filter(function (d) { return d[0] === active; })[0][2](content);
+  }
+  main.appendChild(subtabs); main.appendChild(content);
+  draw();
+}
+
+function renderMaterialsSubtab(c) {
+  var addBtn = el('button', { class: 'btn small primary' }, ['+ Матеріал']);
+  addBtn.onclick = function () { openMaterialForm(); };
+  c.appendChild(el('div', { style: 'margin-bottom:10px;' }, [addBtn]));
+  var table = el('table', { class: 'dt' });
+  table.appendChild(el('thead', {}, [el('tr', {}, ['Назва', 'Категорія', 'Од.', 'Ціна', 'Норма витрат', ''].map(function (h) { return el('th', {}, [h]); }))]));
+  var tbody = el('tbody');
+  STATE.db.materials.forEach(function (m) {
+    var delB = el('button', { class: 'btn small danger' }, ['✕']);
+    delB.onclick = function () { apiCall('deleteMaterial', { id: m.id }).then(function () { STATE.db.materials = STATE.db.materials.filter(function (x) { return x.id !== m.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+    var tr = el('tr', {}, [el('td', {}, [m.name]), el('td', {}, [m.category || '—']), el('td', {}, [m.unit || '—']), el('td', {}, [fmtMoney(m.price)]), el('td', {}, [m.consumption_norm != null ? fmtNum(m.consumption_norm) : '—']), el('td', {}, [delB])]);
+    tr.onclick = function (e) { if (e.target !== delB) openMaterialForm(m); };
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  c.appendChild(table);
+  if (!STATE.db.materials.length) c.appendChild(el('div', { class: 'page-sub' }, ['Ще немає матеріалів. Матеріали з назвою категорії, що збігається зі словом у BOQ-позиції, автоматично рахуються в "Порахувати матеріали" на вкладці планування обʼєкта.']));
+}
+function openMaterialForm(existing) {
+  var m = existing || {};
+  var body = el('div');
+  body.appendChild(formField('Назва *', '<input id="f_mname" value="' + esc(m.name || '') + '">'));
+  body.appendChild(formField('Категорія (для авто-підбору з BOQ)', '<input id="f_mcat" value="' + esc(m.category || '') + '" placeholder="напр. Оздоблення стін">'));
+  body.appendChild(formField('Одиниця', '<input id="f_munit" value="' + esc(m.unit || 'м²') + '">'));
+  body.appendChild(formField('Ціна, грн', '<input type="number" id="f_mprice" value="' + esc(m.price || '') + '">'));
+  body.appendChild(formField('Норма витрат на 1 од. роботи', '<input type="number" step="0.01" id="f_mnorm" value="' + esc(m.consumption_norm || '') + '">'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
+  save.onclick = function () {
+    var data = { name: document.getElementById('f_mname').value.trim(), category: document.getElementById('f_mcat').value.trim(), unit: document.getElementById('f_munit').value.trim(), price: Number(document.getElementById('f_mprice').value) || 0, consumption_norm: Number(document.getElementById('f_mnorm').value) || 0, active: true };
+    if (!data.name) { toast('Вкажи назву', 'error'); return; }
+    var action = existing ? 'updateMaterial' : 'createMaterial'; if (existing) data.id = existing.id;
+    apiCall(action, data).then(function (res) {
+      if (existing) { var i = STATE.db.materials.findIndex(function (x) { return x.id === existing.id; }); STATE.db.materials[i] = res; } else STATE.db.materials.push(res);
+      Storage.saveCache(); closeModal(); renderRoute(); toast('Збережено', 'success');
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
+  openModal(existing ? 'Матеріал' : 'Новий матеріал', body);
+}
+
+function renderSuppliersSubtab(c) {
+  var addBtn = el('button', { class: 'btn small primary' }, ['+ Постачальник']);
+  addBtn.onclick = function () { openSupplierForm(); };
+  c.appendChild(el('div', { style: 'margin-bottom:10px;' }, [addBtn]));
+  STATE.db.suppliers.forEach(function (s) {
+    var delB = el('button', { class: 'btn small danger' }, ['✕']);
+    delB.onclick = function () { apiCall('deleteSupplier', { id: s.id }).then(function () { STATE.db.suppliers = STATE.db.suppliers.filter(function (x) { return x.id !== s.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+    var row = el('div', { class: 'card', style: 'margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;' }, [
+      el('div', {}, [el('b', {}, [s.name]), el('div', { class: 'page-sub' }, [(s.phone || '') + ' · ' + (s.address || '')])])
+    ]);
+    row.appendChild(delB);
+    c.appendChild(row);
+  });
+  if (!STATE.db.suppliers.length) c.appendChild(el('div', { class: 'page-sub' }, ['Ще немає постачальників.']));
+}
+function openSupplierForm() {
+  var body = el('div');
+  body.appendChild(formField('Назва *', '<input id="f_sname">'));
+  body.appendChild(formField('Телефон', '<input id="f_sphone">'));
+  body.appendChild(formField('Адреса', '<input id="f_saddr">'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, ['Створити']);
+  save.onclick = function () {
+    var name = document.getElementById('f_sname').value.trim();
+    if (!name) { toast('Вкажи назву', 'error'); return; }
+    apiCall('createSupplier', { name: name, phone: document.getElementById('f_sphone').value.trim(), address: document.getElementById('f_saddr').value.trim(), active: true }).then(function (res) {
+      STATE.db.suppliers.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success');
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
+  openModal('Новий постачальник', body);
+}
+
+function renderPackagesSubtab(c) {
+  var addBtn = el('button', { class: 'btn small primary' }, ['+ Пакет']);
+  addBtn.onclick = function () { openPackageForm(); };
+  c.appendChild(el('div', { style: 'margin-bottom:10px;' }, [addBtn]));
+  c.appendChild(el('p', { class: 'page-sub' }, ['Формула кількості використовує змінну qty — базову кількість, яку вкажеш при застосуванні пакета до кошторису (наприклад "qty*1.05" додає 5% запасу).']));
+  STATE.db.packages.forEach(function (p) {
+    var items = STATE.db.packageItems.filter(function (x) { return x.package_id === p.id; });
+    var box = el('div', { class: 'card', style: 'margin-bottom:10px;' });
+    box.appendChild(el('div', { style: 'display:flex;justify-content:space-between;align-items:center;' }, [
+      el('b', {}, [p.name + ' (' + items.length + ' поз.)']),
+      (function () { var b = el('button', { class: 'btn small' }, ['+ Позиція']); b.onclick = function () { openPackageItemForm(p); }; return b; })()
+    ]));
+    items.forEach(function (pi) {
+      var w = byId(STATE.db.works, pi.work_id);
+      box.appendChild(el('div', { class: 'page-sub', style: 'margin-top:4px;' }, ['• ' + (w ? w.name : pi.work_id) + ' — база ' + pi.default_quantity + (pi.quantity_formula ? (', формула: ' + pi.quantity_formula) : '')]));
+    });
+    c.appendChild(box);
+  });
+  if (!STATE.db.packages.length) c.appendChild(el('div', { class: 'page-sub' }, ['Ще немає пакетів "під ключ".']));
+}
+function openPackageForm() {
+  var body = el('div');
+  body.appendChild(formField('Назва *', '<input id="f_pkgname">'));
+  body.appendChild(formField('Категорія', '<input id="f_pkgcat">'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, ['Створити']);
+  save.onclick = function () {
+    var name = document.getElementById('f_pkgname').value.trim();
+    if (!name) { toast('Вкажи назву', 'error'); return; }
+    apiCall('createPackage', { name: name, category: document.getElementById('f_pkgcat').value.trim(), active: true }).then(function (res) {
+      STATE.db.packages.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Пакет створено', 'success');
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
+  openModal('Новий пакет "під ключ"', body);
+}
+function openPackageItemForm(pkg) {
+  var body = el('div');
+  var workOpts = STATE.db.works.slice(0, 500).map(function (w) { return '<option value="' + w.id + '">' + esc(w.name) + '</option>'; }).join('');
+  body.appendChild(formField('Робота *', '<select id="f_pi_work">' + workOpts + '</select>'));
+  body.appendChild(formField('Базова кількість', '<input type="number" id="f_pi_qty" value="1">'));
+  body.appendChild(formField('Формула кількості (необовʼязково)', '<input id="f_pi_formula" placeholder="qty*1.05">'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, ['Додати']);
+  save.onclick = function () {
+    apiCall('addPackageItem', { package_id: pkg.id, work_id: document.getElementById('f_pi_work').value, default_quantity: Number(document.getElementById('f_pi_qty').value) || 1, quantity_formula: document.getElementById('f_pi_formula').value.trim() }).then(function (res) {
+      STATE.db.packageItems.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success');
+    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
+  openModal('Позиція пакета', body);
+}
+
+/* ============================== FINANCE ==================================== */
+function renderFinance(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Фінанси']));
+  var revenue = sum_(STATE.db.payments.filter(function (p) { return p.direction === 'in'; }), 'amount');
+  var paidOut = sum_(STATE.db.payments.filter(function (p) { return p.direction === 'out'; }), 'amount');
+  var expenses = sum_(STATE.db.expenses, 'amount');
+  var profit = revenue - paidOut - expenses;
+  main.appendChild(el('div', { class: 'grid cols-4', style: 'margin-bottom:18px;' }, [
+    kpiCard('Надходження', fmtMoney(revenue)), kpiCard('Виплачено виконавцям', fmtMoney(paidOut)),
+    kpiCard('Витрати', fmtMoney(expenses)), kpiCard('Чистий прибуток', fmtMoney(profit))
+  ]));
+  var financeCsvBtn = el('button', { class: 'btn small' }, ['⬇ CSV платежів']);
+  financeCsvBtn.onclick = function () { downloadText_('BUDNEX_платежі.csv', arrayToCsv_(STATE.db.payments), 'text/csv;charset=utf-8'); };
+  var expCsvBtn = el('button', { class: 'btn small', style: 'margin-left:8px;' }, ['⬇ CSV витрат']);
+  expCsvBtn.onclick = function () { downloadText_('BUDNEX_витрати.csv', arrayToCsv_(STATE.db.expenses), 'text/csv;charset=utf-8'); };
+  main.appendChild(el('div', { style: 'margin-bottom:10px;' }, [financeCsvBtn, expCsvBtn]));
+  main.appendChild(el('h4', {}, ['Усі платежі']));
+  var table = el('table', { class: 'dt' });
+  table.appendChild(el('thead', {}, [el('tr', {}, ["Об'єкт", 'Тип', 'Напрям', 'Сума', 'Дата', 'Опис'].map(function (h) { return el('th', {}, [h]); }))]));
+  var tbody = el('tbody');
+  STATE.db.payments.slice().reverse().forEach(function (p) {
+    var o = byId(STATE.db.objects, p.object_id);
+    tbody.appendChild(el('tr', {}, [
+      el('td', {}, [o ? o.name : (p.object_id || '—')]), el('td', {}, [p.type]),
+      el('td', {}, [el('span', { class: 'badge ' + (p.direction === 'in' ? 'green' : 'red') }, [p.direction === 'in' ? 'вхід' : 'вихід'])]),
+      el('td', {}, [fmtMoney(p.amount)]), el('td', {}, [fmtDate(p.date)]), el('td', {}, [p.description || '—'])
+    ]));
+  });
+  table.appendChild(tbody);
+  main.appendChild(table);
+  main.appendChild(el('h4', { style: 'margin-top:20px;' }, ['Усі витрати']));
+  var table2 = el('table', { class: 'dt' });
+  table2.appendChild(el('thead', {}, [el('tr', {}, ["Об'єкт", 'Категорія', 'Сума', 'Дата', 'Опис'].map(function (h) { return el('th', {}, [h]); }))]));
+  var tbody2 = el('tbody');
+  STATE.db.expenses.slice().reverse().forEach(function (e) {
+    var o = byId(STATE.db.objects, e.object_id);
+    tbody2.appendChild(el('tr', {}, [el('td', {}, [o ? o.name : (e.object_id || '—')]), el('td', {}, [e.category]), el('td', {}, [fmtMoney(e.amount)]), el('td', {}, [fmtDate(e.date)]), el('td', {}, [e.description || '—'])]));
+  });
+  table2.appendChild(tbody2);
+  main.appendChild(table2);
+}
+
+/* ============================== CALENDAR (ЕТАП 8) =========================== */
+function renderCalendar(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Календар']));
+  var cursor = STATE.ui.calendarCursor ? new Date(STATE.ui.calendarCursor) : new Date();
+  cursor.setDate(1);
+
+  function eventsFor(dateStr) {
+    var evts = [];
+    STATE.db.tasks.forEach(function (t) { if (t.deadline && t.deadline.slice(0, 10) === dateStr) evts.push({ type: 'task', label: t.title, obj: t.object_id }); });
+    STATE.db.assignments.forEach(function (a) { if (a.start_date && a.start_date.slice(0, 10) === dateStr) evts.push({ type: 'assignment', label: 'Виїзд бригади', obj: a.object_id }); });
+    STATE.db.objects.forEach(function (o) { if (o.planned_end_date && o.planned_end_date.slice(0, 10) === dateStr) evts.push({ type: 'deadline', label: 'Плановий кінець: ' + o.name, obj: o.id }); });
+    return evts;
+  }
+
+  var nav = el('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:14px;' });
+  var prevBtn = el('button', { class: 'btn small' }, ['←']);
+  var label = el('b', {}, [cursor.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' })]);
+  var nextBtn = el('button', { class: 'btn small' }, ['→']);
+  prevBtn.onclick = function () { cursor.setMonth(cursor.getMonth() - 1); STATE.ui.calendarCursor = cursor.toISOString(); renderRoute(); };
+  nextBtn.onclick = function () { cursor.setMonth(cursor.getMonth() + 1); STATE.ui.calendarCursor = cursor.toISOString(); renderRoute(); };
+  nav.appendChild(prevBtn); nav.appendChild(label); nav.appendChild(nextBtn);
+  main.appendChild(nav);
+
+  var grid = el('div', { class: 'grid', style: 'grid-template-columns:repeat(7,1fr);gap:6px;' });
+  ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].forEach(function (d) { grid.appendChild(el('div', { class: 'page-sub', style: 'text-align:center;font-weight:600;' }, [d])); });
+  var firstDay = new Date(cursor);
+  var startOffset = (firstDay.getDay() + 6) % 7; // Monday-first
+  var daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+  for (var i = 0; i < startOffset; i++) grid.appendChild(el('div', {}));
+  var today = new Date().toISOString().slice(0, 10);
+  for (var d = 1; d <= daysInMonth; d++) {
+    var dateObj = new Date(cursor.getFullYear(), cursor.getMonth(), d);
+    var dateStr = dateObj.toISOString().slice(0, 10);
+    var evts = eventsFor(dateStr);
+    var cell = el('div', { class: 'card', style: 'min-height:70px;padding:6px;' + (dateStr === today ? 'border-color:var(--accent);' : '') }, [
+      el('div', { style: 'font-size:11px;color:var(--muted);' }, [String(d)])
+    ]);
+    evts.forEach(function (e) {
+      var color = e.type === 'task' ? '#3B82F6' : (e.type === 'assignment' ? '#F2C200' : '#EF4444');
+      var tag = el('div', { style: 'font-size:10px;background:' + color + '22;border-left:2px solid ' + color + ';padding:2px 4px;margin-top:3px;border-radius:3px;cursor:pointer;' }, [e.label.slice(0, 24)]);
+      tag.onclick = function () { if (e.obj) location.hash = '#/objects/' + e.obj; };
+      cell.appendChild(tag);
+    });
+    grid.appendChild(cell);
+  }
+  main.appendChild(grid);
+}
+
+/* ============================== TASKS ======================================= */
+function renderTasks(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Завдання']));
+  var board = el('div', { class: 'kanban' });
+  TASK_STATUSES.forEach(function (status) {
+    var items = STATE.db.tasks.filter(function (t) { return t.status === status; });
+    var col = el('div', { class: 'kanban-col' }, [el('h4', {}, [TASK_STATUS_LABELS[status], el('span', {}, [String(items.length)])])]);
+    items.forEach(function (t) {
+      var o = byId(STATE.db.objects, t.object_id);
+      col.appendChild(el('div', { class: 'kanban-card' }, [
+        el('div', { class: 'kc-title' }, [t.title]),
+        el('div', { class: 'kc-meta' }, [(o ? o.name : '') + ' · ' + t.responsible]),
+        el('div', { class: 'kc-meta' }, ['до ' + fmtDate(t.deadline)])
+      ]));
+    });
+    board.appendChild(col);
+  });
+  main.appendChild(board);
+}
+
+/* ============================== ANALYTICS (ЕТАП 8) ========================== */
+function renderAnalytics(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Аналітика']));
+  var db = STATE.db;
+
+  var revenueByMonth = monthlySeries_(db.payments.filter(function (p) { return p.direction === 'in'; }), 'date', 'amount');
+  var expensesByMonth = monthlySeries_(db.expenses, 'date', 'amount');
+  var estimatesByMonth = monthlySeries_(db.estimates, 'created_at', 'client_total');
+
+  var row1 = el('div', { class: 'grid cols-3', style: 'margin-bottom:18px;' });
+  row1.appendChild(chartCard('Надходження по місяцях', revenueByMonth));
+  row1.appendChild(chartCard('Витрати по місяцях', expensesByMonth));
+  row1.appendChild(chartCard('Сума кошторисів по місяцях', estimatesByMonth));
+  main.appendChild(row1);
+
+  // top clients by revenue
+  var clientTotals = {};
+  db.objects.forEach(function (o) {
+    var estTotal = sum_(db.estimates.filter(function (e) { return e.object_id === o.id; }), 'client_total');
+    clientTotals[o.client_id] = (clientTotals[o.client_id] || 0) + estTotal;
+  });
+  var topClients = Object.keys(clientTotals).map(function (cid) { var c = byId(db.clients, cid); return { name: c ? c.name : cid, total: clientTotals[cid] }; })
+    .sort(function (a, b) { return b.total - a.total; }).slice(0, 10);
+
+  // expenses by category
+  var expByCat = {};
+  db.expenses.forEach(function (e) { var k = e.category || 'інше'; expByCat[k] = (expByCat[k] || 0) + (Number(e.amount) || 0); });
+  var expCatList = Object.keys(expByCat).map(function (k) { return { label: k, value: expByCat[k] }; }).sort(function (a, b) { return b.value - a.value; });
+
+  // margin distribution across estimates
+  var marginBuckets = { '<15%': 0, '15-25%': 0, '25-35%': 0, '>35%': 0 };
+  db.estimates.forEach(function (e) {
+    var m = Number(e.margin) || 0;
+    if (m < 15) marginBuckets['<15%']++; else if (m < 25) marginBuckets['15-25%']++; else if (m < 35) marginBuckets['25-35%']++; else marginBuckets['>35%']++;
+  });
+
+  var row2 = el('div', { class: 'grid cols-3' });
+  var topClientsCard = el('div', { class: 'chart-wrap' }, [el('div', { class: 'chart-title' }, ['Топ клієнтів за сумою кошторисів'])]);
+  if (!topClients.length) topClientsCard.appendChild(el('div', { class: 'page-sub' }, ['Недостатньо даних.']));
+  topClients.forEach(function (c, i) { topClientsCard.appendChild(el('div', { style: 'display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--border);' }, [(i + 1) + '. ' + c.name, fmtMoney(c.total)])); });
+  row2.appendChild(topClientsCard);
+  row2.appendChild(chartCard('Витрати за категоріями', expCatList));
+  var marginCard = el('div', { class: 'chart-wrap' }, [el('div', { class: 'chart-title' }, ['Розподіл кошторисів за маржею'])]);
+  Object.keys(marginBuckets).forEach(function (k) { marginCard.appendChild(el('div', { style: 'display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--border);' }, [k, String(marginBuckets[k])])); });
+  row2.appendChild(marginCard);
+  main.appendChild(row2);
+}
+
+/* ============================== SETTINGS ===================================== */
+function renderSettings(main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['Налаштування']));
+  var s = STATE.db.settings;
+
+  function block(title, fields) {
+    var card = el('div', { class: 'card', style: 'margin-bottom:16px;' });
+    card.appendChild(el('h4', { style: 'margin-top:0;' }, [title]));
+    var grid = el('div', { class: 'form-grid-2' });
+    fields.forEach(function (f) { grid.appendChild(formField(f[0], f[1])); });
+    card.appendChild(grid);
+    return card;
+  }
+
+  var companyCard = block('BUDNEX', [
+    ['Назва компанії', '<input id="s_company_name" value="' + esc(s.company_name || 'BUDNEX') + '">'],
+    ['Слоган', '<input id="s_company_slogan" value="' + esc(s.company_slogan || '') + '">']
+  ]);
+  var pricingCard = block('Ціни', [
+    ['Націнка за замовчуванням, %', '<input type="number" id="s_default_markup_value" value="' + esc(s.default_markup_value || 25) + '">'],
+    ['Мінімальна маржа, %', '<input type="number" id="s_min_margin" value="' + esc(s.min_margin || 15) + '">'],
+    ['Цільова маржа, %', '<input type="number" id="s_target_margin" value="' + esc(s.target_margin || 25) + '">']
+  ]);
+  var logisticsCard = block('Логістика', [
+    ['Ціна пального, грн/л', '<input type="number" id="s_fuel_price" value="' + esc(s.fuel_price || 60) + '">'],
+    ['Витрата, л/100км', '<input type="number" id="s_fuel_consumption" value="' + esc(s.fuel_consumption || 10) + '">'],
+    ['Амортизація, грн/км', '<input type="number" id="s_amortization_rate" value="' + esc(s.amortization_rate || 6) + '">'],
+    ['Коефіцієнт логістики', '<input type="number" step="0.1" id="s_logistics_coefficient" value="' + esc(s.logistics_coefficient || 1.2) + '">']
+  ]);
+  var sheetsCard = block('Google Sheets', [
+    ['Apps Script Web App URL', '<input id="s_api_url" value="' + esc(CONFIG.API_URL) + '">']
+  ]);
+  var interfaceCard = block('Інтерфейс', [
+    ['Тема', '<select id="s_theme"><option value="dark"' + (STATE.ui.theme==='dark'?' selected':'') + '>Темна</option><option value="light"' + (STATE.ui.theme==='light'?' selected':'') + '>Світла</option></select>']
+  ]);
+  var aiCard = block('AI (необовʼязково)', [
+    ['Провайдер', '<select id="s_ai_provider"><option value="none"' + (s.ai_provider==='none'||!s.ai_provider?' selected':'') + '>Немає (лише вбудовані алгоритми)</option><option value="anthropic"' + (s.ai_provider==='anthropic'?' selected':'') + '>Anthropic</option><option value="openai"' + (s.ai_provider==='openai'?' selected':'') + '>OpenAI</option></select>'],
+    ['API-ключ', '<input type="password" id="s_ai_api_key" value="' + esc(s.ai_api_key || '') + '" placeholder="залиш пустим, якщо без AI">']
+  ]);
+
+  main.appendChild(companyCard); main.appendChild(pricingCard); main.appendChild(logisticsCard); main.appendChild(sheetsCard); main.appendChild(aiCard); main.appendChild(interfaceCard);
+
+  var saveBtn = el('button', { class: 'btn primary' }, ['Зберегти налаштування']);
+  saveBtn.onclick = function () {
+    var updates = [
+      ['company_name', document.getElementById('s_company_name').value],
+      ['company_slogan', document.getElementById('s_company_slogan').value],
+      ['default_markup_value', document.getElementById('s_default_markup_value').value],
+      ['min_margin', document.getElementById('s_min_margin').value],
+      ['target_margin', document.getElementById('s_target_margin').value],
+      ['fuel_price', document.getElementById('s_fuel_price').value],
+      ['fuel_consumption', document.getElementById('s_fuel_consumption').value],
+      ['amortization_rate', document.getElementById('s_amortization_rate').value],
+      ['logistics_coefficient', document.getElementById('s_logistics_coefficient').value],
+      ['ai_provider', document.getElementById('s_ai_provider').value],
+      ['ai_api_key', document.getElementById('s_ai_api_key').value]
+    ];
+    var newApiUrl = document.getElementById('s_api_url').value.trim();
+    var newTheme = document.getElementById('s_theme').value;
+    var chain = Promise.resolve();
+    updates.forEach(function (u) { chain = chain.then(function () { return apiCall('saveSetting', { key: u[0], value: u[1] }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); }); });
+    chain.then(function () {
+      if (newApiUrl && newApiUrl !== CONFIG.API_URL) { CONFIG.API_URL = newApiUrl; localStorage.setItem('budnex_api_url', newApiUrl); }
+      applyTheme(newTheme);
+      toast('Налаштування збережено', 'success');
+      syncAll();
+    }).catch(function (e) { toast('Помилка збереження: ' + e.message, 'error'); });
+  };
+  main.appendChild(saveBtn);
+
+  // ---- users / roles (ЕТАП 8, TZ 65) ----
+  var usersCard = el('div', { class: 'card', style: 'margin-top:20px;' }, [el('h4', { style: 'margin-top:0;' }, ['Користувачі та ролі'])]);
+  var addUserBtn = el('button', { class: 'btn small primary' }, ['+ Користувач']);
+  addUserBtn.onclick = function () { openUserForm(); };
+  usersCard.appendChild(addUserBtn);
+  STATE.db.users.forEach(function (u) {
+    var delB = el('button', { class: 'btn small danger' }, ['✕']);
+    delB.onclick = function () { apiCall('deleteUser', { id: u.id }).then(function () { STATE.db.users = STATE.db.users.filter(function (x) { return x.id !== u.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+    var row = el('div', { style: 'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);' }, [
+      el('div', {}, [u.name + ' — ' + u.email]), el('span', { class: 'badge blue' }, [u.role])
+    ]);
+    row.appendChild(delB);
+    usersCard.appendChild(row);
+  });
+  main.appendChild(usersCard);
+
+  // ---- backup / export (ЕТАП 8, TZ 47/71) ----
+  var backupCard = el('div', { class: 'card', style: 'margin-top:20px;' }, [
+    el('h4', { style: 'margin-top:0;' }, ['Резервна копія та експорт']),
+    el('p', { class: 'page-sub' }, ['Google Таблиця вже є основною базою — резервна копія тут це додатковий знімок у файл.'])
+  ]);
+  var jsonBackupBtn = el('button', { class: 'btn' }, ['⬇ Завантажити бекап (JSON)']);
+  jsonBackupBtn.onclick = function () {
+    apiCall('exportBackupJson', {}).then(function (res) { downloadText_('BUDNEX_backup_' + res.exported_at.slice(0, 10) + '.json', JSON.stringify(res.sheets, null, 2), 'application/json'); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  var xlsxLinkBtn = el('button', { class: 'btn', style: 'margin-left:8px;' }, ['🔗 Посилання на Excel-експорт таблиці']);
+  xlsxLinkBtn.onclick = function () { apiCall('getSheetExportInfo', {}).then(function (res) { window.open(res.xlsx_url, '_blank'); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+  backupCard.appendChild(jsonBackupBtn); backupCard.appendChild(xlsxLinkBtn);
+  backupCard.appendChild(el('div', { style: 'margin-top:14px;' }, [
+    (function () { var b = el('button', { class: 'btn' }, ['Завантажити демо-дані (тільки для порожньої бази)']); b.onclick = loadDemo; return b; })()
+  ]));
+  main.appendChild(backupCard);
+}
+function openUserForm() {
+  var body = el('div');
+  body.appendChild(formField('Імʼя *', '<input id="f_uname">'));
+  body.appendChild(formField('Email *', '<input type="email" id="f_uemail">'));
+  body.appendChild(formField('Роль', '<select id="f_urole">' + ['ADMIN','MANAGER','ESTIMATOR','FOREMAN','ACCOUNTANT'].map(function (r) { return '<option>' + r + '</option>'; }).join('') + '</select>'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var save = el('button', { class: 'btn primary' }, ['Створити']);
+  save.onclick = function () {
+    var name = document.getElementById('f_uname').value.trim(), email = document.getElementById('f_uemail').value.trim();
+    if (!name || !email) { toast('Вкажи імʼя і email', 'error'); return; }
+    apiCall('createUser', { name: name, email: email, role: document.getElementById('f_urole').value, active: true }).then(function (res) {
+      STATE.db.users.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Користувача додано', 'success');
+    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
+  openModal('Новий користувач', body);
+}
+function downloadText_(filename, text, mime) {
+  var blob = new Blob([text], { type: mime || 'text/plain' });
+  var url = URL.createObjectURL(blob);
+  var a = el('a', { href: url, download: filename });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function downloadBase64_(filename, base64, mime) {
+  var byteChars = atob(base64);
+  var byteNumbers = new Array(byteChars.length);
+  for (var i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+  var blob = new Blob([new Uint8Array(byteNumbers)], { type: mime });
+  var url = URL.createObjectURL(blob);
+  var a = el('a', { href: url, download: filename });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function arrayToCsv_(rows) {
+  if (!rows.length) return '';
+  var headers = Object.keys(rows[0]);
+  function esc_(v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  var lines = [headers.join(',')];
+  rows.forEach(function (r) { lines.push(headers.map(function (h) { return esc_(r[h]); }).join(',')); });
+  return lines.join('\n');
+}
+
+function applyTheme(theme) {
+  STATE.ui.theme = theme;
+  localStorage.setItem('budnex_theme', theme);
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+/* ============================== GLOBAL SEARCH ================================ */
+// Ukrainian is a highly-inflected language, so plain substring matching misses most
+// real matches: a search for "плитка" (nominative) won't find "плитки" (genitive),
+// "плиткою" (instrumental), etc. This isn't full lemmatization, but a lightweight
+// heuristic: for query words longer than ~4 letters, also try shorter stems of that
+// word (dropping the last 1-2 letters, which is where most Ukrainian case endings
+// live) against each word of the field, matched as a prefix in either direction.
+function fuzzyPrep_(raw) {
+  var q = (raw || '').trim().toLowerCase();
+  return q.length >= 2 ? q : '';
+}
+function fuzzyMatch_(fieldVal, q) {
+  if (!q) return true;
+  if (fieldVal == null) return false;
+  var field = String(fieldVal).toLowerCase();
+  if (field.indexOf(q) !== -1) return true;
+  var splitRe = /[^a-zа-яіїєґ0-9]+/i;
+  var qWords = q.split(splitRe).filter(Boolean);
+  var fWords = field.split(splitRe).filter(Boolean);
+  if (!qWords.length) return false;
+  return qWords.every(function (qw) {
+    if (qw.length < 3) return field.indexOf(qw) !== -1;
+    var stems = [qw];
+    if (qw.length > 4) stems.push(qw.slice(0, -1));
+    if (qw.length > 5) stems.push(qw.slice(0, -2));
+    return fWords.some(function (fw) {
+      return stems.some(function (s) { return fw.indexOf(s) === 0 || s.indexOf(fw) === 0; });
+    });
+  });
+}
+function matches_(obj, q, fields) {
+  return fields.some(function (f) { return fuzzyMatch_(obj[f], q); });
+}
+function setupGlobalSearch() {
+  var input = document.getElementById('globalSearch');
+  var results = document.getElementById('searchResults');
+  var PER_TYPE_CAP = 6;
+  input.addEventListener('input', function () {
+    var q = fuzzyPrep_(input.value);
+    if (!q) { results.style.display = 'none'; return; }
+    var hits = [];
+    function collect(list, type, fields, hrefFn) {
+      var found = 0;
+      for (var i = 0; i < list.length && found < PER_TYPE_CAP; i++) {
+        var item = list[i];
+        if (matches_(item, q, fields)) { hits.push({ type: type, label: item.name || item.title || item.id, item: item, hrefFn: hrefFn }); found++; }
+      }
+    }
+    collect(STATE.db.clients, 'Клієнт', ['name','phone','address','id'], function (c) { return '#/clients/' + c.id; });
+    collect(STATE.db.objects, "Об'єкт", ['name','address','id'], function (o) { return '#/objects/' + o.id; });
+    collect(STATE.db.works, 'Робота', ['name','category','subcategory','description','id'], function () { return '#/works'; });
+    collect(STATE.db.partners, 'Бригада', ['name','phone','specialization','id'], function () { return '#/partners'; });
+    collect(STATE.db.materials || [], 'Матеріал', ['name','category','id'], function () { return '#/materials'; });
+    collect(STATE.db.suppliers || [], 'Постачальник', ['name','phone','id'], function () { return '#/materials'; });
+    collect(STATE.db.tasks || [], 'Завдання', ['title','responsible','id'], function (t) { return t.object_id ? '#/objects/' + t.object_id : '#/tasks'; });
+    collect(STATE.db.requests || [], 'Заявка', ['description','address','id'], function () { return '#/requests'; });
+    results.innerHTML = '';
+    if (!hits.length) { results.appendChild(el('div', { class: 'sr-item', style: 'cursor:default;color:var(--muted);' }, ['Нічого не знайдено'])); results.style.display = 'block'; return; }
+    hits.forEach(function (h) {
+      var row = el('div', { class: 'sr-item' }, [el('span', { class: 'sr-type' }, [h.type]), h.label]);
+      row.onclick = function () {
+        if (h.type === 'Робота') { STATE.ui.worksSearchPrefill = h.item.name; STATE.ui.worksCatPrefill = h.item.category; }
+        location.hash = h.hrefFn(h.item); results.style.display = 'none'; input.value = '';
+      };
+      results.appendChild(row);
+    });
+    results.style.display = 'block';
+  });
+  document.addEventListener('click', function (e) { if (!e.target.closest('#searchbox')) results.style.display = 'none'; });
+}
+
+/* ============================== NOTIFICATIONS ================================ */
+function updateBellDot() {
+  var unread = STATE.db.notifications.filter(function (n) { return n.status !== 'read'; }).length;
+  document.getElementById('bellDot').style.display = unread ? 'block' : 'none';
+}
+document.getElementById('bellBtn').addEventListener('click', function () {
+  var body = el('div');
+  var unread = STATE.db.notifications.slice().reverse();
+  if (!unread.length) body.appendChild(el('p', {}, ['Немає сповіщень.']));
+  unread.forEach(function (n) {
+    body.appendChild(el('div', { class: 'card', style: 'margin-bottom:8px;' + (n.status === 'read' ? 'opacity:.55;' : '') }, [
+      el('b', {}, [n.title]), el('div', { class: 'page-sub' }, [n.description || ''])
+    ]));
+  });
+  STATE.db.notifications.forEach(function (n) { if (n.status !== 'read') apiCall('markNotificationRead', { id: n.id }).then(function (res) { n.status = 'read'; }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); });
+  updateBellDot();
+  openModal('Сповіщення', body);
+});
+
+/* ============================== USER / ROLE SWITCHER ====================== */
+function loadCurrentUser_() {
+  try { var raw = localStorage.getItem('budnex_current_user'); if (raw) STATE.currentUser = JSON.parse(raw); } catch (e) {}
+}
+function updateUserChip_() {
+  var btn = document.getElementById('userChipBtn');
+  btn.textContent = STATE.currentUser ? '👤 ' + STATE.currentUser.name + ' · ' + STATE.currentUser.role : '👤 Обрати профіль';
+}
+function openUserSwitcher_() {
+  var body = el('div');
+  if (!STATE.db.users.length) {
+    body.appendChild(el('p', {}, ['Спочатку синхронізуйся — список профілів завантажується з бази.']));
+  } else {
+    body.appendChild(el('p', { class: 'page-sub' }, ['Профіль лише визначає, які розділи видно в меню (розмежування обовʼязків), а не реальний логін.']));
+    STATE.db.users.forEach(function (u) {
+      var row = el('div', { class: 'card', style: 'margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;' + (STATE.currentUser && STATE.currentUser.id === u.id ? 'border-color:var(--accent);' : '') }, [
+        el('div', {}, [el('b', {}, [u.name]), el('div', { class: 'page-sub' }, [u.email + ' · ' + u.role])])
+      ]);
+      row.onclick = function () {
+        STATE.currentUser = u;
+        localStorage.setItem('budnex_current_user', JSON.stringify(u));
+        updateUserChip_(); buildSidebar(); closeModal(); renderRoute();
+        toast('Активний профіль: ' + u.name, 'success');
+      };
+      body.appendChild(row);
+    });
+  }
+  openModal('Обрати профіль (роль)', body);
+}
+
+/* ============================== INITIALIZATION ================================ */
+function initApp() {
+  applyTheme(STATE.ui.theme);
+  loadCurrentUser_();
+  updateUserChip_();
+  buildSidebar();
+  setupGlobalSearch();
+  document.getElementById('syncBtn').addEventListener('click', syncAll);
+  document.getElementById('retryConnBtn').addEventListener('click', syncAll);
+  document.getElementById('themeBtn').addEventListener('click', function () { applyTheme(STATE.ui.theme === 'dark' ? 'light' : 'dark'); });
+  document.getElementById('userChipBtn').addEventListener('click', openUserSwitcher_);
+
+  var hadCache = Storage.loadCache();
+  if (hadCache) renderRoute();
+  syncAll();
+}
+
+function boot() {
+  if (!CONFIG.API_URL) {
+    document.getElementById('setupScreen').style.display = 'flex';
+    document.getElementById('setupConnectBtn').addEventListener('click', function () {
+      var url = document.getElementById('setupUrl').value.trim();
+      var errEl = document.getElementById('setupError');
+      if (!url) { errEl.textContent = 'Встав URL Apps Script Web App.'; errEl.style.display = 'block'; return; }
+      CONFIG.API_URL = url;
+      apiCall('ping', {}).then(function () {
+        localStorage.setItem('budnex_api_url', url);
+        document.getElementById('setupScreen').style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
+        initApp();
+      }).catch(function (e) {
+        errEl.textContent = 'Не вдалося підключитися: ' + e.message + '. Перевір URL і що доступ надано "Anyone".';
+        errEl.style.display = 'block';
+      });
+    });
+    return;
+  }
+  document.getElementById('app').style.display = 'flex';
+  initApp();
+  if (!location.hash) location.hash = '#/dashboard';
+}
+
+boot();
+</script>
+</body>
+</html>
