@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -142,6 +142,66 @@ table.dt tbody tr:hover{background:var(--panel2);cursor:pointer;}
 .empty-state{text-align:center;padding:50px 20px;color:var(--muted);}
 .empty-state .btn{margin-top:14px;}
 
+/* ---------- ЕТАП 9: автоматизація кошторису ---------- */
+.modal.wide{width:1100px;}
+.v9-mb{margin-bottom:14px;}
+.v9-bar{background:var(--panel);border:1px solid var(--gold);border-radius:var(--radius);padding:12px 14px;margin:10px 0 14px;}
+.v9-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.v9-in{padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:13px;max-width:100%;}
+.v9-in:focus{outline:none;border-color:var(--gold);}
+.v9-in.v9-saved{border-color:var(--green);box-shadow:0 0 0 2px rgba(62,207,94,.25);}
+textarea.v9-in{resize:vertical;}
+.v9-hero textarea{flex:1;min-width:240px;}
+.v9-chip{display:inline-block;padding:5px 11px;border-radius:14px;border:1px solid var(--border);background:var(--panel2);font-size:12px;cursor:pointer;margin:0 6px 6px 0;user-select:none;}
+.v9-chip:hover{border-color:var(--gold);color:var(--gold);}
+table.v9t{width:100%;border-collapse:collapse;font-size:13px;}
+table.v9t th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);padding:6px;border-bottom:2px solid var(--border);white-space:nowrap;}
+table.v9t td{padding:6px;border-bottom:1px solid var(--border);vertical-align:top;}
+table.v9t td.num{text-align:right;white-space:nowrap;}
+table.v9-edit td{padding:4px;}
+tr.v9-stage td{background:var(--panel2);font-weight:800;color:var(--gold);font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
+tr.v9-off td{opacity:.45;}
+.v9-reason{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35;}
+.v9-q{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin-bottom:6px;border-radius:8px;background:var(--panel2);border-left:3px solid var(--border);}
+.v9-q.req{border-left-color:var(--red);}
+.v9-note{font-size:12.5px;padding:6px 10px;border-radius:7px;background:var(--panel2);margin-bottom:5px;}
+.v9-note.gold{border-left:3px solid var(--gold);}
+.v9-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;}
+.v9-totals>div{background:var(--panel2);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:3px;}
+.v9-totals span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+.v9-totals b{font-size:16px;}
+.v9-apply{border-color:var(--gold);}
+.v9-issue{display:flex;gap:10px;padding:9px 11px;border-radius:8px;margin-bottom:6px;background:var(--panel2);align-items:center;border-left:4px solid var(--border);}
+.v9-issue.error{border-left-color:var(--red);}
+.v9-issue.warn{border-left-color:var(--gold);}
+.v9-issue.info{border-left-color:var(--blue);}
+.v9-issue.ok{border-left-color:var(--green);}
+.v9-pick{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;}
+.v9-pick:hover,.v9-pick.on{background:var(--panel2);}
+.v9-pick.on{box-shadow:inset 3px 0 0 var(--gold);}
+.v9-check{display:inline-flex;gap:6px;align-items:center;cursor:pointer;font-size:13px;margin:4px 12px 4px 0;}
+.v9-split{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start;}
+.v9-help{font-size:12px;color:var(--muted);line-height:1.6;background:var(--panel2);border-radius:8px;padding:10px 12px;}
+.v9-help code{background:var(--panel);padding:1px 5px;border-radius:4px;color:var(--gold);}
+.v9-set-group{border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;}
+.v9-set-group summary{cursor:pointer;font-weight:700;padding:4px 0;}
+.v9-set-group[open] summary{margin-bottom:8px;}
+.v9-span2{grid-column:1/-1;}
+.v9-logo-prev img{max-height:44px;max-width:200px;background:#000;padding:6px;border-radius:6px;}
+#v9DocOverlay{position:fixed;inset:0;z-index:250;background:var(--bg);display:flex;flex-direction:column;}
+.v9-doc-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:2px solid var(--gold);background:var(--panel);}
+.v9-doc-top .spacer{flex:1;}
+.v9-doc-body{flex:1;display:flex;min-height:0;}
+.v9-doc-side{width:380px;overflow-y:auto;padding:14px;border-right:1px solid var(--border);background:var(--panel);}
+.v9-doc-side .v9-in,.v9-doc-side textarea{width:100%;}
+.v9-doc-frame{flex:1;border:0;background:#e9e9e9;min-width:0;}
+@media(max-width:900px){
+  .v9-split{grid-template-columns:1fr;}
+  .v9-doc-body{flex-direction:column;}
+  .v9-doc-side{width:auto;max-height:42vh;border-right:0;border-bottom:1px solid var(--border);}
+  .v9-doc-frame{min-height:55vh;}
+}
+
 @media(max-width:800px){
   #sidebar{position:fixed;left:-220px;top:56px;bottom:0;z-index:100;transition:left .2s;}
   #sidebar.open{left:0;}
@@ -212,13 +272,15 @@ var STATE = {
   db: { settings:{}, clients:[], requests:[], objects:[], works:[], categories:[], estimates:[],
         estimateItems:[], partners:[], teams:[], assignments:[], payments:[], expenses:[], tasks:[], notifications:[],
         projects:[], projectRooms:[], projectWalls:[], projectOpenings:[], projectElements:[], boq:[], projectMaterials:[],
-        materials:[], suppliers:[], packages:[], packageItems:[], photos:[], documents:[], users:[], roles:[] },
+        materials:[], suppliers:[], packages:[], packageItems:[], photos:[], documents:[], users:[], roles:[],
+        workTemplates:[], templateItems:[], workMaterials:[], checkRules:[], priceUpdates:[], v9:null },
   ui: { theme: localStorage.getItem('budnex_theme') || 'dark', priceView: 'internal' },
   currentUser: null
 };
 
 var NAV = [
   { id:'dashboard', label:'Дашборд', icon:'📊', roles:null },
+  { id:'auto', label:'Авто-кошторис', icon:'⚡', roles:['ADMIN','MANAGER','ESTIMATOR'] },
   { id:'clients', label:'Клієнти', icon:'👤', roles:null },
   { id:'requests', label:'Заявки', icon:'📥', roles:null },
   { id:'objects', label:"Об'єкти", icon:'🏗️', roles:null },
@@ -226,6 +288,8 @@ var NAV = [
   { id:'estimates', label:'Кошториси', icon:'🧾', roles:['ADMIN','MANAGER','ESTIMATOR'] },
   { id:'partners', label:'Бригади', icon:'👷', roles:null },
   { id:'materials', label:'Матеріали і пакети', icon:'📦', roles:['ADMIN','MANAGER','ESTIMATOR'] },
+  { id:'catalogs', label:'Шаблони і норми', icon:'🧩', roles:['ADMIN','ESTIMATOR'] },
+  { id:'prices', label:'Актуалізація цін', icon:'🔎', roles:['ADMIN','MANAGER','ESTIMATOR'] },
   { id:'finance', label:'Фінанси', icon:'💰', roles:['ADMIN','MANAGER','ACCOUNTANT'] },
   { id:'calendar', label:'Календар', icon:'📅', roles:null },
   { id:'tasks', label:'Завдання', icon:'✅', roles:null },
@@ -290,7 +354,11 @@ var MUTATIONS = ['createClient','updateClient','deleteClient','createRequest','u
   'createPackage','updatePackage','deletePackage','addPackageItem','deletePackageItem','addPackageToEstimate',
   'uploadPhoto','deletePhoto',
   'createUser','updateUser','deleteUser','loginAs',
-  'aiGenerateRooms'];
+  'aiGenerateRooms',
+  // ЕТАП 9 — прості зміни довідників/кошторису; важкі дії (автокошторис, затвердження,
+  // застосування ціни) навмисно не ставляться в чергу: їх результат потрібен одразу.
+  'createV9Row','updateV9Row','deleteV9Row','updateWorksBatch','setEstimateVars','confirmEstimateItem',
+  'saveEstimateDoc','rejectPriceUpdate','reopenEstimate','v9SetItemQty','v9DeleteEstimateItem'];
 
 /* ================================ API ==================================== */
 function apiCall(action, data) {
@@ -301,10 +369,12 @@ function apiCall(action, data) {
     body: JSON.stringify({ action: action, data: data || {} })
   }).then(function (res) { return res.json(); })
     .then(function (json) {
-      if (!json.success) throw new Error(json.error || 'Невідома помилка сервера');
       setOnline_(true);
+      if (!json.success) { var se = new Error(json.error || 'Невідома помилка сервера'); se.serverError = true; throw se; }
       return json.data;
     }).catch(function (err) {
+      // сервер відповів помилкою (напр. «Вкажи клієнта») — база онлайн, повторювати немає сенсу
+      if (err.serverError) throw err;
       setOnline_(false);
       if (MUTATIONS.indexOf(action) !== -1) {
         Storage.queue.push(action, data);
@@ -353,7 +423,9 @@ function syncAll() {
       projectOpenings: data.projectOpenings || [], projectElements: data.projectElements || [], boq: data.boq || [],
       projectMaterials: data.projectMaterials || [], materials: data.materials || [], suppliers: data.suppliers || [],
       packages: data.packages || [], packageItems: data.packageItems || [], photos: data.photos || [],
-      documents: data.documents || [], users: data.users || [], roles: data.roles || []
+      documents: data.documents || [], users: data.users || [], roles: data.roles || [],
+      workTemplates: data.workTemplates || [], templateItems: data.templateItems || [], workMaterials: data.workMaterials || [],
+      checkRules: data.checkRules || [], priceUpdates: data.priceUpdates || [], v9: data.v9 || null
     };
     STATE.lastSync = new Date();
     Storage.saveCache();
@@ -395,6 +467,7 @@ function toast(msg, type) {
 function openModal(title, bodyEl, opts) {
   var box = document.getElementById('modalBox');
   box.innerHTML = '';
+  box.classList.toggle('wide', !!(opts && opts.wide));
   box.appendChild(el('h3', {}, [title]));
   box.appendChild(bodyEl);
   document.getElementById('modalOverlay').classList.add('open');
@@ -443,7 +516,9 @@ function renderRoute() {
     requests: renderRequests, objects: function () { renderObjects(main, param); },
     works: renderWorks, estimates: function () { renderEstimatesList(main, param); },
     partners: renderPartners, materials: renderMaterialsPage, finance: renderFinance,
-    calendar: renderCalendar, tasks: renderTasks, analytics: renderAnalytics, settings: renderSettings
+    calendar: renderCalendar, tasks: renderTasks, analytics: renderAnalytics, settings: renderSettings,
+    auto: function () { V9.renderAutoPage(main, param ? decodeURIComponent(param) : undefined); },
+    catalogs: function () { V9.renderCatalogsPage(main); }, prices: function () { V9.renderPricesPage(main); }
   };
   var navItem = NAV.filter(function (n) { return n.id === page; })[0];
   if (navItem && !roleAllows_(navItem)) {
@@ -474,6 +549,7 @@ function buildSidebar() {
 function renderDashboard(main) {
   var db = STATE.db;
   if (db.clients.length === 0) {
+    V9.dashboardHero(main);
     main.appendChild(el('div', { class: 'empty-state' }, [
       el('div', { style: 'font-size:40px;' }, ['🏗️']),
       el('h3', {}, ['База поки порожня']),
@@ -485,6 +561,7 @@ function renderDashboard(main) {
 
   main.appendChild(el('div', { class: 'page-title' }, ["Дашборд"]));
   main.appendChild(el('div', { class: 'page-sub' }, [new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' })]));
+  V9.dashboardHero(main);
 
   // requests KPI
   var reqByStatus = groupCount_(db.requests, 'status');
@@ -936,7 +1013,8 @@ function renderObjectEstimateTab(container, o) {
           }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
         };
         return b;
-      })()
+      })(),
+      V9.objectEstimateButtons(o)
     ]));
     return;
   }
@@ -947,9 +1025,13 @@ function renderEstimateEditor(container, estimate) {
   var settings = STATE.db.settings;
   var minMargin = Number(settings.min_margin) || 15;
   var targetMargin = Number(settings.target_margin) || 25;
-  var items = STATE.db.estimateItems.filter(function (it) { return it.estimate_id === estimate.id; });
+  var items = STATE.db.estimateItems.filter(function (it) { return it.estimate_id === estimate.id; })
+    .map(function (it, i) { return { it: it, i: i }; })
+    .sort(function (a, b) { var sa = Number(a.it.sort) || 0, sb = Number(b.it.sort) || 0; return sa !== sb ? sa - sb : a.i - b.i; })
+    .map(function (x) { return x.it; });
 
   container.appendChild(el('div', { class: 'page-sub' }, ['Кошторис ' + estimate.id + ' · версія ' + estimate.version + ' · статус: ' + estimate.status]));
+  container.appendChild(V9.estimateBar(estimate));
 
   if (Number(estimate.margin) < minMargin) {
     container.appendChild(el('div', { class: 'margin-warn' }, ['⚠ УВАГА: маржа (' + Number(estimate.margin).toFixed(1) + '%) нижче встановленого мінімуму (' + minMargin + '%). Цільова маржа: ' + targetMargin + '%.']));
@@ -974,7 +1056,7 @@ function renderEstimateEditor(container, estimate) {
   var tbody = el('tbody');
   items.forEach(function (it) {
     var tr = el('tr', {}, [
-      el('td', {}, [it.name]), el('td', {}, [it.unit]),
+      el('td', {}, [it.name, V9.itemTags(it)]), el('td', {}, [it.unit]),
       el('td', {}, [inlineNumInput_(it.quantity, function (val) { updateEstimateItem_(it.id, { quantity: val }); })]),
       el('td', {}, [fmtMoney(it.contractor_price)]),
       el('td', {}, [it.markup_type === 'percent' ? '+' + it.markup_value + '%' : (it.markup_type === 'manual' ? 'вручну' : '+' + fmtMoney(it.markup_value))]),
@@ -1288,6 +1370,7 @@ var PLANNER_LAYER_COLORS = { electrical: '#F2C200', plumbing: '#3B82F6', heating
 var PLANNER_LAYER_LABELS = { electrical: 'Електрика', plumbing: 'Сантехніка', heating: 'Опалення', ventilation: 'Вентиляція' };
 
 function renderObjectPlanningTab(container, o) {
+  container.appendChild(V9.planningBar(o));
   var project = STATE.db.projects.filter(function (p) { return p.object_id === o.id; })[0];
   if (!project) {
     container.appendChild(el('div', { class: 'empty-state' }, [
@@ -1724,6 +1807,7 @@ function renderWorks(main) {
   var csvBtn = el('button', { class: 'btn' }, ['⬇ CSV']);
   csvBtn.onclick = function () { downloadText_('BUDNEX_прайс.csv', arrayToCsv_(STATE.db.works), 'text/csv;charset=utf-8'); };
   toolbar.appendChild(csvBtn);
+  V9.worksButtons().forEach(function (b) { toolbar.appendChild(b); });
   var addBtn = el('button', { class: 'btn primary' }, ['+ Нова робота']); addBtn.onclick = function () { openWorkForm(); };
   toolbar.appendChild(addBtn);
   main.appendChild(toolbar);
@@ -1789,35 +1873,72 @@ function renderWorks(main) {
 function openWorkForm(existing) {
   var w = existing || {};
   var body = el('div');
-  body.appendChild(formField('Категорія *', '<input id="f_cat" value="' + esc(w.category || '') + '" list="catlist">'));
+  function inp(id, val, extra) { return '<input id="' + id + '" value="' + esc(val == null ? '' : val) + '"' + (extra || '') + '>'; }
+  var PM = [['labor', 'тільки робота'], ['labor_material', 'робота + матеріал'], ['material', 'матеріал окремо'], ['service', 'послуга']];
+  var grid1 = el('div', { class: 'form-grid-2' });
+  grid1.appendChild(formField('Категорія *', inp('f_cat', w.category, ' list="catlist"')));
+  grid1.appendChild(formField('Підкатегорія', inp('f_subcat', w.subcategory)));
+  body.appendChild(grid1);
   var dl = el('datalist', { id: 'catlist' });
   STATE.db.categories.forEach(function (c) { dl.appendChild(el('option', { value: c.name })); });
   body.appendChild(dl);
-  body.appendChild(formField('Підкатегорія', '<input id="f_subcat" value="' + esc(w.subcategory || '') + '">'));
-  body.appendChild(formField('Назва роботи *', '<input id="f_name" value="' + esc(w.name || '') + '">'));
-  body.appendChild(formField('Одиниця', '<input id="f_unit" value="' + esc(w.unit || 'м²') + '">'));
-  body.appendChild(formField('Ціна виконавця, грн *', '<input type="number" id="f_price" value="' + esc(w.contractor_price || '') + '">'));
-  body.appendChild(formField('Тип націнки', '<select id="f_mtype"><option value="percent"' + (w.default_markup_type==='percent'?' selected':'') + '>Відсоток</option><option value="fixed"' + (w.default_markup_type==='fixed'?' selected':'') + '>Фіксована сума</option></select>'));
-  body.appendChild(formField('Націнка (% або грн)', '<input type="number" id="f_mval" value="' + esc(w.default_markup != null ? w.default_markup : 25) + '">'));
-  body.appendChild(formField('Матеріали, грн (собівартість)', '<input type="number" id="f_matcost" value="' + esc(w.material_cost != null ? w.material_cost : '') + '">'));
-  body.appendChild(formField('Праця, грн (собівартість)', '<input type="number" id="f_laborcost" value="' + esc(w.labor_cost != null ? w.labor_cost : '') + '">'));
-  body.appendChild(formField('Норма (напр. м²/люд-день)', '<input id="f_norm" value="' + esc(w.norm || '') + '">'));
+  body.appendChild(formField('Назва роботи *', inp('f_name', w.name)));
+  body.appendChild(formField('Назва для клієнта (у документі; порожньо = як у прайсі)', inp('f_clname', w.client_name)));
+  var grid2 = el('div', { class: 'form-grid-2' });
+  grid2.appendChild(formField('Одиниця', inp('f_unit', w.unit || 'м²')));
+  grid2.appendChild(formField('Ціна виконавця, грн *', inp('f_price', w.contractor_price, ' type="number" step="any"')));
+  grid2.appendChild(formField('Тип націнки', '<select id="f_mtype"><option value="percent"' + (w.default_markup_type !== 'fixed' ? ' selected' : '') + '>Відсоток</option><option value="fixed"' + (w.default_markup_type === 'fixed' ? ' selected' : '') + '>Фіксована сума</option></select>'));
+  grid2.appendChild(formField('Націнка (% або грн)', inp('f_mval', w.default_markup != null ? w.default_markup : 25, ' type="number" step="any"')));
+  body.appendChild(grid2);
+  var clientPrev = el('div', { class: 'v9-note gold', style: 'margin-bottom:12px;' });
+  body.appendChild(clientPrev);
+
+  body.appendChild(el('div', { class: 'chart-title' }, ['Що входить у ціну']));
+  var grid3 = el('div', { class: 'form-grid-2' });
+  grid3.appendChild(formField('Режим ціни', '<select id="f_pm">' + PM.map(function (o) { return '<option value="' + o[0] + '"' + ((w.pricing_mode || 'labor') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'));
+  grid3.appendChild(formField('Риштування', inp('f_isc', w.includes_scaffolding, ' list="incList"')));
+  grid3.appendChild(formField('Техніка / обладнання', inp('f_ieq', w.includes_equipment, ' list="incList"')));
+  grid3.appendChild(formField('Доставка', inp('f_idl', w.includes_delivery, ' list="incList"')));
+  grid3.appendChild(formField('Вивезення сміття', inp('f_ids', w.includes_disposal, ' list="incList"')));
+  grid3.appendChild(formField('Інші витрати (примітка)', inp('f_extra', w.extra_costs_note)));
+  body.appendChild(grid3);
+  var il = el('datalist', { id: 'incList' });
+  ['так', 'ні — окремо', 'ні — окремою позицією', 'так (обладнання бригади)', 'ручний інструмент — так; спецтехніка — ні', 'ні — вивезення окремо', 'н/з'].forEach(function (v) { il.appendChild(el('option', { value: v })); });
+  body.appendChild(il);
+
+  var grid4 = el('div', { class: 'form-grid-2' });
+  grid4.appendChild(formField('Матеріали, грн (собівартість)', inp('f_matcost', w.material_cost != null ? w.material_cost : '', ' type="number" step="any"')));
+  grid4.appendChild(formField('Праця, грн (собівартість)', inp('f_laborcost', w.labor_cost != null ? w.labor_cost : '', ' type="number" step="any"')));
+  grid4.appendChild(formField('Норма (напр. м²/люд-день)', inp('f_norm', w.norm)));
+  body.appendChild(grid4);
   body.appendChild(formField('Опис / примітки', '<textarea id="f_desc" rows="2">' + esc(w.description || '') + '</textarea>'));
+  if (existing) {
+    body.appendChild(el('div', { class: 'v9-note' }, ['Ринок: ' + (w.market_min || w.market_max ? fmtNum(w.market_min) + '–' + fmtNum(w.market_max) + ' грн' : 'не перевірялось') +
+      ' · джерело ціни: ' + (w.price_source || '—') + (w.price_checked_at ? ' · перевірено ' + fmtDate(w.price_checked_at) : '')]));
+  }
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  actions.appendChild(cancel);
+  if (existing) {
+    var chk = el('button', { class: 'btn' }, ['🔎 Перевірити ціну']);
+    chk.onclick = function () { closeModal(); STATE.ui.v9PriceType = 'work'; STATE.ui.v9PriceSel = {}; STATE.ui.v9PriceSel[existing.id] = true; location.hash = '#/prices'; };
+    actions.appendChild(chk);
+  }
   var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
   save.onclick = function () {
+    function g(id) { return document.getElementById(id).value; }
     var data = {
-      category: document.getElementById('f_cat').value.trim(), subcategory: document.getElementById('f_subcat').value.trim(),
-      name: document.getElementById('f_name').value.trim(),
-      unit: document.getElementById('f_unit').value.trim(), contractor_price: Number(document.getElementById('f_price').value) || 0,
-      default_markup_type: document.getElementById('f_mtype').value, default_markup: Number(document.getElementById('f_mval').value) || 0,
-      material_cost: Number(document.getElementById('f_matcost').value) || 0, labor_cost: Number(document.getElementById('f_laborcost').value) || 0,
-      norm: document.getElementById('f_norm').value.trim(), description: document.getElementById('f_desc').value.trim(), active: true
+      category: g('f_cat').trim(), subcategory: g('f_subcat').trim(), name: g('f_name').trim(), client_name: g('f_clname').trim(),
+      unit: g('f_unit').trim(), contractor_price: Number(g('f_price')) || 0,
+      default_markup_type: g('f_mtype'), default_markup: Number(g('f_mval')) || 0,
+      pricing_mode: g('f_pm'), includes_scaffolding: g('f_isc').trim(), includes_equipment: g('f_ieq').trim(),
+      includes_delivery: g('f_idl').trim(), includes_disposal: g('f_ids').trim(), extra_costs_note: g('f_extra').trim(),
+      material_cost: Number(g('f_matcost')) || 0, labor_cost: Number(g('f_laborcost')) || 0,
+      norm: g('f_norm').trim(), description: g('f_desc').trim(), active: true
     };
     if (!data.name || !data.category) { toast('Заповни категорію і назву', 'error'); return; }
     var action = existing ? 'updateWork' : 'createWork';
-    if (existing) data.id = existing.id;
+    if (existing) data.id = existing.id; else data.price_source = 'Внесено вручну';
     apiCall(action, data).then(function (res) {
       if (existing) { var i = STATE.db.works.findIndex(function(x){return x.id===existing.id;}); STATE.db.works[i] = res; }
       else STATE.db.works.push(res);
@@ -1825,9 +1946,17 @@ function openWorkForm(existing) {
       Storage.saveCache(); closeModal(); toast('Збережено', 'success'); renderRoute();
     }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
   };
-  actions.appendChild(cancel); actions.appendChild(save);
+  actions.appendChild(save);
   body.appendChild(actions);
-  openModal(existing ? 'Редагувати роботу' : 'Нова робота', body);
+  openModal(existing ? 'Редагувати роботу' : 'Нова робота', body, { wide: true });
+  function upd() {
+    var p = Number(document.getElementById('f_price').value) || 0, mv = Number(document.getElementById('f_mval').value) || 0;
+    var cl = document.getElementById('f_mtype').value === 'percent' ? p * (1 + mv / 100) : p + mv;
+    clientPrev.textContent = 'Ціна для клієнта: ' + fmtMoney(cl) + ' / ' + (document.getElementById('f_unit').value || '') +
+      (p ? ' · частка BUDNEX у ціні клієнту ' + ((cl - p) / (cl || 1) * 100).toFixed(1) + '%' : '');
+  }
+  ['f_price', 'f_mval', 'f_mtype', 'f_unit'].forEach(function (id) { var x = document.getElementById(id); x.addEventListener('input', upd); x.addEventListener('change', upd); });
+  upd();
 }
 
 /* ============================== ESTIMATES LIST ============================= */
@@ -1848,7 +1977,7 @@ function renderEstimatesList(main) {
     var marginBadge = el('span', { class: 'badge ' + (Number(e.margin) < minMargin ? 'red' : 'green') }, [Number(e.margin).toFixed(1) + '%']);
     var tr = el('tr', {}, [
       el('td', {}, [e.id]), el('td', {}, [o ? o.name : e.object_id]), el('td', {}, [c ? c.name : e.client_id]),
-      el('td', {}, [el('span', { class: 'badge gray' }, [e.status])]),
+      el('td', {}, [V9.estimateStatusBadge(e)]),
       el('td', {}, [fmtMoney(e.contractor_total)]), el('td', {}, [fmtMoney(e.client_total)]), el('td', {}, [fmtMoney(e.profit)]),
       el('td', {}, [marginBadge])
     ]);
@@ -2309,6 +2438,9 @@ function renderSettings(main) {
   };
   main.appendChild(saveBtn);
 
+  // ---- ЕТАП 9: налаштування автоматизації (документ, логістика, коефіцієнти, контроль, AI) ----
+  var v9Settings = el('div'); main.appendChild(v9Settings); V9.renderSettingsV9(v9Settings);
+
   // ---- users / roles (ЕТАП 8, TZ 65) ----
   var usersCard = el('div', { class: 'card', style: 'margin-top:20px;' }, [el('h4', { style: 'margin-top:0;' }, ['Користувачі та ролі'])]);
   var addUserBtn = el('button', { class: 'btn small primary' }, ['+ Користувач']);
@@ -2511,6 +2643,1619 @@ function openUserSwitcher_() {
   }
   openModal('Обрати профіль (роль)', body);
 }
+
+/* ============================================================================
+   ЕТАП 9: АВТОМАТИЗАЦІЯ КОШТОРИСУ
+   Опис / план → роботи → обсяги → матеріали → прайс + націнка → логістика →
+   автоматична перевірка → документ клієнту. Бекенд: блок «ЕТАП 9» у Code.gs.
+   Використовує стандартні хелпери BUDNEX (toast, openModal, fmtMoney, …).
+   ============================================================================ */
+var V9 = (function () {
+var V9 = { wiz: null };
+
+// el() зі стійкістю до чисел і вкладених масивів (стандартний el приймає лише рядки/вузли)
+function el(tag, attrs, children) {
+  var n = document.createElement(tag);
+  attrs = attrs || {};
+  for (var k in attrs) {
+    if (attrs[k] === null || attrs[k] === undefined) continue;
+    if (k === 'class') n.className = attrs[k];
+    else if (k === 'style') n.style.cssText = attrs[k];
+    else n.setAttribute(k, attrs[k]);
+  }
+  (children || []).forEach(function add(c) {
+    if (c === null || c === undefined || c === false || c === '') return;
+    if (Array.isArray(c)) { c.forEach(add); return; }
+    n.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c)));
+  });
+  return n;
+}
+function db_(k) { if (!Array.isArray(STATE.db[k])) STATE.db[k] = []; return STATE.db[k]; }
+function yes_(v) { var s = String(v == null ? '' : v).trim().toLowerCase(); return s === 'так' || s === 'true' || s === '1' || s === 'yes' || s === 'on'; }
+function num_(v, d) { if (v === '' || v === null || v === undefined) return d; var n = Number(String(v).replace(',', '.')); return isNaN(n) ? d : n; }
+function btn_(label, cls, fn, title) { var b = el('button', { class: 'btn ' + (cls || ''), type: 'button' }, [label]); if (title) b.title = title; b.onclick = fn; return b; }
+function errToast_(e) { toast('Помилка: ' + (e && e.message || e), 'error'); }
+function upsert_(key, row) {
+  if (!row || !row.id) return row;
+  var arr = db_(key);
+  for (var i = 0; i < arr.length; i++) if (arr[i].id === row.id) { arr[i] = row; return row; }
+  arr.push(row); return row;
+}
+function removeById_(key, id) { var arr = db_(key); for (var i = arr.length - 1; i >= 0; i--) if (arr[i].id === id) arr.splice(i, 1); }
+function busy_(b, text) { var old = b.textContent; b.disabled = true; b.textContent = text || '⏳ Зачекай...'; return function () { b.disabled = false; b.textContent = old; }; }
+function input_(attrs) { var a = attrs || {}; a.class = 'v9-in ' + (a.class || ''); return el('input', a); }
+function select_(options, value, attrs) {
+  var s = el('select', Object.assign({ class: 'v9-in' }, attrs || {}));
+  options.forEach(function (o) {
+    var val = Array.isArray(o) ? o[0] : o, lab = Array.isArray(o) ? o[1] : o;
+    var opt = el('option', { value: val }, [lab]);
+    if (String(val) === String(value == null ? '' : value)) opt.selected = true;
+    s.appendChild(opt);
+  });
+  return s;
+}
+function money2_(n) { return (Number(n) || 0).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function parseJson_(s, d) { try { return s ? JSON.parse(s) : d; } catch (e) { return d; } }
+function saveCache_() { Storage.saveCache(); }
+function settings_() { return STATE.db.settings || {}; }
+function card_(title) { var c = el('div', { class: 'card v9-mb' }); if (title) c.appendChild(el('div', { class: 'chart-title' }, [title])); return c; }
+function v9Ready_() { return !!STATE.db.v9; }
+function v9Missing_() {
+  return el('div', { class: 'margin-warn' }, ['⚠ Бекенд етапу 9 ще не активовано. У Apps Script один раз запусти setupAutomation(), опублікуй нову версію (Deploy → Manage deployments → Edit → New version) і натисни «Синхронізувати».']);
+}
+function varLabel_(k) { var L = (STATE.db.v9 && STATE.db.v9.varLabels) || {}; return L[k] || k; }
+function latestEstimate_(objectId) {
+  return db_('estimates').filter(function (e) { return e.object_id === objectId; })
+    .sort(function (a, b) { return (Number(b.version) || 0) - (Number(a.version) || 0); })[0];
+}
+V9.sync = function () { return Promise.resolve(syncAll()); };
+V9.rerender = function () { renderRoute(); };
+
+/* ---------------- точки вбудовування в наявні сторінки ---------------- */
+V9.dashboardHero = function (main) {
+  var hero = el('div', { class: 'card v9-mb', style: 'border-color:var(--gold);' });
+  hero.appendChild(el('div', { class: 'chart-title' }, ['⚡ Новий кошторис за описом']));
+  var ta = el('textarea', { class: 'v9-in', rows: '2', placeholder: 'Напр.: «чорновий фасад будинку 10×12, 2 поверхи, 12 вікон, пінопласт 100 мм, Калуш»' });
+  var go = btn_('Розрахувати →', 'primary', function () {
+    if (!ta.value.trim()) { toast('Опиши обʼєкт або роботи', 'error'); return; }
+    V9.newWiz('', ta.value.trim(), true);
+    location.hash = '#/auto';
+  });
+  ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) go.click(); });
+  hero.appendChild(el('div', { class: 'v9-row v9-hero' }, [ta, go]));
+  hero.appendChild(el('div', { class: 'page-sub', style: 'margin:6px 0 0;' }, ['BUDNEX визначить роботи, обсяги, матеріали, логістику і перевірить кошторис. Чого бракує — спитає коротко.']));
+  main.appendChild(hero);
+};
+V9.objectEstimateButtons = function (o) {
+  return el('div', { style: 'margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;' }, [
+    btn_('⚡ Автокошторис за описом', 'primary', function () { V9.newWiz(o.id, ''); location.hash = '#/auto/' + o.id; }),
+    btn_('📐 Завантажити план / креслення', '', function () { V9.openPlanUpload(o.id); })
+  ]);
+};
+V9.planningBar = function (o) {
+  return el('div', { class: 'v9-bar' }, [el('div', { class: 'v9-row' }, [
+    el('b', {}, ['📐 План / креслення']),
+    el('span', { class: 'page-sub', style: 'margin:0;' }, ['Завантаж план — BUDNEX визначить приміщення, розміри, вікна й двері й спитає лише, які роботи виконувати.']),
+    el('div', { class: 'spacer' }),
+    btn_('Завантажити план', 'primary small', function () { V9.openPlanUpload(o.id); }),
+    btn_('⚡ Роботи за планом', 'small', function () { V9.newWiz(o.id, ''); location.hash = '#/auto/' + o.id; })
+  ])]);
+};
+V9.worksButtons = function () {
+  return [btn_('🔎 Актуалізація цін', '', function () { location.hash = '#/prices'; }),
+          btn_('🧩 Що входить у ціну', '', function () { STATE.ui.v9CatTab = 'pricemeta'; location.hash = '#/catalogs'; })];
+};
+// позначки у рядку кошторису: розділ, матеріал, сумнівно, AI
+V9.itemTags = function (it) {
+  var tags = [];
+  if (it.item_type === 'material') tags.push(el('span', { class: 'badge blue' }, ['матеріал']));
+  if (it.flag === 'doubtful') tags.push(el('span', { class: 'badge gold' }, ['⚠ сумнівно']));
+  if (it.source === 'ai') tags.push(el('span', { class: 'badge gray' }, ['AI']));
+  if (it.section) tags.push(el('span', { class: 'v9-reason', style: 'display:inline;' }, [it.section]));
+  return tags.length ? el('div', { style: 'margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;' }, tags) : null;
+};
+V9.estimateStatusBadge = function (e) {
+  if (e.status === 'final') return el('span', { class: 'badge green' }, ['🔒 затверджено']);
+  var cs = e.check_status;
+  return el('span', { class: 'badge ' + (cs === 'ok' ? 'green' : cs === 'warnings' ? 'gold' : cs === 'errors' ? 'red' : 'gray') },
+    [e.status + (cs ? ' · ' + (cs === 'ok' ? 'перевірено' : cs === 'warnings' ? 'попередження' : 'помилки') : '')]);
+};
+
+/* =================== ПУНКТИ 2–3: АВТОКОШТОРИС ЗА ОПИСОМ =================== */
+var SCOPE_EXAMPLES = ['чорновий фасад будинку', 'фасад під ключ з декоративкою', 'ванна під ключ 5 м²', 'косметичний ремонт квартири 60 м²',
+  'штукатурка стін', 'стяжка підлоги', 'перекрити дах бітумною черепицею'];
+var OBJECT_TYPES = ['', 'квартира', 'будинок', 'офіс', 'ванна кімната', 'комерційне приміщення', 'інше'];
+var SRC_CLASS = { 'опис': 'green', 'план': 'green', 'відповідь': 'green', 'розрахунок': 'blue', 'оцінка': 'gold', 'налаштування': 'gray' };
+
+V9.newWiz = function (objectId, text, autorun) {
+  V9.wiz = { text: text || '', mode: objectId ? 'object' : 'new', object_id: objectId || '', client_id: '', client_name: '', client_phone: '',
+    object_name: '', city: '', address: '', object_type: '', answers: {}, overrides: {}, extras: [], proposal: null,
+    include_materials: null, autorun: !!autorun, loading: false };
+  return V9.wiz;
+};
+
+V9.renderAutoPage = function (main, param) {
+  var w = V9.wiz;
+  if (!w || (param && w.object_id !== param)) w = V9.newWiz(param || '', w && !param ? w.text : '');
+  main.appendChild(el('div', { class: 'page-title' }, ['⚡ Автоматичний кошторис']));
+  main.appendChild(el('div', { class: 'page-sub' }, ['Опис / план → роботи → обсяги → матеріали → прайс і націнка → логістика → перевірка → документ клієнту.']));
+  if (!v9Ready_()) main.appendChild(v9Missing_());
+
+  var card = el('div', { class: 'card v9-mb', style: 'margin-bottom:14px;' });
+  card.appendChild(el('div', { class: 'chart-title' }, ['1. Що робимо?']));
+  var ta = el('textarea', { class: 'v9-in', rows: '3', style: 'width:100%;',
+    placeholder: 'Напр.: «чорновий фасад будинку 10×12, 2 поверхи, 12 вікон, мінвата 100 мм, 25 км» або «ванна 5 м² з демонтажем плитки»' });
+  ta.value = w.text;
+  ta.oninput = function () { w.text = ta.value; };
+  card.appendChild(ta);
+  var chips = el('div', { style: 'margin-top:8px;' });
+  SCOPE_EXAMPLES.forEach(function (ex) {
+    var c = el('span', { class: 'v9-chip' }, [ex]);
+    c.onclick = function () { ta.value = ta.value ? ta.value.replace(/\s+$/, '') + ', ' + ex : ex; w.text = ta.value; ta.focus(); };
+    chips.appendChild(c);
+  });
+  card.appendChild(chips);
+
+  // ---- target: existing object or a new one (created only on apply) ----
+  card.appendChild(el('div', { class: 'chart-title', style: 'margin-top:14px;' }, ['2. Для кого / де']));
+  var targetWrap = el('div');
+  function drawTarget() {
+    targetWrap.innerHTML = '';
+    var modeSel = select_([['object', 'Існуючий обʼєкт'], ['new', 'Новий клієнт / обʼєкт']], w.mode);
+    modeSel.onchange = function () { w.mode = modeSel.value; w.proposal = null; drawTarget(); drawResult(); };
+    var row = el('div', { class: 'v9-row' }, [modeSel]);
+    if (w.mode === 'object') {
+      var objs = STATE.db.objects.slice().reverse();
+      var opts = [['', '— обери обʼєкт —']].concat(objs.map(function (o) {
+        var c = byId(STATE.db.clients, o.client_id); return [o.id, o.name + (c ? ' · ' + c.name : '')];
+      }));
+      var objSel = select_(opts, w.object_id, { style: 'min-width:320px;' });
+      objSel.onchange = function () { w.object_id = objSel.value; w.proposal = null; drawTarget(); drawResult(); };
+      row.appendChild(objSel);
+      var o = byId(STATE.db.objects, w.object_id);
+      if (o) {
+        var pr = STATE.db.projects.filter(function (p) { return p.id === o.project_id || p.object_id === o.id; })[0];
+        var rooms = pr ? STATE.db.projectRooms.filter(function (r) { return r.project_id === pr.id; }) : [];
+        row.appendChild(el('span', { class: 'page-sub', style: 'margin:0;' }, [
+          (o.object_type || 'тип не вказано') + (o.area ? ' · ' + o.area + ' м²' : '') + (o.city ? ' · ' + o.city : '') +
+          (rooms.length ? ' · план: ' + rooms.length + ' прим.' : ' · плану немає')]));
+      }
+    } else {
+      var cOpts = [['', '+ новий клієнт']].concat(STATE.db.clients.map(function (c) { return [c.id, c.name + (c.phone ? ' · ' + c.phone : '')]; }));
+      var cSel = select_(cOpts, w.client_id);
+      cSel.onchange = function () { w.client_id = cSel.value; drawTarget(); };
+      row.appendChild(cSel);
+      if (!w.client_id) {
+        var cn = input_({ placeholder: 'Імʼя клієнта *', value: w.client_name }); cn.oninput = function () { w.client_name = cn.value; };
+        var cp = input_({ placeholder: 'Телефон', value: w.client_phone }); cp.oninput = function () { w.client_phone = cp.value; };
+        row.appendChild(cn); row.appendChild(cp);
+      }
+      var ct = input_({ placeholder: 'Місто / село', value: w.city }); ct.oninput = function () { w.city = ct.value; };
+      var ad = input_({ placeholder: 'Адреса', value: w.address }); ad.oninput = function () { w.address = ad.value; };
+      row.appendChild(ct); row.appendChild(ad);
+    }
+    var ot = select_(OBJECT_TYPES.map(function (t) { return [t, t || 'тип обʼєкта: авто']; }), w.object_type);
+    ot.onchange = function () { w.object_type = ot.value; };
+    row.appendChild(ot);
+    targetWrap.appendChild(row);
+  }
+  drawTarget();
+  card.appendChild(targetWrap);
+
+  var runBtn = btn_('⚡ Визначити роботи', 'primary', function () { runScope(); });
+  var planBtn = btn_('📐 Завантажити план / креслення', '', function () {
+    ensureObject_().then(function (objId) { V9.openPlanUpload(objId); }).catch(errToast_);
+  });
+  card.appendChild(el('div', { class: 'v9-row', style: 'margin-top:14px;' }, [runBtn, planBtn,
+    el('span', { class: 'page-sub', style: 'margin:0;' }, [STATE.db.v9 && STATE.db.v9.ai ? '🤖 AI підключено' : 'AI не підключено — працюють вбудовані технологічні шаблони'])]));
+  main.appendChild(card);
+
+  var result = el('div');
+  main.appendChild(result);
+
+  // ---- existing estimates: check / materials / logistics / document / approve ----
+  var ests = db_('estimates').slice().sort(function (a, b) { return String(b.updated_at || b.created_at || b.id).localeCompare(String(a.updated_at || a.created_at || a.id)); });
+  if (ests.length && v9Ready_()) {
+    var eCard = card_('📋 Робота з кошторисом: перевірка, матеріали, логістика, документ, затвердження');
+    var cur = V9.lastEstimateId && byId(ests, V9.lastEstimateId) ? V9.lastEstimateId : ests[0].id;
+    var eSel = select_(ests.slice(0, 200).map(function (e) {
+      var o = byId(db_('objects'), e.object_id), c = o ? byId(db_('clients'), o.client_id) : null;
+      return [e.id, e.id + (e.version > 1 ? ' v' + e.version : '') + ' · ' + (e.title || (o && o.name) || '—') + (c ? ' · ' + c.name : '') + ' · ' + fmtMoney(e.client_total) + (e.status === 'final' ? ' · 🔒' : '')];
+    }), cur, { style: 'max-width:100%;' });
+    var barWrap = el('div');
+    function drawBar() { barWrap.innerHTML = ''; var e = byId(db_('estimates'), eSel.value); if (e) { V9.lastEstimateId = e.id; barWrap.appendChild(V9.estimateBar(e)); } }
+    eSel.onchange = drawBar;
+    eCard.appendChild(eSel); eCard.appendChild(barWrap);
+    drawBar();
+    main.appendChild(eCard);
+  }
+
+  function drawResult() {
+    result.innerHTML = '';
+    if (w.loading) { result.appendChild(el('div', { class: 'card v9-mb' }, ['⏳ Аналізую опис, рахую обсяги і матеріали…'])); return; }
+    if (w.proposal) drawProposal_(result, w, runScope);
+  }
+  function runScope() {
+    var text = (w.text || '').trim();
+    if (!text && !w.answers.scope_text) { toast('Опиши, що потрібно зробити', 'error'); ta.focus(); return; }
+    if (w.mode === 'object' && !w.object_id) { toast('Обери обʼєкт або перемкни на «Новий клієнт / обʼєкт»', 'error'); return; }
+    var payload = { text: text, answers: w.answers };
+    if (w.object_type) payload.object_type = w.object_type;
+    if (w.mode === 'object') payload.object_id = w.object_id;
+    else payload.new_object = { city: w.city, address: w.address };
+    w.loading = true; drawResult();
+    var done = busy_(runBtn, '⏳ Аналізую…');
+    apiCall('autoScope', payload).then(function (p) {
+      w.loading = false; done(); w.proposal = p;
+      if (w.include_materials === null) w.include_materials = p.include_materials;
+      drawResult();
+      if (result.scrollIntoView) result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }).catch(function (e) { w.loading = false; done(); drawResult(); errToast_(e); });
+  }
+  V9._runScope = runScope;
+  drawResult();
+  if (w.autorun) { w.autorun = false; runScope(); }
+
+  // creates client + object right away (needed before a plan can be attached)
+  function ensureObject_() {
+    if (w.mode === 'object') {
+      if (!w.object_id) return Promise.reject(new Error('Обери обʼєкт'));
+      return Promise.resolve(w.object_id);
+    }
+    if (!w.client_id && !w.client_name.trim()) return Promise.reject(new Error('Вкажи імʼя клієнта'));
+    return apiCall('v9EnsureObject', { client_id: w.client_id, client_name: w.client_name.trim(), client_phone: w.client_phone.trim(),
+      city: w.city.trim(), address: w.address.trim(), object_type: w.object_type, name: (w.text.trim().slice(0, 50) || 'Обʼєкт') }).then(function (r) {
+      upsert_('clients', r.client); upsert_('objects', r.object); saveCache_();
+      w.mode = 'object'; w.object_id = r.object.id;
+      toast('Створено обʼєкт ' + r.object.id, 'success');
+      return r.object.id;
+    });
+  }
+};
+
+function itemKey_(it) { return it.work_id + '|' + (it.stage || ''); }
+function effective_(w, it) {
+  var ov = w.overrides[itemKey_(it)] || {};
+  return { checked: ov.checked != null ? ov.checked : it.checked, quantity: ov.quantity != null ? ov.quantity : it.quantity };
+}
+
+function drawProposal_(wrap, w, rerun) {
+  var p = w.proposal;
+  // ---- header ----
+  var isAi = p.mode === 'ai';
+  var modeText = isAi ? '🤖 Роботи визначив AI (лише з прайсу BUDNEX)' : (/^rule_based \(AI/.test(p.mode) ? '⚙ Вбудовані шаблони (AI недоступний: ' + p.mode.replace(/^rule_based \(AI: /, '').replace(/\)$/, '') + ')' : '⚙ Вбудовані технологічні шаблони');
+  wrap.appendChild(el('div', { class: 'v9-row', style: 'margin-bottom:10px;' }, [
+    el('span', { class: 'badge ' + (isAi ? 'gold' : 'blue') }, [modeText]),
+    p.templates && p.templates.length ? el('span', { class: 'page-sub', style: 'margin:0;' }, ['Шаблони: ' + p.templates.join(', ')]) : null
+  ]));
+
+  // ---- questions ----
+  var qs = p.questions || [];
+  if (qs.length) {
+    var qCard = el('div', { class: 'card v9-mb', style: 'margin-bottom:14px;border-color:var(--v9-gold);' });
+    var reqCount = qs.filter(function (q) { return q.required; }).length;
+    qCard.appendChild(el('div', { class: 'chart-title' }, [reqCount ? '❓ Потрібно уточнити (' + reqCount + ')' : '❓ Перевір оцінки (можна залишити як є)']));
+    var inputs = [];
+    qs.forEach(function (q) {
+      var cur = w.answers[q.key] != null ? w.answers[q.key] : (q.default != null ? q.default : '');
+      var inp;
+      if (q.type === 'choice' && q.options && q.options.length) inp = select_([['', '— обери —']].concat(q.options), cur);
+      else inp = input_({ type: q.type === 'number' ? 'number' : 'text', step: 'any', value: cur, style: q.type === 'text' ? 'width:100%;' : 'width:140px;' });
+      inputs.push({ q: q, inp: inp });
+      qCard.appendChild(el('div', { class: 'v9-q' + (q.required ? ' req' : '') }, [
+        el('div', { style: 'flex:1;min-width:240px;' }, [q.text, q.required ? el('b', { style: 'color:var(--v9-red);' }, [' *']) :
+          el('span', { class: 'page-sub', style: 'display:inline;margin:0;' }, [' — оцінка, зміни якщо знаєш точно'])]), inp]));
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') applyBtn.click(); });
+    });
+    var applyBtn = btn_('↻ Перерахувати з відповідями', 'primary small', function () {
+      inputs.forEach(function (x) {
+        var v = String(x.inp.value).trim();
+        if (v === '') { delete w.answers[x.q.key]; return; }
+        if (!x.q.required && w.answers[x.q.key] == null && v === String(x.q.default)) return; // untouched estimate
+        w.answers[x.q.key] = v;
+      });
+      rerun();
+    });
+    qCard.appendChild(el('div', { style: 'margin-top:10px;' }, [applyBtn]));
+    wrap.appendChild(qCard);
+  }
+
+  // ---- parameters & assumptions ----
+  var grid = el('div', { class: 'form-grid-2', style: 'margin-bottom:14px;' });
+  var pCard = el('div', { class: 'card v9-mb' }, [el('div', { class: 'chart-title' }, ['Параметри обʼєкта (звідки взято)'])]);
+  var pv = (p.params_view || []).filter(function (x) { return x.value !== null && x.value !== '' && x.value !== undefined; });
+  if (!pv.length) pCard.appendChild(el('div', { class: 'page-sub' }, ['Параметрів ще немає — дай відповіді на питання вище.']));
+  else {
+    var pt = el('table', { class: 'v9t' });
+    pv.forEach(function (x) {
+      var val = typeof x.value === 'number' ? fmtNum(x.value) : String(x.value);
+      pt.appendChild(el('tr', {}, [el('td', {}, [x.label]), el('td', { class: 'num' }, [el('b', {}, [val])]),
+        el('td', {}, [el('span', { class: 'badge ' + (SRC_CLASS[x.source] || 'gray') }, [x.source || '—'])])]));
+    });
+    pCard.appendChild(pt);
+  }
+  grid.appendChild(pCard);
+  var aCard = el('div', { class: 'card v9-mb' }, [el('div', { class: 'chart-title' }, ['Припущення і попередження'])]);
+  (p.assumptions || []).forEach(function (a) { aCard.appendChild(el('div', { class: 'v9-note gold' }, ['≈ ' + a])); });
+  (p.warnings || []).forEach(function (a) { aCard.appendChild(el('div', { class: 'v9-note' }, ['ℹ ' + a])); });
+  if (!(p.assumptions || []).length && !(p.warnings || []).length) aCard.appendChild(el('div', { class: 'page-sub' }, ['Немає — усі значення з опису, плану або розрахунку.']));
+  grid.appendChild(aCard);
+  wrap.appendChild(grid);
+
+  // ---- works ----
+  var items = (p.items || []).slice().sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
+  var wCard = el('div', { class: 'card v9-mb', style: 'margin-bottom:14px;' });
+  wCard.appendChild(el('div', { class: 'chart-title' }, ['Запропоновані роботи — зніми зайве, підтверди сумнівне, виправ кількість']));
+  var totalsEl = el('div', { class: 'v9-totals' });
+  function recalc() {
+    var labor = 0, cost = 0;
+    items.forEach(function (it) { var e = effective_(w, it); if (e.checked && Number(e.quantity) > 0) { labor += it.client_price * e.quantity; cost += it.contractor_price * e.quantity; } });
+    w.extras.forEach(function (x) { labor += x.client_price * x.quantity; cost += x.contractor_price * x.quantity; });
+    var mat = 0;
+    if (w.include_materials) (p.materials || []).forEach(function (m) { mat += (m.client_price || 0) * (m.quantity || 0); });
+    totalsEl.innerHTML = '';
+    [['Роботи (клієнту)', fmtMoney(labor)], ['Матеріали (орієнтовно)', w.include_materials ? fmtMoney(mat) : 'не включено'],
+     ['Логістика', p.vars && p.vars.distance_km ? 'авто, ' + fmtNum(p.vars.distance_km) + ' км' : 'вкажи відстань'],
+     ['Разом без логістики', fmtMoney(labor + (w.include_materials ? mat : 0))], ['Маржа на роботах', labor ? ((labor - cost) / labor * 100).toFixed(1) + '%' : '—']]
+      .forEach(function (x) { totalsEl.appendChild(el('div', {}, [el('span', {}, [x[0]]), el('b', {}, [x[1]])])); });
+  }
+  if (!items.length && !w.extras.length) wCard.appendChild(el('div', { class: 'page-sub' }, ['Роботи ще не визначено — дай відповідь на питання вище або уточни опис.']));
+  else {
+    var t = el('table', { class: 'v9t' });
+    t.appendChild(el('thead', {}, [el('tr', {}, ['', 'Робота', 'К-сть', 'Од.', 'Ціна клієнту', 'Сума'].map(function (h) { return el('th', {}, [h]); }))]));
+    var tb = el('tbody'); var lastStage = null;
+    items.forEach(function (it) {
+      if (it.stage !== lastStage) { lastStage = it.stage; tb.appendChild(el('tr', { class: 'v9-stage' }, [el('td', { colspan: '6' }, [it.stage || 'Роботи'])])); }
+      var e = effective_(w, it);
+      var cb = el('input', { type: 'checkbox' }); cb.checked = !!e.checked;
+      var q = input_({ type: 'number', step: 'any', value: e.quantity == null ? '' : e.quantity, placeholder: '?', style: 'width:90px;' });
+      var sum = el('td', { class: 'num' }, [e.quantity ? fmtMoney(it.client_price * e.quantity) : '—']);
+      var nameCell = el('td', {}, [el('div', {}, [it.name,
+        it.doubtful ? el('span', { class: 'badge gold', style: 'margin-left:6px;' }, ['⚠ сумнівно — підтверди']) : null,
+        it.source === 'ai' ? el('span', { class: 'badge blue', style: 'margin-left:6px;' }, ['AI']) : null])]);
+      if (it.reason) nameCell.appendChild(el('div', { class: 'v9-reason' }, [it.reason]));
+      if (it.missing && it.missing.length && e.quantity == null) nameCell.appendChild(el('div', { class: 'v9-reason', style: 'color:var(--v9-red);' }, ['потрібно: ' + it.missing.map(varLabel_).join(', ')]));
+      if (it.quantity_formula && isNaN(Number(it.quantity_formula))) nameCell.appendChild(el('div', { class: 'v9-reason' }, ['формула: ' + it.quantity_formula]));
+      var tr = el('tr', { class: e.checked ? '' : 'v9-off' }, [el('td', {}, [cb]), nameCell, el('td', {}, [q]), el('td', {}, [it.unit]), el('td', { class: 'num' }, [fmtMoney(it.client_price)]), sum]);
+      function save() {
+        var ov = w.overrides[itemKey_(it)] || (w.overrides[itemKey_(it)] = {});
+        ov.checked = cb.checked;
+        if (q.value !== '' && Number(q.value) !== it.quantity) ov.quantity = Number(q.value); else if (q.value === '' ) delete ov.quantity; else delete ov.quantity;
+        var ee = effective_(w, it);
+        tr.className = ee.checked ? '' : 'v9-off';
+        sum.textContent = ee.quantity ? fmtMoney(it.client_price * ee.quantity) : '—';
+        recalc();
+      }
+      cb.onchange = save; q.oninput = save;
+      tb.appendChild(tr);
+    });
+    if (w.extras.length) {
+      tb.appendChild(el('tr', { class: 'v9-stage' }, [el('td', { colspan: '6' }, ['Додано вручну'])]));
+      w.extras.forEach(function (x, i) {
+        var q = input_({ type: 'number', step: 'any', value: x.quantity, style: 'width:90px;' });
+        var sum = el('td', { class: 'num' }, [fmtMoney(x.client_price * x.quantity)]);
+        q.oninput = function () { x.quantity = Number(q.value) || 0; sum.textContent = fmtMoney(x.client_price * x.quantity); recalc(); };
+        var del = btn_('✕', 'small danger', function () { w.extras.splice(i, 1); wrap.innerHTML = ''; drawProposal_(wrap, w, rerun); });
+        tb.appendChild(el('tr', {}, [el('td', {}, [del]), el('td', {}, [x.name]), el('td', {}, [q]), el('td', {}, [x.unit]), el('td', { class: 'num' }, [fmtMoney(x.client_price)]), sum]));
+      });
+    }
+    t.appendChild(tb);
+    wCard.appendChild(el('div', { style: 'overflow-x:auto;' }, [t]));
+  }
+  wCard.appendChild(el('div', { style: 'margin-top:10px;' }, [btn_('+ Додати роботу з прайсу', 'small', function () {
+    V9.pickWork(function (wk, qty) {
+      var mt = wk.default_markup_type || 'percent', mv = Number(wk.default_markup) || 0, cp = Number(wk.contractor_price) || 0;
+      w.extras.push({ work_id: wk.id, name: wk.name, unit: wk.unit, quantity: qty, contractor_price: cp, client_price: mt === 'percent' ? cp * (1 + mv / 100) : cp + mv });
+      wrap.innerHTML = ''; drawProposal_(wrap, w, rerun);
+    });
+  })]));
+  wrap.appendChild(wCard);
+
+  // ---- materials ----
+  var mCard = el('div', { class: 'card v9-mb', style: 'margin-bottom:14px;' });
+  var inc = el('input', { type: 'checkbox' }); inc.checked = !!w.include_materials;
+  var matBody = el('div');
+  inc.onchange = function () { w.include_materials = inc.checked; matBody.style.display = inc.checked ? '' : 'none'; recalc(); };
+  mCard.appendChild(el('label', { class: 'chart-title', style: 'display:flex;gap:8px;align-items:center;cursor:pointer;' }, [inc, 'Матеріали за нормами витрат (з націнкою BUDNEX) — включити в кошторис']));
+  if (!(p.materials || []).length) matBody.appendChild(el('div', { class: 'page-sub' }, ['Для вибраних робіт норм матеріалів немає (їх можна додати в «Шаблони і норми»).']));
+  else {
+    var mt = el('table', { class: 'v9t' });
+    mt.appendChild(el('thead', {}, [el('tr', {}, ['Матеріал', 'К-сть', 'Од.', 'Ціна клієнту', 'Сума', 'Для робіт'].map(function (h) { return el('th', {}, [h]); }))]));
+    var mb = el('tbody');
+    p.materials.forEach(function (m) {
+      mb.appendChild(el('tr', {}, [el('td', {}, [m.name]), el('td', { class: 'num' }, [fmtNum(m.quantity)]), el('td', {}, [m.unit]),
+        el('td', { class: 'num' }, [m.price ? fmtMoney(m.client_price) : el('span', { class: 'badge red' }, ['без ціни'])]),
+        el('td', { class: 'num' }, [fmtMoney((m.client_price || 0) * m.quantity)]), el('td', { class: 'v9-reason' }, [(m.for_works || []).join(', ')])]));
+    });
+    mt.appendChild(mb);
+    matBody.appendChild(el('div', { style: 'overflow-x:auto;' }, [mt]));
+    matBody.appendChild(el('div', { class: 'page-sub', style: 'margin:6px 0 0;' }, ['Остаточні кількості перераховуються з підтверджених робіт при формуванні кошторису.']));
+  }
+  matBody.style.display = inc.checked ? '' : 'none';
+  mCard.appendChild(matBody);
+  wrap.appendChild(mCard);
+
+  // ---- totals + apply ----
+  var fCard = el('div', { class: 'card v9-mb v9-apply' });
+  fCard.appendChild(totalsEl);
+  var hasEst = w.mode === 'object' && latestEstimate_(w.object_id);
+  fCard.appendChild(el('div', { class: 'page-sub', style: 'margin:8px 0;' }, [hasEst
+    ? 'Автоматичні позиції попереднього розрахунку в чинному кошторисі буде замінено, ручні — залишаться. Затверджений кошторис не змінюється — буде створено нову версію.'
+    : 'Буде створено ' + (w.mode === 'new' ? 'клієнта (якщо новий), обʼєкт і ' : '') + 'кошторис з матеріалами та логістикою, після чого запуститься автоматична перевірка.']));
+  var applyBtn2 = btn_('✅ Сформувати кошторис', 'primary', function () { applyScope_(w, applyBtn2); });
+  fCard.appendChild(applyBtn2);
+  wrap.appendChild(fCard);
+  recalc();
+}
+
+function applyScope_(w, button) {
+  var p = w.proposal;
+  var lines = [], bad = [];
+  (p.items || []).forEach(function (it) {
+    var e = effective_(w, it);
+    if (!e.checked) return;
+    if (!(Number(e.quantity) > 0)) { bad.push(it.name); return; }
+    lines.push({ work_id: it.work_id, quantity: Number(e.quantity), stage: it.stage, doubtful: false, reason: it.reason, source: it.source, checked: true });
+  });
+  // a doubtful line the person explicitly ticked counts as confirmed; unticked are skipped
+  w.extras.forEach(function (x) { if (x.quantity > 0) lines.push({ work_id: x.work_id, quantity: x.quantity, stage: 'Додатково', reason: 'додано вручну', source: 'manual', checked: true }); });
+  if (bad.length) { toast('Немає кількості для: ' + bad.slice(0, 3).join(', ') + (bad.length > 3 ? '…' : '') + '. Дай відповідь на питання або вкажи вручну / зніми позицію.', 'error'); return; }
+  if (!lines.length) { toast('Не вибрано жодної роботи', 'error'); return; }
+  var req = (p.questions || []).filter(function (q) { return q.required && q.key !== 'scope_text' && (w.answers[q.key] == null || w.answers[q.key] === ''); });
+  var payload = { items: lines, params: p.params, vars: p.vars, include_materials: !!w.include_materials,
+    text: (w.text || '') + (w.answers.scope_text ? ' ' + w.answers.scope_text : ''),
+    distance_km: w.answers.distance_km != null && w.answers.distance_km !== '' ? Number(w.answers.distance_km) : (p.vars && p.vars.distance_km != null ? p.vars.distance_km : null),
+    title: (w.text || '').slice(0, 120) };
+  if (req.length && !confirm('Не відповіли на ' + req.length + ' питань (' + req.map(function (q) { return q.text; }).join('; ').slice(0, 200) + '). Сформувати без них?')) return;
+  if (w.mode === 'object') payload.object_id = w.object_id;
+  else {
+    if (!w.client_id && !w.client_name.trim()) { toast('Вкажи клієнта (імʼя) у блоці «Для кого / де»', 'error'); return; }
+    payload.new_object = { client_id: w.client_id || '', client_name: w.client_name.trim(), client_phone: w.client_phone.trim(), city: w.city.trim(),
+      address: w.address.trim(), object_type: w.object_type || (p.params && p.params.object_type) || '',
+      name: (w.text || 'Обʼєкт').slice(0, 60) + (w.client_name ? ' — ' + w.client_name.trim() : ''), area: p.vars && p.vars.floor_area || '' };
+  }
+  var done = busy_(button, '⏳ Формую кошторис…');
+  apiCall('applyAutoScope', payload).then(function (res) {
+    done();
+    toast('Кошторис ' + res.estimate.id + ' сформовано: ' + res.items.length + ' позицій' + (res.logistics ? ', логістика ' + fmtMoney(res.logistics.total) : ''), 'success');
+    V9.wiz = null;
+    V9.lastEstimateId = res.estimate.id;
+    return V9.sync().then(function () {
+      if (location.hash !== '#/auto') location.hash = '#/auto'; else V9.rerender();
+      setTimeout(function () { V9.showCheck(res.estimate.id, res.check); }, 150);
+    });
+  }).catch(function (e) { done(); errToast_(e); });
+}
+
+/* --------------------------- work picker (price) ------------------------ */
+V9.pickWork = function (cb) {
+  var body = el('div');
+  var search = input_({ placeholder: 'Пошук роботи в прайсі…', style: 'width:100%;margin-bottom:8px;' });
+  var list = el('div', { style: 'max-height:320px;overflow:auto;border:1px solid var(--v9-line);border-radius:8px;' });
+  var qty = input_({ type: 'number', step: 'any', value: '1', style: 'width:120px;' });
+  var sel = null;
+  function draw() {
+    list.innerHTML = '';
+    var q = fuzzyPrep_(search.value);
+    STATE.db.works.filter(function (wk) { return !q || fuzzyMatch_(wk.name, q) || fuzzyMatch_(wk.category, q); }).slice(0, 120).forEach(function (wk) {
+      var r = el('div', { class: 'v9-pick' + (sel === wk ? ' on' : '') }, [el('b', {}, [wk.name]), el('div', { class: 'page-sub', style: 'margin:0;' }, [wk.category + ' · ' + fmtMoney(wk.contractor_price) + ' / ' + wk.unit])]);
+      r.onclick = function () { sel = wk; draw(); };
+      list.appendChild(r);
+    });
+  }
+  search.oninput = draw; draw();
+  body.appendChild(search); body.appendChild(list);
+  body.appendChild(el('div', { class: 'v9-row', style: 'margin-top:10px;' }, ['Кількість:', qty]));
+  body.appendChild(el('div', { class: 'form-actions' }, [btn_('Скасувати', '', closeModal), btn_('Додати', 'primary', function () {
+    if (!sel) { toast('Обери роботу', 'error'); return; }
+    closeModal(); cb(sel, Number(qty.value) || 1);
+  })]));
+  openModal('Додати роботу з прайсу', body);
+  setTimeout(function () { search.focus(); }, 50);
+};
+
+/* ======================= ПУНКТ 4: ПЛАНИ ТА КРЕСЛЕННЯ ===================== */
+function fileToPayload_(file) {
+  return new Promise(function (resolve, reject) {
+    var r = new FileReader();
+    r.onerror = function () { reject(new Error('Не вдалося прочитати файл')); };
+    r.onload = function () {
+      var dataUrl = r.result;
+      if (/^image\//.test(file.type) && !/svg/.test(file.type)) {
+        var img = new Image();
+        img.onload = function () {
+          // AI vision limit ~5 MB per image: downscale big photos/scans to 2200px JPEG
+          var max = 2200, sc = Math.min(1, max / Math.max(img.width, img.height));
+          var c = document.createElement('canvas'); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+          var ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+          resolve({ base64: c.toDataURL('image/jpeg', 0.88).split(',')[1], mimeType: 'image/jpeg', filename: file.name.replace(/\.[^.]+$/, '') + '.jpg' });
+        };
+        img.onerror = function () { resolve({ base64: dataUrl.split(',')[1], mimeType: file.type, filename: file.name }); };
+        img.src = dataUrl;
+      } else {
+        if (file.size > 25 * 1024 * 1024) { reject(new Error('Файл більший за 25 МБ — збережи план як зображення або стисни PDF')); return; }
+        resolve({ base64: dataUrl.split(',')[1], mimeType: file.type || 'application/pdf', filename: file.name });
+      }
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+V9.openPlanUpload = function (objectId) {
+  var o = byId(STATE.db.objects, objectId);
+  var body = el('div');
+  body.appendChild(el('p', { class: 'page-sub' }, ['Фото, скан або PDF плану / креслення. BUDNEX визначить приміщення, розміри, площі, вікна й двері, периметр і висоту. Результат можна виправити перед збереженням.']));
+  if (!(STATE.db.v9 && STATE.db.v9.ai)) body.appendChild(el('div', { class: 'margin-warn' }, ['AI не налаштовано (Налаштування → AI, провайдер Anthropic). Файл збережеться, але розпізнавання не спрацює — приміщення можна внести у «Плануванні» вручну.']));
+  var file = el('input', { type: 'file', accept: 'image/*,application/pdf' });
+  var note = input_({ placeholder: 'Примітка (необовʼязково): напр. «висота стелі 2.75», «масштаб 1:100», «лише 1 поверх»', style: 'width:100%;' });
+  var out = el('div', { style: 'margin-top:12px;' });
+  var go = btn_('🔍 Аналізувати', 'primary', function () {
+    if (!file.files[0]) { toast('Обери файл', 'error'); return; }
+    var done = busy_(go, '⏳ Аналізую план…');
+    out.innerHTML = ''; out.appendChild(el('div', { class: 'page-sub' }, ['Це може зайняти до хвилини…']));
+    fileToPayload_(file.files[0]).then(function (pl) {
+      pl.object_id = objectId; pl.note = note.value.trim();
+      return apiCall('analyzePlan', pl);
+    }).then(function (res) { done(); drawAnalysis(res); }).catch(function (e) { done(); out.innerHTML = ''; errToast_(e); });
+  });
+  body.appendChild(el('div', { class: 'v9-row' }, [file, go]));
+  body.appendChild(el('div', { style: 'margin-top:8px;' }, [note]));
+  body.appendChild(out);
+
+  function drawAnalysis(res) {
+    out.innerHTML = '';
+    if (!res.ai || !res.analysis) {
+      out.appendChild(el('div', { class: 'margin-warn' }, [res.message || 'Аналіз недоступний']));
+      if (res.file_url) out.appendChild(el('a', { href: res.file_url, target: '_blank' }, ['Файл збережено в Google Drive']));
+      return;
+    }
+    var a = res.analysis;
+    a.rooms = a.rooms || []; a.openings = a.openings || []; a.exterior = a.exterior || {};
+    var conf = Number(a.scale_confidence) || 0;
+    out.appendChild(el('div', { class: 'v9-row', style: 'margin-bottom:8px;' }, [
+      el('span', { class: 'badge ' + (conf >= 0.7 ? 'green' : conf >= 0.4 ? 'gold' : 'red') }, ['Впевненість масштабу: ' + Math.round(conf * 100) + '%']),
+      el('span', { class: 'page-sub', style: 'margin:0;' }, [(a.object_type || '') + (a.floors ? ' · поверхів: ' + a.floors : '') + ' · приміщень: ' + a.rooms.length + ' · прорізів: ' + a.openings.length])]));
+    if (conf < 0.4) out.appendChild(el('div', { class: 'margin-warn' }, ['Масштаб визначено ненадійно — перевір розміри хоча б 1–2 приміщень.']));
+
+    var rt = el('table', { class: 'v9t' });
+    rt.appendChild(el('thead', {}, [el('tr', {}, ['Приміщення', 'Ширина, м', 'Довжина, м', 'Площа, м²', ''].map(function (h) { return el('th', {}, [h]); }))]));
+    var rb = el('tbody');
+    function drawRooms() {
+      rb.innerHTML = '';
+      a.rooms.forEach(function (r, i) {
+        var n = input_({ value: r.name || '' }); n.oninput = function () { r.name = n.value; };
+        var wd = input_({ type: 'number', step: 'any', value: r.width || '', style: 'width:80px;' });
+        var ln = input_({ type: 'number', step: 'any', value: r.length || '', style: 'width:80px;' });
+        var ar = input_({ type: 'number', step: 'any', value: r.area || '', style: 'width:90px;' });
+        wd.oninput = ln.oninput = function () { r.width = Number(wd.value) || 0; r.length = Number(ln.value) || 0; r.approx = false; if (r.width && r.length) { r.area = Math.round(r.width * r.length * 100) / 100; ar.value = r.area; } };
+        ar.oninput = function () { r.area = Number(ar.value) || 0; };
+        rb.appendChild(el('tr', {}, [el('td', {}, [n, r.approx ? el('div', { class: 'v9-reason' }, ['розміри орієнтовні (з площі)']) : null]), el('td', {}, [wd]), el('td', {}, [ln]), el('td', {}, [ar]),
+          el('td', {}, [btn_('✕', 'small danger', function () { a.rooms.splice(i, 1); drawRooms(); })])]));
+      });
+    }
+    drawRooms(); rt.appendChild(rb);
+    out.appendChild(el('div', { class: 'chart-title', style: 'margin-top:8px;' }, ['Приміщення']));
+    out.appendChild(rt);
+    out.appendChild(btn_('+ приміщення', 'small', function () { a.rooms.push({ name: 'Приміщення', type: 'кімната', width: 3, length: 3, area: 9 }); drawRooms(); }));
+
+    if (a.openings.length) {
+      var ot = el('table', { class: 'v9t', style: 'margin-top:10px;' });
+      ot.appendChild(el('thead', {}, [el('tr', {}, ['Проріз', 'Ш×В, м', 'К-сть', 'Приміщення'].map(function (h) { return el('th', {}, [h]); }))]));
+      a.openings.forEach(function (op) {
+        var c = input_({ type: 'number', value: op.count || op.quantity || 1, style: 'width:70px;' }); c.oninput = function () { op.count = Number(c.value) || 0; };
+        ot.appendChild(el('tr', {}, [el('td', {}, [op.type]), el('td', {}, [(op.width || '?') + '×' + (op.height || '?')]), el('td', {}, [c]), el('td', {}, [op.room || '—'])]));
+      });
+      out.appendChild(el('div', { class: 'chart-title', style: 'margin-top:12px;' }, ['Вікна і двері']));
+      out.appendChild(ot);
+    }
+    var per = input_({ type: 'number', step: 'any', value: a.exterior.perimeter || '', placeholder: 'периметр', style: 'width:110px;' });
+    var fh = input_({ type: 'number', step: 'any', value: a.exterior.facade_height || '', placeholder: 'висота фасаду', style: 'width:120px;' });
+    var wh = input_({ type: 'number', step: 'any', value: a.wall_height || '', placeholder: 'висота стелі', style: 'width:110px;' });
+    per.oninput = function () { a.exterior.perimeter = Number(per.value) || null; };
+    fh.oninput = function () { a.exterior.facade_height = Number(fh.value) || null; };
+    wh.oninput = function () { a.wall_height = Number(wh.value) || null; };
+    out.appendChild(el('div', { class: 'v9-row', style: 'margin-top:12px;' }, ['Зовнішній периметр, м', per, 'Висота фасаду, м', fh, 'Висота стелі, м', wh]));
+    (a.notes || []).forEach(function (n) { out.appendChild(el('div', { class: 'v9-note' }, ['ℹ ' + n])); });
+    (a.questions || []).forEach(function (n) { out.appendChild(el('div', { class: 'v9-note gold' }, ['❓ ' + n])); });
+
+    var applyB = btn_('💾 Зберегти в обʼєкт (замінить поточні приміщення плану)', 'primary', function () {
+      var done = busy_(applyB, '⏳ Зберігаю…');
+      apiCall('applyPlanAnalysis', { object_id: objectId, analysis: a, file_url: res.file_url }).then(function (r2) {
+        done(); toast('План збережено: ' + r2.rooms + ' приміщень, ' + r2.openings + ' прорізів', 'success');
+        V9.sync();
+        askWorks();
+      }).catch(function (e) { done(); errToast_(e); });
+    });
+    out.appendChild(el('div', { class: 'form-actions' }, [applyB]));
+  }
+
+  function askWorks() {
+    body.innerHTML = '';
+    body.appendChild(el('h3', { style: 'margin-top:0;' }, ['Які роботи виконувати?']));
+    body.appendChild(el('p', { class: 'page-sub' }, ['Площі, периметри, прорізи вже є з плану — достатньо назвати роботи.']));
+    var ta = el('textarea', { class: 'v9-in', rows: '3', style: 'width:100%;', placeholder: 'Напр.: «штукатурка і шпаклівка стін, стяжка, ламінат, натяжні стелі; у ванній плитка»' });
+    body.appendChild(ta);
+    var chips = el('div', { style: 'margin-top:8px;' });
+    ['косметичний ремонт', 'штукатурка стін', 'шпаклівка і фарбування', 'стяжка підлоги', 'ламінат', 'плитка у ванній', 'натяжні стелі', 'чорновий фасад', 'електрика'].forEach(function (ex) {
+      var c = el('span', { class: 'v9-chip' }, [ex]); c.onclick = function () { ta.value = ta.value ? ta.value + ', ' + ex : ex; }; chips.appendChild(c);
+    });
+    body.appendChild(chips);
+    body.appendChild(el('div', { class: 'form-actions' }, [btn_('Пізніше', '', closeModal), btn_('⚡ Розрахувати', 'primary', function () {
+      if (!ta.value.trim()) { toast('Назви роботи', 'error'); return; }
+      V9.newWiz(objectId, ta.value.trim(), true);
+      closeModal();
+      location.hash = '#/auto/' + objectId;
+    })]));
+  }
+  openModal('План / креслення' + (o ? ' — ' + o.name : ''), body, { wide: true });
+};
+
+/* ===================== ПУНКТ 8: ПЕРЕВІРКА + ЗАТВЕРДЖЕННЯ ================== */
+var LEVEL_ICON = { error: '⛔', warn: '⚠', info: 'ℹ' };
+function refreshEstimateState_(res) {
+  if (res && res.estimate) upsert_('estimates', res.estimate);
+  if (res && res.item) upsert_('estimateItems', res.item);
+  saveCache_();
+}
+
+V9.showCheck = function (estimateId, check, opts) {
+  opts = opts || {};
+  var body = el('div');
+  function draw(ck) {
+    body.innerHTML = '';
+    var est = byId(STATE.db.estimates, estimateId) || {};
+    var c = ck.counts || {};
+    body.appendChild(el('div', { class: 'v9-row', style: 'margin-bottom:12px;' }, [
+      el('span', { class: 'badge ' + (c.error ? 'red' : 'green') }, ['Помилки: ' + (c.error || 0)]),
+      el('span', { class: 'badge gold' }, ['Попередження: ' + (c.warn || 0)]),
+      el('span', { class: 'badge blue' }, ['Інфо: ' + (c.info || 0)]),
+      el('span', { class: 'page-sub', style: 'margin:0;' }, ['Разом клієнту: ' + fmtMoney(est.client_total) + ' · маржа ' + Number(est.margin || 0).toFixed(1) + '%'])]));
+    if (!ck.issues.length) body.appendChild(el('div', { class: 'v9-issue ok' }, ['✅ Проблем не знайдено — кошторис готовий до затвердження.']));
+    ck.issues.forEach(function (is) {
+      var it = is.item_id ? byId(STATE.db.estimateItems, is.item_id) : null;
+      var actions = el('div', { class: 'v9-row', style: 'margin-left:auto;flex-wrap:nowrap;' });
+      if (it && is.code === 'DOUBTFUL') actions.appendChild(btn_('Підтвердити', 'small primary', function () {
+        apiCall('confirmEstimateItem', { id: it.id }).then(function (r) { upsert_('estimateItems', r); recheck(); }).catch(errToast_);
+      }));
+      if (it && (is.code === 'DUPLICATE' || is.code === 'DOUBTFUL' || is.code === 'QTY_ZERO')) actions.appendChild(btn_('Видалити', 'small danger', function () {
+        apiCall('v9DeleteEstimateItem', { id: it.id }).then(function (r) { removeById_('estimateItems', it.id); refreshEstimateState_(r); recheck(); }).catch(errToast_);
+      }));
+      if (it && /^QTY_/.test(is.code)) {
+        var q = input_({ type: 'number', step: 'any', value: it.quantity, style: 'width:90px;' });
+        actions.appendChild(q);
+        actions.appendChild(btn_('OK', 'small', function () {
+          apiCall('v9SetItemQty', { id: it.id, quantity: Number(q.value) || 0 }).then(function (r) { refreshEstimateState_(r); recheck(); }).catch(errToast_);
+        }));
+      }
+      if (is.code === 'NO_MATERIALS') actions.appendChild(btn_('↻ Матеріали', 'small', function () { V9.recalcMaterials(estimateId, recheck); }));
+      if (is.code === 'NO_LOGISTICS') actions.appendChild(btn_('🚚 Порахувати', 'small', function () { V9.openLogistics(estimateId, recheck); }));
+      if (/^MARGIN/.test(is.code)) actions.appendChild(btn_('Порада', 'small', function () {
+        apiCall('aiMarginAdvice', { estimate_id: estimateId }).then(function (r) { toast(r.message, r.ok ? 'success' : 'error'); }).catch(errToast_);
+      }));
+      body.appendChild(el('div', { class: 'v9-issue ' + is.level }, [el('span', {}, [LEVEL_ICON[is.level] || '•']), el('div', {}, [is.message]), actions]));
+    });
+    var isFinal = est.status === 'final';
+    var foot = el('div', { class: 'form-actions' }, [
+      btn_('Закрити', '', function () { closeModal(); V9.rerender(); }),
+      btn_('↻ Перевірити ще раз', '', recheck)
+    ]);
+    if (!isFinal) {
+      var fin = btn_(ck.ok ? '🔒 Затвердити кошторис' : '🔒 Затвердити попри помилки', ck.ok ? 'primary' : 'danger', function () {
+        if (!ck.ok && !confirm('Є помилки (' + (c.error || 0) + '). Все одно затвердити? Це буде записано в журнал.')) return;
+        var done = busy_(fin, '⏳');
+        apiCall('finalizeEstimate', { id: estimateId, force: !ck.ok }).then(function (r) {
+          done();
+          if (r.finalized) { refreshEstimateState_(r); toast('Кошторис затверджено', 'success'); closeModal(); V9.rerender(); }
+          else draw(r.check);
+        }).catch(function (e) { done(); errToast_(e); });
+      });
+      foot.appendChild(fin);
+    } else foot.appendChild(el('span', { class: 'badge green' }, ['Затверджено']));
+    foot.appendChild(btn_('📄 Документ клієнту', '', function () { closeModal(); V9.openClientDoc(estimateId); }));
+    body.appendChild(foot);
+  }
+  function recheck() {
+    apiCall('validateEstimate', { estimate_id: estimateId }).then(function (ck) {
+      var est = byId(STATE.db.estimates, estimateId); if (est) est.check_status = ck.status;
+      draw(ck); V9.rerender();
+    }).catch(errToast_);
+  }
+  if (check) draw(check);
+  else { body.appendChild(el('div', {}, ['⏳ Перевіряю…'])); recheck(); }
+  openModal('Автоматична перевірка кошторису', body, { wide: true });
+};
+
+V9.recalcMaterials = function (estimateId, after) {
+  apiCall('recalcEstimateMaterials', { estimate_id: estimateId }).then(function (r) {
+    if (r.ok) {
+      toast('Матеріали перераховано: ' + r.count + ' позицій' + (r.warnings && r.warnings.length ? ' · ' + r.warnings[0] : ''), 'success');
+      return V9.sync().then(function () { if (after) after(); });
+    }
+    // norms need values that are not known yet -> ask only for those
+    var body = el('div');
+    body.appendChild(el('p', { class: 'page-sub' }, ['Для розрахунку матеріалів бракує кількох значень:']));
+    var inputs = r.missing.map(function (m) {
+      var i = input_({ type: 'text', style: 'width:140px;' });
+      body.appendChild(el('div', { class: 'v9-q req' }, [el('div', { style: 'flex:1;' }, [m.text]), i]));
+      return { key: m.key, inp: i };
+    });
+    body.appendChild(el('div', { class: 'form-actions' }, [btn_('Скасувати', '', closeModal), btn_('Зберегти і перерахувати', 'primary', function () {
+      var vars = {};
+      inputs.forEach(function (x) { if (x.inp.value.trim() !== '') vars[x.key] = isNaN(Number(x.inp.value.replace(',', '.'))) ? x.inp.value.trim() : Number(x.inp.value.replace(',', '.')); });
+      apiCall('setEstimateVars', { estimate_id: estimateId, vars: vars }).then(function () { closeModal(); V9.recalcMaterials(estimateId, after); }).catch(errToast_);
+    })]));
+    openModal('Уточнення для матеріалів', body);
+  }).catch(errToast_);
+};
+
+V9.openLogistics = function (estimateId, after) {
+  var est = byId(STATE.db.estimates, estimateId) || {};
+  var saved = parseJson_(est.params_json, {});
+  var o = byId(STATE.db.objects, est.object_id) || {};
+  var s = settings_();
+  var def = saved.distance_km != null ? saved.distance_km : (!o.city || String(o.city).toLowerCase().indexOf(String(s.base_city || '').toLowerCase().slice(0, 8)) !== -1 ? (s.city_distance_km || 15) : '');
+  var body = el('div');
+  body.appendChild(el('p', { class: 'page-sub' }, ['К-сть виїздів рахується автоматично з обсягу робіт (не менше ' + (s.min_trips || 2) + '), вартість виїзду — з налаштувань пального/амортизації. База: ' + (s.base_city || '—') + '.']));
+  var km = input_({ type: 'number', step: 'any', value: def, style: 'width:140px;' });
+  body.appendChild(el('div', { class: 'v9-row' }, ['Відстань від бази, км (в один бік):', km]));
+  body.appendChild(el('div', { class: 'form-actions' }, [btn_('Скасувати', '', closeModal), btn_('Застосувати', 'primary', function () {
+    apiCall('recalcEstimateLogistics', { estimate_id: estimateId, distance_km: Number(km.value) || 0 }).then(function (r) {
+      refreshEstimateState_(r); closeModal(); toast('Логістика: ' + r.logistics.note + ' = ' + fmtMoney(r.logistics.total), 'success');
+      V9.rerender(); if (after) after();
+    }).catch(errToast_);
+  })]));
+  openModal('Логістика' + (o.city ? ' — ' + o.city : ''), body);
+};
+
+/* --------------------------- estimate editor bar ------------------------ */
+V9.estimateBar = function (estimate) {
+  var items = STATE.db.estimateItems.filter(function (it) { return it.estimate_id === estimate.id; });
+  var doubtful = items.filter(function (it) { return it.flag === 'doubtful'; });
+  var mats = items.filter(function (it) { return it.item_type === 'material'; }).length;
+  var isFinal = estimate.status === 'final';
+  var cs = estimate.check_status;
+  var bar = el('div', { class: 'v9-bar' });
+  bar.appendChild(el('div', { class: 'v9-row', style: 'margin-bottom:8px;' }, [
+    el('span', { class: 'badge ' + (isFinal ? 'green' : 'gray') }, [isFinal ? '🔒 Затверджено ' + fmtDate(estimate.final_at) : 'Чернетка']),
+    el('span', { class: 'badge ' + (cs === 'ok' ? 'green' : cs === 'warnings' ? 'gold' : cs === 'errors' ? 'red' : 'gray') },
+      ['Перевірка: ' + (cs === 'ok' ? 'без проблем' : cs === 'warnings' ? 'є попередження' : cs === 'errors' ? 'є помилки' : 'не виконувалась')]),
+    el('span', { class: 'page-sub', style: 'margin:0;' }, ['Робіт: ' + (items.length - mats) + ' · матеріалів: ' + mats + ' · логістика: ' + fmtMoney(estimate.logistics_total)])
+  ]));
+  var row = el('div', { class: 'v9-row' }, [
+    btn_('⚡ Автокошторис', 'small', function () { V9.newWiz(estimate.object_id, ''); location.hash = '#/auto/' + estimate.object_id; }, 'Визначити / перерахувати роботи за описом'),
+    btn_('↻ Матеріали', 'small', function () { V9.recalcMaterials(estimate.id); }, 'Перерахувати матеріали з поточних робіт за нормами'),
+    btn_('🚚 Логістика', 'small', function () { V9.openLogistics(estimate.id); }),
+    btn_('✅ Перевірити', 'small', function () { V9.showCheck(estimate.id); }),
+    btn_('📄 Документ клієнту', 'small primary', function () { V9.openClientDoc(estimate.id); })
+  ]);
+  if (isFinal) row.appendChild(btn_('🔓 Повернути в чернетку', 'small', function () {
+    if (!confirm('Повернути затверджений кошторис у чернетку для змін?')) return;
+    apiCall('reopenEstimate', { id: estimate.id }).then(function (r) { refreshEstimateState_({ estimate: r }); V9.rerender(); }).catch(errToast_);
+  }));
+  else row.appendChild(btn_('🔒 Затвердити', 'small', function () { V9.showCheck(estimate.id); }, 'Спочатку автоматична перевірка, потім затвердження'));
+  bar.appendChild(row);
+  if (isFinal) bar.appendChild(el('div', { class: 'page-sub', style: 'margin:8px 0 0;' }, ['Кошторис затверджено. Для змін поверни його в чернетку або запусти автокошторис — буде створено нову версію.']));
+  if (doubtful.length) {
+    var d = el('div', { style: 'margin-top:10px;' }, [el('b', {}, ['⚠ Сумнівні позиції — підтверди або видали:'])]);
+    doubtful.forEach(function (it) {
+      d.appendChild(el('div', { class: 'v9-row', style: 'margin-top:4px;' }, [
+        el('span', {}, [it.name + ' — ' + fmtNum(it.quantity) + ' ' + it.unit]), it.notes ? el('span', { class: 'v9-reason' }, [it.notes]) : null,
+        btn_('Підтвердити', 'small primary', function () { apiCall('confirmEstimateItem', { id: it.id }).then(function (r) { upsert_('estimateItems', r); saveCache_(); V9.rerender(); }).catch(errToast_); }),
+        btn_('Видалити', 'small danger', function () { if (!confirm('Видалити «' + it.name + '»?')) return; apiCall('v9DeleteEstimateItem', { id: it.id }).then(function (r) { removeById_('estimateItems', it.id); if (r && r.estimate) upsert_('estimates', r.estimate); saveCache_(); V9.rerender(); }).catch(errToast_); })
+      ]));
+    });
+    bar.appendChild(d);
+  }
+  return bar;
+};
+
+
+/* ==================== ПУНКТ 1: КЛІЄНТСЬКИЙ ДОКУМЕНТ ====================== */
+function docEsc_(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function docNl_(s) { return docEsc_(s).replace(/\n/g, '<br>'); }
+function docSafeColor_(c, d) { return /^#[0-9a-fA-F]{3,8}$/.test(String(c || '').trim()) ? String(c).trim() : d; }
+function docSafeUrl_(u) { u = String(u || '').trim(); return /^(data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,|https:\/\/)/i.test(u) ? u : ''; }
+function addDays_(iso, days) { var d = new Date(iso); if (isNaN(d)) d = new Date(); d.setDate(d.getDate() + (Number(days) || 0)); return d; }
+function fmtD_(d) { d = d instanceof Date ? d : new Date(d); return isNaN(d) ? '' : d.toLocaleDateString('uk-UA'); }
+function niceSection_(s) { s = String(s || '').trim(); if (!s) return 'Роботи'; if (s === s.toUpperCase()) s = s.charAt(0) + s.slice(1).toLowerCase(); return s; }
+
+V9.docDefaults = function (est) {
+  var s = settings_() || {};
+  var o = byId(STATE.db.objects, est.object_id) || {};
+  var c = byId(STATE.db.clients, est.client_id || o.client_id) || {};
+  return {
+    title: s.doc_title || 'Кошторис', intro: s.doc_intro || '', terms: s.doc_terms || '', footer: s.doc_footer || '', notes: '',
+    date: (est.final_at || new Date().toISOString()).slice(0, 10), valid_days: num_(s.doc_validity_days, 14),
+    client_name: c.name || '', client_phone: c.phone || '', object_name: est.title || o.name || '',
+    address: [o.city, o.address].filter(Boolean).join(', '),
+    show_unit_prices: yes_(s.doc_show_unit_prices == null ? 'так' : s.doc_show_unit_prices),
+    show_materials: yes_(s.doc_show_materials == null ? 'так' : s.doc_show_materials),
+    show_signatures: true, logistics_label: 'Логістика: виїзди бригади та транспорт', discount_pct: 0,
+    accent: s.doc_accent || '#F2C200', dark: s.doc_dark || '#000000', logo: s.doc_logo || '',
+    lines: {}, sections: {}
+  };
+};
+V9.docModel = function (est) {
+  var m = V9.docDefaults(est);
+  var saved = parseJson_(est.doc_json, {});
+  for (var k in saved) if (saved[k] !== undefined && saved[k] !== null) m[k] = saved[k];
+  m.lines = m.lines || {}; m.sections = m.sections || {};
+  return m;
+};
+
+// numbers always come from the estimate itself; the document only renames,
+// hides, groups and formats — so it can never silently disagree with pricing.
+V9.docData = function (est, m) {
+  var worksById = {}; STATE.db.works.forEach(function (w) { worksById[w.id] = w; });
+  var items = STATE.db.estimateItems.filter(function (it) { return it.estimate_id === est.id; })
+    .map(function (it, i) { return { it: it, i: i }; })
+    .sort(function (a, b) { var sa = Number(a.it.sort) || 0, sb = Number(b.it.sort) || 0; return sa !== sb ? sa - sb : a.i - b.i; })
+    .map(function (x) { return x.it; });
+  var sections = [], secIdx = {}, mats = [], hiddenSum = 0, extraMat = 0;
+  items.forEach(function (it) {
+    var ov = m.lines[it.id] || {};
+    var total = Number(it.client_total) || 0;
+    extraMat += Number(it.materials_total) || 0;
+    if (ov.hidden) { hiddenSum += total; return; }
+    var line = { id: it.id, name: ov.name || it.client_name || it.name, unit: it.unit, qty: Number(it.quantity) || 0, price: Number(it.client_price) || 0, total: total };
+    if (it.item_type === 'material') { mats.push(line); return; }
+    var w = worksById[it.work_id];
+    var sec = it.section || (w ? niceSection_(w.category) : 'Роботи');
+    sec = m.sections[sec] || sec;
+    if (secIdx[sec] == null) { secIdx[sec] = sections.length; sections.push({ name: sec, lines: [], total: 0 }); }
+    sections[secIdx[sec]].lines.push(line); sections[secIdx[sec]].total += total;
+  });
+  var works = sections.reduce(function (s, x) { return s + x.total; }, 0);
+  var matSum = mats.reduce(function (s, x) { return s + x.total; }, 0) + extraMat;
+  var logistics = Number(est.logistics_total) || 0;
+  var subtotal = works + matSum + logistics;
+  var discount = Math.round(subtotal * (Number(m.discount_pct) || 0)) / 100;
+  return { sections: sections, materials: mats, extraMat: extraMat, works: works, matSum: matSum, logistics: logistics,
+    subtotal: subtotal, discount: discount, total: subtotal - discount, hiddenSum: hiddenSum,
+    differs: Math.abs(subtotal - (Number(est.client_total) || 0)) > 1 };
+};
+
+V9.docHtml = function (est, m, forPrint) {
+  var s = settings_() || {};
+  var d = V9.docData(est, m);
+  var A = docSafeColor_(m.accent, '#F2C200'), K = docSafeColor_(m.dark, '#000000');
+  var logo = docSafeUrl_(m.logo);
+  var cname = s.company_name || 'BUDNEX';
+  var logoHtml = logo ? '<img src="' + docEsc_(logo) + '" alt="" style="max-height:58px;max-width:230px;">'
+    : (/^budnex$/i.test(cname) ? '<span class="lt">BUDN<span style="color:' + A + '">EX</span></span>' : '<span class="lt">' + docEsc_(cname) + '</span>');
+  var contacts = [s.company_phone, s.company_email, s.company_website, s.company_address].filter(Boolean).map(docEsc_).join('<br>');
+  var up = !!m.show_unit_prices;
+  var cols = up ? 6 : 5;
+  var h = [];
+  h.push('<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"><title>' + docEsc_(m.title + ' ' + est.id) + '</title><style>');
+  h.push('@page{size:A4;margin:12mm 11mm 14mm;}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}');
+  h.push('body{margin:0;background:' + (forPrint ? '#fff' : '#e9e9e9') + ';font-family:"Segoe UI",Arial,Helvetica,sans-serif;color:#141414;font-size:11.5px;line-height:1.45;}');
+  h.push('.page{background:#fff;max-width:210mm;margin:' + (forPrint ? '0 auto' : '18px auto') + ';padding:' + (forPrint ? '0' : '0 0 14mm') + ';' + (forPrint ? '' : 'box-shadow:0 6px 30px rgba(0,0,0,.18);') + '}');
+  h.push('.hdr{width:100%;border-collapse:collapse;background:' + K + ';color:#fff;}.hdr td{padding:18px 24px;vertical-align:middle;}');
+  h.push('.lt{font-size:30px;font-weight:900;letter-spacing:1.5px;color:#fff;}.slogan{color:#bdbdbd;font-size:10.5px;margin-top:3px;letter-spacing:.5px;}');
+  h.push('.contacts{text-align:right;font-size:10.5px;color:#e6e6e6;line-height:1.6;}.bar{height:7px;background:' + A + ';}');
+  h.push('.in{padding:0 24px;}h1{font-size:25px;margin:22px 0 2px;font-weight:900;letter-spacing:.3px;}h1 span{color:' + A + ';}');
+  h.push('.num-line{color:#666;font-size:11px;margin-bottom:14px;}');
+  h.push('.meta{width:100%;border-collapse:collapse;margin-bottom:14px;}.meta td{vertical-align:top;width:50%;padding:10px 12px;background:#f6f6f6;border-left:4px solid ' + A + ';}');
+  h.push('.meta td+td{border-left:4px solid ' + K + ';}.lbl{color:#777;font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;}.val{font-weight:700;font-size:12px;margin-bottom:5px;}');
+  h.push('.intro{margin:0 0 14px;color:#333;}');
+  h.push('table.it{width:100%;border-collapse:collapse;margin-bottom:6px;}table.it thead{display:table-header-group;}');
+  h.push('table.it th{background:' + K + ';color:#fff;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;padding:7px 6px;text-align:left;font-weight:700;}');
+  h.push('table.it td{padding:6px;border-bottom:1px solid #e4e4e4;vertical-align:top;}table.it tr{page-break-inside:avoid;}');
+  h.push('tr.sec td{background:#f2f2f2;font-weight:800;font-size:12px;border-left:5px solid ' + A + ';border-bottom:none;padding:8px;}');
+  h.push('tr.sub td{font-weight:700;text-align:right;background:#fafafa;}.r{text-align:right;white-space:nowrap;}.c{text-align:center;color:#777;width:34px;}');
+  h.push('.sum{width:58%;margin:14px 0 0 auto;border-collapse:collapse;}.sum td{padding:7px 10px;border-bottom:1px solid #e4e4e4;}.sum td+td{text-align:right;white-space:nowrap;font-weight:700;}');
+  h.push('.sum tr.tot td{background:' + A + ';color:' + K + ';font-size:16px;font-weight:900;border:none;padding:11px 10px;}');
+  h.push('.blk{margin-top:18px;page-break-inside:avoid;}.blk h3{font-size:12px;text-transform:uppercase;letter-spacing:.7px;margin:0 0 6px;border-bottom:2px solid ' + A + ';display:inline-block;padding-bottom:2px;}');
+  h.push('.sign{width:100%;border-collapse:collapse;margin-top:26px;page-break-inside:avoid;}.sign td{width:50%;padding:0 12px 0 0;vertical-align:bottom;}.sline{border-bottom:1px solid #333;height:34px;}');
+  h.push('.foot{margin-top:24px;border-top:4px solid ' + A + ';background:' + K + ';color:#ddd;font-size:10px;padding:9px 24px;}');
+  h.push('.legal{color:#777;font-size:9.5px;margin-top:4px;}');
+  h.push('@media print{body{background:#fff;}.page{box-shadow:none;margin:0;max-width:none;padding:0;}}');
+  h.push('</style></head><body><div class="page">');
+  h.push('<table class="hdr"><tr><td>' + logoHtml + (s.company_slogan ? '<div class="slogan">' + docEsc_(s.company_slogan) + '</div>' : '') + '</td><td class="contacts">' + contacts + '</td></tr></table><div class="bar"></div>');
+  h.push('<div class="in"><h1>' + docEsc_(m.title) + '<span>.</span></h1>');
+  h.push('<div class="num-line">№ ' + docEsc_(est.id) + (est.version > 1 ? ' · версія ' + docEsc_(est.version) : '') + ' · від ' + fmtD_(m.date) + ' · дійсний до ' + fmtD_(addDays_(m.date, m.valid_days)) + '</div>');
+  h.push('<table class="meta"><tr><td><div class="lbl">Замовник</div><div class="val">' + docEsc_(m.client_name || '—') + '</div>' + (m.client_phone ? '<div>' + docEsc_(m.client_phone) + '</div>' : '') +
+    '</td><td><div class="lbl">Обʼєкт</div><div class="val">' + docEsc_(m.object_name || '—') + '</div>' + (m.address ? '<div>' + docEsc_(m.address) + '</div>' : '') + '</td></tr></table>');
+  if (m.intro) h.push('<p class="intro">' + docNl_(m.intro) + '</p>');
+
+  function head() { return '<thead><tr><th class="c">№</th><th>Найменування</th><th>Од.</th><th class="r">К-сть</th>' + (up ? '<th class="r">Ціна, грн</th>' : '') + '<th class="r">Сума, грн</th></tr></thead>'; }
+  function row(n, l) { return '<tr><td class="c">' + n + '</td><td>' + docEsc_(l.name) + '</td><td>' + docEsc_(l.unit) + '</td><td class="r">' + fmtNum(l.qty) + '</td>' + (up ? '<td class="r">' + money2_(l.price) + '</td>' : '') + '<td class="r">' + money2_(l.total) + '</td></tr>'; }
+  if (d.sections.length) {
+    h.push('<table class="it">' + head() + '<tbody>');
+    d.sections.forEach(function (sec, si) {
+      h.push('<tr class="sec"><td colspan="' + cols + '">' + (si + 1) + '. ' + docEsc_(sec.name) + '</td></tr>');
+      sec.lines.forEach(function (l, li) { h.push(row((si + 1) + '.' + (li + 1), l)); });
+      if (d.sections.length > 1) h.push('<tr class="sub"><td colspan="' + (cols - 1) + '">Разом «' + docEsc_(sec.name) + '»</td><td class="r">' + money2_(sec.total) + '</td></tr>');
+    });
+    h.push('</tbody></table>');
+  }
+  if (m.show_materials && d.materials.length) {
+    h.push('<div class="blk" style="margin-top:14px;"><h3>Матеріали</h3></div><table class="it">' + head() + '<tbody>');
+    d.materials.forEach(function (l, i) { h.push(row('М' + (i + 1), l)); });
+    h.push('</tbody></table>');
+  }
+  h.push('<table class="sum">');
+  h.push('<tr><td>Роботи</td><td>' + money2_(d.works) + ' грн</td></tr>');
+  if (d.matSum) h.push('<tr><td>Матеріали' + (m.show_materials ? '' : ' (згідно зі специфікацією)') + '</td><td>' + money2_(d.matSum) + ' грн</td></tr>');
+  if (d.logistics) h.push('<tr><td>' + docEsc_(m.logistics_label || 'Логістика') + '</td><td>' + money2_(d.logistics) + ' грн</td></tr>');
+  if (d.discount) h.push('<tr><td>Знижка ' + fmtNum(m.discount_pct) + '%</td><td>−' + money2_(d.discount) + ' грн</td></tr>');
+  h.push('<tr class="tot"><td>РАЗОМ ДО СПЛАТИ</td><td>' + money2_(d.total) + ' грн</td></tr></table>');
+  if (m.notes) h.push('<div class="blk"><h3>Примітки</h3><div>' + docNl_(m.notes) + '</div></div>');
+  if (m.terms) h.push('<div class="blk"><h3>Умови</h3><div>' + docNl_(m.terms) + '</div></div>');
+  if (m.show_signatures) h.push('<table class="sign"><tr><td><div class="lbl">Виконавець — ' + docEsc_(cname) + '</div><div class="sline"></div></td><td><div class="lbl">Замовник</div><div class="sline"></div></td></tr></table>');
+  if (s.company_legal) h.push('<div class="legal">' + docNl_(s.company_legal) + '</div>');
+  h.push('</div><div class="foot">' + docEsc_(m.footer || '') + '</div></div></body></html>');
+  return h.join('');
+};
+
+V9.openClientDoc = function (estimateId) {
+  var est = byId(STATE.db.estimates, estimateId);
+  if (!est) { toast('Кошторис не знайдено', 'error'); return; }
+  var m = V9.docModel(est);
+  var old = document.getElementById('v9DocOverlay'); if (old) old.remove();
+  var ov = el('div', { id: 'v9DocOverlay' });
+  var frame = el('iframe', { class: 'v9-doc-frame', title: 'Попередній перегляд' });
+  var warnBox = el('div');
+  var timer = null;
+  function refresh() {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      frame.srcdoc = V9.docHtml(est, m, false);
+      var d = V9.docData(est, m);
+      warnBox.innerHTML = '';
+      if (d.hiddenSum) warnBox.appendChild(el('div', { class: 'v9-note gold' }, ['Приховано позицій на ' + fmtMoney(d.hiddenSum) + ' — сума документа менша за кошторис.']));
+      else if (d.differs) warnBox.appendChild(el('div', { class: 'v9-note gold' }, ['Сума документа відрізняється від кошторису — натисни «Синхронізувати».']));
+      if (est.status !== 'final') warnBox.appendChild(el('div', { class: 'v9-note' }, ['ℹ Кошторис ще не затверджено (чернетка).']));
+    }, 200);
+  }
+  function close() { ov.remove(); }
+  function field(label, key, type) {
+    var inp = type === 'textarea' ? el('textarea', { class: 'v9-in', rows: '3' }) : input_({ type: type || 'text' });
+    inp.value = m[key] == null ? '' : m[key];
+    inp.oninput = function () { m[key] = type === 'number' ? (Number(inp.value) || 0) : inp.value; refresh(); };
+    return el('div', { class: 'form-row' }, [el('label', {}, [label]), inp]);
+  }
+  function check(label, key) {
+    var cb = el('input', { type: 'checkbox' }); cb.checked = !!m[key];
+    cb.onchange = function () { m[key] = cb.checked; refresh(); };
+    return el('label', { class: 'v9-check' }, [cb, label]);
+  }
+  var side = el('div', { class: 'v9-doc-side' });
+  side.appendChild(el('div', { class: 'chart-title' }, ['Документ']));
+  side.appendChild(field('Заголовок', 'title'));
+  side.appendChild(el('div', { class: 'form-grid-2' }, [field('Дата', 'date', 'date'), field('Дійсний, днів', 'valid_days', 'number')]));
+  side.appendChild(field('Замовник', 'client_name'));
+  side.appendChild(field('Телефон замовника', 'client_phone'));
+  side.appendChild(field('Обʼєкт', 'object_name'));
+  side.appendChild(field('Адреса', 'address'));
+  side.appendChild(field('Вступ', 'intro', 'textarea'));
+  side.appendChild(check('Ціна за одиницю', 'show_unit_prices'));
+  side.appendChild(check('Матеріали окремим розділом', 'show_materials'));
+  side.appendChild(check('Підписи сторін', 'show_signatures'));
+  side.appendChild(el('div', { class: 'form-grid-2', style: 'margin-top:10px;' }, [field('Знижка, %', 'discount_pct', 'number'), field('Назва рядка логістики', 'logistics_label')]));
+  side.appendChild(field('Примітки', 'notes', 'textarea'));
+  side.appendChild(field('Умови', 'terms', 'textarea'));
+  side.appendChild(field('Нижній колонтитул', 'footer'));
+  side.appendChild(el('div', { class: 'chart-title', style: 'margin-top:14px;' }, ['Дизайн']));
+  var colorRow = el('div', { class: 'v9-row' });
+  [['Жовтий', 'accent'], ['Чорний', 'dark']].forEach(function (c) {
+    var ci = el('input', { type: 'color', value: docSafeColor_(m[c[1]], c[1] === 'accent' ? '#F2C200' : '#000000') });
+    ci.oninput = function () { m[c[1]] = ci.value; refresh(); };
+    colorRow.appendChild(el('label', { class: 'v9-check' }, [ci, c[0]]));
+  });
+  side.appendChild(colorRow);
+  side.appendChild(el('div', { class: 'page-sub', style: 'margin:6px 0 0;' }, ['Логотип, реквізити й тексти за замовчуванням — у Налаштуваннях → «Клієнтський документ».']));
+
+  // sections + lines: rename / hide
+  var d0 = V9.docData(est, { lines: {}, sections: {}, discount_pct: 0 });
+  if (d0.sections.length) {
+    side.appendChild(el('div', { class: 'chart-title', style: 'margin-top:14px;' }, ['Назви розділів']));
+    d0.sections.forEach(function (sec) {
+      var i = input_({ value: m.sections[sec.name] || sec.name, style: 'width:100%;margin-bottom:4px;' });
+      i.oninput = function () { if (i.value.trim() && i.value !== sec.name) m.sections[sec.name] = i.value; else delete m.sections[sec.name]; refresh(); };
+      side.appendChild(i);
+    });
+  }
+  side.appendChild(el('div', { class: 'chart-title', style: 'margin-top:14px;' }, ['Позиції: назва для клієнта / показувати']));
+  STATE.db.estimateItems.filter(function (it) { return it.estimate_id === est.id; }).forEach(function (it) {
+    var lo = m.lines[it.id] || {};
+    var cb = el('input', { type: 'checkbox' }); cb.checked = !lo.hidden;
+    var nm = input_({ value: lo.name || it.client_name || it.name, style: 'flex:1;min-width:0;' });
+    function upd() {
+      var e = m.lines[it.id] || {};
+      e.hidden = !cb.checked;
+      if (nm.value.trim() && nm.value !== (it.client_name || it.name)) e.name = nm.value; else delete e.name;
+      if (!e.hidden && !e.name) delete m.lines[it.id]; else m.lines[it.id] = e;
+      refresh();
+    }
+    cb.onchange = upd; nm.oninput = upd;
+    side.appendChild(el('div', { class: 'v9-row', style: 'flex-wrap:nowrap;margin-bottom:4px;' }, [cb, nm, el('span', { class: 'v9-reason', style: 'white-space:nowrap;' }, [fmtMoney(it.client_total)])]));
+  });
+  side.appendChild(warnBox);
+
+  function saveDoc(btn) {
+    var def = V9.docDefaults(est);
+    var copy = {};
+    for (var k in m) if (JSON.stringify(m[k]) !== JSON.stringify(def[k])) copy[k] = m[k]; // store only what was changed
+    var json = JSON.stringify(copy);
+    if (json.length > 44000) { toast('Документ завеликий для збереження (можливо, логотип). Завантаж логотип у Налаштуваннях.', 'error'); return; }
+    var done = busy_(btn, '⏳');
+    apiCall('saveEstimateDoc', { id: est.id, doc: copy }).then(function (r) { done(); upsert_('estimates', r); est = r; saveCache_(); toast('Документ збережено', 'success'); })
+      .catch(function (e) { done(); errToast_(e); });
+  }
+  function fname(ext) { return 'BUDNEX_' + (m.title || 'Кошторис').replace(/[^\wА-Яа-яІіЇїЄєҐґ-]+/g, '_') + '_' + est.id + '.' + ext; }
+  var saveBtn = btn_('💾 Зберегти', 'primary small', function () { saveDoc(saveBtn); });
+  var pdfBtn = btn_('⬇ PDF (сервер)', 'small', function () {
+    var done = busy_(pdfBtn, '⏳ PDF…');
+    apiCall('htmlToPdf', { html: V9.docHtml(est, m, true), filename: fname('pdf') }).then(function (r) { done(); downloadBase64_(r.filename, r.base64, r.mimeType); })
+      .catch(function (e) { done(); errToast_(e); });
+  }, 'Спрощений PDF, згенерований Google. Для точного дизайну — «Друк / PDF»');
+  var top = el('div', { class: 'v9-doc-top' }, [
+    el('b', {}, ['📄 Документ клієнту · ' + est.id]), el('div', { class: 'spacer' }),
+    saveBtn,
+    btn_('🖨 Друк / PDF', 'small', function () {
+      var pf = el('iframe', { style: 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;' });
+      document.body.appendChild(pf);
+      pf.onload = function () { setTimeout(function () { pf.contentWindow.focus(); pf.contentWindow.print(); setTimeout(function () { pf.remove(); }, 1500); }, 250); };
+      pf.srcdoc = V9.docHtml(est, m, true);
+    }, 'У вікні друку обери «Зберегти як PDF» — точний фірмовий дизайн'),
+    pdfBtn,
+    btn_('⬇ HTML', 'small', function () { downloadText_(fname('html'), V9.docHtml(est, m, true), 'text/html;charset=utf-8'); }),
+    btn_('↺ За налаштуваннями', 'small', function () {
+      if (!confirm('Скинути всі зміни документа до налаштувань за замовчуванням?')) return;
+      est.doc_json = ''; close(); V9.openClientDoc(est.id); toast('Скинуто. Натисни «Зберегти», щоб зафіксувати.');
+    }),
+    btn_('✕ Закрити', 'small', close)
+  ]);
+  ov.appendChild(top);
+  ov.appendChild(el('div', { class: 'v9-doc-body' }, [side, frame]));
+  document.body.appendChild(ov);
+  refresh();
+};
+
+/* ============ ПУНКТ 7: ШАБЛОНИ, НОРМИ, ПРАВИЛА, ЩО ВХОДИТЬ У ЦІНУ ========== */
+var YESNO = [['так', 'так'], ['ні', 'ні']];
+function activeVal_(v) { return (v === false || /^(false|ні|0)$/i.test(String(v))) ? 'ні' : 'так'; }
+
+// generic inline-edit table over a V9 sheet (WORK_TEMPLATES / TEMPLATE_ITEMS / WORK_MATERIALS / CHECK_RULES)
+function sheetTable_(container, cfg) {
+  var wrap = el('div');
+  container.appendChild(wrap);
+  var q = '';
+  function draw() {
+    wrap.innerHTML = '';
+    var bar = el('div', { class: 'v9-row', style: 'margin-bottom:8px;' });
+    if (cfg.search) { var si = input_({ placeholder: 'Пошук…', value: q, style: 'width:260px;' }); si.oninput = function () { q = si.value; drawRows(); }; bar.appendChild(si); }
+    bar.appendChild(btn_('+ Додати', 'small primary', function () {
+      apiCall('createV9Row', { sheet: cfg.sheet, row: cfg.defaults ? cfg.defaults() : {} }).then(function (r) { db_(cfg.key).push(r); saveCache_(); drawRows(); toast('Додано', 'success'); }).catch(errToast_);
+    }));
+    wrap.appendChild(bar);
+    var tableWrap = el('div', { style: 'overflow-x:auto;' });
+    wrap.appendChild(tableWrap);
+    function drawRows() {
+      tableWrap.innerHTML = '';
+      var rows = db_(cfg.key).filter(cfg.filter || function () { return true; });
+      if (q) { var fq = fuzzyPrep_(q); rows = rows.filter(function (r) { return cfg.cols.some(function (c) { return fuzzyMatch_(r[c.k], fq); }); }); }
+      if (cfg.sort) rows.sort(cfg.sort);
+      var t = el('table', { class: 'v9t v9-edit' });
+      t.appendChild(el('thead', {}, [el('tr', {}, cfg.cols.map(function (c) { return el('th', { title: c.hint || '' }, [c.label]); }).concat([el('th', {}, [''])]))]));
+      var tb = el('tbody');
+      rows.slice(0, 400).forEach(function (r) {
+        var tr = el('tr');
+        cfg.cols.forEach(function (c) {
+          var v = c.type === 'active' ? activeVal_(r[c.k]) : (r[c.k] == null ? '' : r[c.k]);
+          var inp;
+          if (c.type === 'active' || c.type === 'select') inp = select_(c.type === 'active' ? YESNO : c.opts, v);
+          else if (c.type === 'textarea') { inp = el('textarea', { class: 'v9-in', rows: '2' }); inp.value = v; }
+          else inp = input_({ value: v, type: c.type === 'num' ? 'number' : 'text', step: 'any' });
+          if (c.list) inp.setAttribute('list', c.list);
+          inp.style.width = c.w || '100%';
+          inp.onchange = function () {
+            var patch = {}; patch[c.k] = c.type === 'num' ? (inp.value === '' ? '' : Number(inp.value)) : inp.value;
+            apiCall('updateV9Row', { sheet: cfg.sheet, id: r.id, patch: patch }).then(function (res) {
+              upsert_(cfg.key, res); saveCache_(); inp.classList.add('v9-saved'); setTimeout(function () { inp.classList.remove('v9-saved'); }, 900);
+            }).catch(errToast_);
+          };
+          tr.appendChild(el('td', {}, [inp]));
+        });
+        tr.appendChild(el('td', {}, [btn_('✕', 'small danger', function () {
+          if (!confirm('Видалити запис' + (cfg.sheet === 'WORK_TEMPLATES' ? ' (разом з усіма позиціями шаблону)' : '') + '?')) return;
+          apiCall('deleteV9Row', { sheet: cfg.sheet, id: r.id }).then(function () {
+            removeById_(cfg.key, r.id);
+            if (cfg.sheet === 'WORK_TEMPLATES') STATE.db.templateItems = db_('templateItems').filter(function (x) { return x.template_id !== r.id; });
+            saveCache_(); if (cfg.onDelete) cfg.onDelete(r); else drawRows();
+          }).catch(errToast_);
+        })]));
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb);
+      tableWrap.appendChild(t);
+      if (!rows.length) tableWrap.appendChild(el('div', { class: 'page-sub' }, ['Записів немає.']));
+      else if (rows.length > 400) tableWrap.appendChild(el('div', { class: 'page-sub' }, ['Показано 400 з ' + rows.length + ' — уточни пошук.']));
+    }
+    drawRows();
+  }
+  draw();
+}
+
+function worksDatalist_() {
+  if (document.getElementById('v9WorksList')) document.getElementById('v9WorksList').remove();
+  var dl = el('datalist', { id: 'v9WorksList' });
+  STATE.db.works.forEach(function (w) { dl.appendChild(el('option', { value: w.name })); });
+  document.body.appendChild(dl);
+  if (document.getElementById('v9MatList')) document.getElementById('v9MatList').remove();
+  var ml = el('datalist', { id: 'v9MatList' });
+  STATE.db.materials.forEach(function (m) { ml.appendChild(el('option', { value: m.name })); });
+  document.body.appendChild(ml);
+}
+function varsHelp_() {
+  var L = (STATE.db.v9 && STATE.db.v9.varLabels) || {};
+  return el('div', { class: 'v9-help' }, [
+    el('b', {}, ['Змінні для формул: ']),
+    Object.keys(L).map(function (k) { return k + ' — ' + L[k]; }).join(' · '),
+    el('div', { style: 'margin-top:6px;' }, ['Формули: + − * / ( ), ceil() floor() round() max() min() sqrt(). Напр.: ', el('code', {}, ['facade_area*1.05']), ', ', el('code', {}, ['ceil(slopes_lm/2.5)']), '.']),
+    el('div', {}, ['Умови: ', el('code', {}, ['has:цокол']), ' (опис містить), ', el('code', {}, ['!has:декор']), ' (не містить), ', el('code', {}, ['facade_height>3']), ', ', el('code', {}, ['insulation_type=мінвата']), '; кілька умов через ', el('code', {}, ['&']), ', альтернативи через ', el('code', {}, ['|']), '; «сумнівно»: ', el('code', {}, ['0']), '/', el('code', {}, ['1']), ' або умова.']),
+    el('div', {}, ['Ключові слова шаблону: ', el('code', {}, ['фасад+утепл|мокр+фасад']), ' — «+» усі слова разом, «|» — варіанти, ', el('code', {}, ['!слово']), ' — виключити.'])
+  ]);
+}
+
+V9.renderCatalogsPage = function (main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['🧩 Шаблони, норми, правила']));
+  main.appendChild(el('div', { class: 'page-sub' }, ['Усе, за чим BUDNEX автоматично визначає роботи, обсяги, матеріали і перевіряє кошторис. Зміни зберігаються одразу (поле блимає зеленим).']));
+  if (!v9Ready_()) { main.appendChild(v9Missing_()); return; }
+  worksDatalist_();
+  var tabs = el('div', { class: 'tabs' }), content = el('div');
+  var defs = [['templates', 'Технологічні шаблони'], ['norms', 'Норми витрат матеріалів'], ['rules', 'Правила контролю'], ['pricemeta', 'Прайс: що входить у ціну'], ['settings', 'Налаштування автоматизації']];
+  if (!STATE.ui.v9CatTab) STATE.ui.v9CatTab = 'templates';
+  function draw() {
+    tabs.innerHTML = '';
+    defs.forEach(function (d) {
+      var b = el('button', { class: 'tab-btn' + (STATE.ui.v9CatTab === d[0] ? ' active' : '') }, [d[1]]);
+      b.onclick = function () { STATE.ui.v9CatTab = d[0]; draw(); };
+      tabs.appendChild(b);
+    });
+    content.innerHTML = '';
+    ({ templates: tplTab, norms: normsTab, rules: rulesTab, pricemeta: priceMetaTab, settings: V9.renderSettingsV9 })[STATE.ui.v9CatTab](content);
+  }
+  main.appendChild(tabs); main.appendChild(content);
+  draw();
+
+  function tplTab(c) {
+    var grid = el('div', { class: 'v9-split' });
+    var left = el('div', { class: 'card v9-mb' }), right = el('div', { class: 'card v9-mb' });
+    grid.appendChild(left); grid.appendChild(right); c.appendChild(grid);
+    var tpls = db_('workTemplates').slice().sort(function (a, b) { return (Number(a.sort) || 0) - (Number(b.sort) || 0); });
+    if (!STATE.ui.v9Tpl || !byId(tpls, STATE.ui.v9Tpl)) STATE.ui.v9Tpl = tpls[0] ? tpls[0].id : null;
+    left.appendChild(el('div', { class: 'chart-title' }, ['Шаблони (' + tpls.length + ')']));
+    tpls.forEach(function (t) {
+      var n = db_('templateItems').filter(function (x) { return x.template_id === t.id; }).length;
+      var r = el('div', { class: 'v9-pick' + (STATE.ui.v9Tpl === t.id ? ' on' : '') }, [el('b', {}, [t.name]), el('div', { class: 'page-sub', style: 'margin:0;' }, [n + ' позицій' + (activeVal_(t.active) === 'ні' ? ' · вимкнено' : '')])]);
+      r.onclick = function () { STATE.ui.v9Tpl = t.id; draw(); };
+      left.appendChild(r);
+    });
+    left.appendChild(el('div', { style: 'margin-top:10px;' }, [btn_('+ Новий шаблон', 'small primary', function () {
+      apiCall('createV9Row', { sheet: 'WORK_TEMPLATES', row: { name: 'Новий шаблон', keywords: '', object_types: '', description: '', questions_json: '[]', required_keys: '', sort: (tpls.length + 1) * 10, active: 'так' } })
+        .then(function (r) { db_('workTemplates').push(r); STATE.ui.v9Tpl = r.id; saveCache_(); draw(); }).catch(errToast_);
+    })]));
+    // test box
+    var test = input_({ placeholder: 'Перевір опис: напр. «утеплення фасаду 10х12»', style: 'width:100%;margin-top:14px;' });
+    var testOut = el('div', { style: 'margin-top:6px;font-size:12px;' });
+    left.appendChild(test);
+    left.appendChild(btn_('Перевірити, які роботи визначаться', 'small', function () {
+      if (!test.value.trim()) return;
+      testOut.textContent = '⏳';
+      apiCall('autoScope', { text: test.value, force_rules: true }).then(function (p) {
+        testOut.innerHTML = '';
+        testOut.appendChild(el('div', {}, [el('b', {}, ['Шаблони: ']), (p.templates || []).join(', ') || 'жоден не спрацював']));
+        (p.items || []).forEach(function (it) { testOut.appendChild(el('div', {}, ['• ' + it.name + ' — ' + (it.quantity == null ? '? (' + (it.missing || []).map(varLabel_).join(', ') + ')' : fmtNum(it.quantity) + ' ' + it.unit) + (it.doubtful ? ' ⚠' : '')])); });
+        if ((p.questions || []).length) testOut.appendChild(el('div', { class: 'page-sub' }, ['Питання: ' + p.questions.map(function (q) { return q.text; }).join(' / ')]));
+      }).catch(function (e) { testOut.textContent = ''; errToast_(e); });
+    }));
+    left.appendChild(testOut);
+
+    var t = byId(tpls, STATE.ui.v9Tpl);
+    if (!t) { right.appendChild(el('div', { class: 'page-sub' }, ['Шаблонів немає.'])); return; }
+    right.appendChild(el('div', { class: 'chart-title' }, ['Шаблон']));
+    var fwrap = el('div', { class: 'form-grid-2' });
+    [['name', 'Назва'], ['keywords', 'Ключові слова (коли застосовувати)'], ['object_types', 'Типи обʼєктів'], ['sort', 'Порядок'], ['required_keys', 'Обовʼязкові змінні'], ['active', 'Активний']].forEach(function (f) {
+      var inp = f[0] === 'active' ? select_(YESNO, activeVal_(t.active)) : input_({ value: t[f[0]] == null ? '' : t[f[0]] });
+      inp.style.width = '100%';
+      inp.onchange = function () { var p = {}; p[f[0]] = inp.value; apiCall('updateV9Row', { sheet: 'WORK_TEMPLATES', id: t.id, patch: p }).then(function (r) { upsert_('workTemplates', r); saveCache_(); inp.classList.add('v9-saved'); setTimeout(function () { inp.classList.remove('v9-saved'); }, 900); }).catch(errToast_); };
+      fwrap.appendChild(el('div', { class: 'form-row' }, [el('label', {}, [f[1]]), inp]));
+    });
+    right.appendChild(fwrap);
+    var desc = el('textarea', { class: 'v9-in', rows: '2', style: 'width:100%;' }); desc.value = t.description || '';
+    desc.onchange = function () { apiCall('updateV9Row', { sheet: 'WORK_TEMPLATES', id: t.id, patch: { description: desc.value } }).then(function (r) { upsert_('workTemplates', r); }).catch(errToast_); };
+    right.appendChild(el('div', { class: 'form-row' }, [el('label', {}, ['Опис']), desc]));
+    var qj = el('textarea', { class: 'v9-in', rows: '2', style: 'width:100%;font-family:monospace;font-size:12px;' }); qj.value = t.questions_json || '[]';
+    qj.onchange = function () {
+      try { JSON.parse(qj.value || '[]'); } catch (e) { toast('Питання: некоректний JSON', 'error'); return; }
+      apiCall('updateV9Row', { sheet: 'WORK_TEMPLATES', id: t.id, patch: { questions_json: qj.value } }).then(function (r) { upsert_('workTemplates', r); toast('Збережено', 'success'); }).catch(errToast_);
+    };
+    right.appendChild(el('div', { class: 'form-row' }, [el('label', {}, ['Власні питання (JSON: [{"key":"rent_months","text":"…","type":"number"}])']), qj]));
+    right.appendChild(el('div', { class: 'chart-title', style: 'margin-top:10px;' }, ['Позиції шаблону (у технологічній послідовності)']));
+    sheetTable_(right, {
+      sheet: 'TEMPLATE_ITEMS', key: 'templateItems',
+      filter: function (x) { return x.template_id === t.id; },
+      sort: function (a, b) { return (Number(a.sort) || 0) - (Number(b.sort) || 0); },
+      defaults: function () {
+        var mx = db_('templateItems').filter(function (x) { return x.template_id === t.id; }).reduce(function (s, x) { return Math.max(s, Number(x.sort) || 0); }, 0);
+        return { template_id: t.id, sort: mx + 10, stage: '', work_name: '', quantity_formula: '', condition: '', doubtful: '0', reason: '', active: 'так' };
+      },
+      cols: [{ k: 'sort', label: '№', type: 'num', w: '60px' }, { k: 'stage', label: 'Етап', w: '130px' },
+        { k: 'work_name', label: 'Робота з прайсу', list: 'v9WorksList', w: '260px', hint: 'Точна назва з прайсу' },
+        { k: 'quantity_formula', label: 'Кількість (формула)', w: '150px' }, { k: 'condition', label: 'Умова', w: '130px' },
+        { k: 'doubtful', label: 'Сумнівно', w: '110px', hint: '0 / 1 / умова — тоді позиція позначається і чекає підтвердження' },
+        { k: 'reason', label: 'Обґрунтування', w: '220px' }, { k: 'active', label: 'Акт.', type: 'active', w: '70px' }]
+    });
+    right.appendChild(el('div', { style: 'margin-top:10px;' }, [varsHelp_()]));
+  }
+
+  function normsTab(c) {
+    c.appendChild(el('p', { class: 'page-sub' }, ['Скільки матеріалу на 1 одиницю роботи. Витрата може бути формулою (напр. insulation_thickness/100), умова — вибір між матеріалами (insulation_type=мінвата). Ціни матеріалів — у «Матеріали і пакети» або «Актуалізація цін».']));
+    sheetTable_(c, {
+      sheet: 'WORK_MATERIALS', key: 'workMaterials', search: true,
+      defaults: function () { return { work_name: '', material_name: '', consumption: '1', waste_pct: 5, condition: '', notes: '', active: 'так' }; },
+      cols: [{ k: 'work_name', label: 'Робота', list: 'v9WorksList', w: '250px' }, { k: 'material_name', label: 'Матеріал', list: 'v9MatList', w: '250px' },
+        { k: 'consumption', label: 'Витрата на од.', w: '140px' }, { k: 'waste_pct', label: 'Запас, %', type: 'num', w: '80px' },
+        { k: 'condition', label: 'Умова', w: '160px' }, { k: 'notes', label: 'Примітка', w: '180px' }, { k: 'active', label: 'Акт.', type: 'active', w: '70px' }]
+    });
+    c.appendChild(el('div', { style: 'margin-top:10px;' }, [varsHelp_()]));
+  }
+
+  function rulesTab(c) {
+    c.appendChild(el('p', { class: 'page-sub' }, ['Якщо в кошторисі є робота зі словом з «Якщо є» і немає жодної зі словами «Має бути» — перевірка покаже повідомлення. Варіанти розділяй «|».']));
+    sheetTable_(c, {
+      sheet: 'CHECK_RULES', key: 'checkRules',
+      defaults: function () { return { name: 'Нове правило', if_keywords: '', requires_keywords: '', message: '', level: 'warn', active: 'так' }; },
+      cols: [{ k: 'name', label: 'Назва', w: '170px' }, { k: 'if_keywords', label: 'Якщо є', w: '200px' }, { k: 'requires_keywords', label: 'Має бути', w: '200px' },
+        { k: 'message', label: 'Повідомлення', w: '260px' }, { k: 'level', label: 'Рівень', type: 'select', opts: [['error', 'помилка'], ['warn', 'попередження'], ['info', 'інфо']], w: '130px' },
+        { k: 'active', label: 'Акт.', type: 'active', w: '70px' }]
+    });
+  }
+
+  function priceMetaTab(c) {
+    var MODES = [['labor', 'тільки робота'], ['labor_material', 'робота + матеріал'], ['material', 'матеріал окремо'], ['service', 'послуга']];
+    c.appendChild(el('p', { class: 'page-sub' }, ['Для кожної позиції: що саме входить у ціну. «Робота + матеріал» — матеріали за нормами для неї не додаються окремо. Зміни накопичуються і зберігаються кнопкою.']));
+    var pending = {};
+    var cat = select_([['', 'Всі категорії']].concat(STATE.db.categories.map(function (x) { return [x.name, x.num + '. ' + x.name]; })), STATE.ui.v9PmCat || '');
+    var search = input_({ placeholder: 'Пошук роботи…', style: 'width:220px;' });
+    var modeF = select_([['', 'Будь-який режим']].concat(MODES), '');
+    var bulk = select_([['', '— масово: режим —']].concat(MODES), '');
+    var count = el('span', { class: 'badge gray' }, ['змін: 0']);
+    var saveB = btn_('💾 Зберегти зміни', 'primary small', function () {
+      var rows = Object.keys(pending).map(function (id) { return pending[id]; });
+      if (!rows.length) { toast('Змін немає'); return; }
+      var done = busy_(saveB, '⏳ Зберігаю…');
+      var chunks = []; for (var i = 0; i < rows.length; i += 60) chunks.push(rows.slice(i, i + 60));
+      chunks.reduce(function (p, ch) { return p.then(function () { return apiCall('updateWorksBatch', { rows: ch }).then(function (res) { res.forEach(function (w) { upsert_('works', w); }); }); }); }, Promise.resolve())
+        .then(function () { done(); pending = {}; count.textContent = 'змін: 0'; saveCache_(); toast('Збережено ' + rows.length + ' позицій', 'success'); drawT(); })
+        .catch(function (e) { done(); errToast_(e); });
+    });
+    c.appendChild(el('div', { class: 'toolbar' }, [cat, search, modeF, bulk, btn_('Застосувати до відфільтрованих', 'small', function () {
+      if (!bulk.value) return;
+      filtered().forEach(function (w) { mark(w, 'pricing_mode', bulk.value); });
+      drawT();
+    }), el('div', { class: 'spacer' }), count, saveB]));
+    var tw = el('div', { style: 'overflow-x:auto;' }); c.appendChild(tw);
+    function filtered() {
+      var fq = fuzzyPrep_(search.value);
+      return STATE.db.works.filter(function (w) {
+        if (cat.value && w.category !== cat.value) return false;
+        var pm = (pending[w.id] && pending[w.id].pricing_mode) || w.pricing_mode || 'labor';
+        if (modeF.value && pm !== modeF.value) return false;
+        return !fq || fuzzyMatch_(w.name, fq);
+      });
+    }
+    function mark(w, k, v) { var p = pending[w.id] || (pending[w.id] = { id: w.id }); p[k] = v; count.textContent = 'змін: ' + Object.keys(pending).length; }
+    function drawT() {
+      tw.innerHTML = '';
+      var list = filtered();
+      var t = el('table', { class: 'v9t v9-edit' });
+      t.appendChild(el('thead', {}, [el('tr', {}, ['Робота', 'Ціна викон.', 'Що в ціні', 'Риштування', 'Техніка', 'Доставка', 'Вивезення сміття', 'Інші витрати', 'Назва для клієнта'].map(function (h) { return el('th', {}, [h]); }))]));
+      var tb = el('tbody');
+      list.slice(0, 200).forEach(function (w) {
+        var p = pending[w.id] || {};
+        function cell(k, isSel) {
+          var v = p[k] != null ? p[k] : (w[k] == null ? '' : w[k]);
+          var inp = isSel ? select_(MODES, v || 'labor') : input_({ value: v, list: 'v9IncList' });
+          inp.style.width = isSel ? '150px' : '150px';
+          inp.onchange = function () { mark(w, k, inp.value); };
+          return el('td', {}, [inp]);
+        }
+        tb.appendChild(el('tr', {}, [el('td', {}, [el('div', {}, [w.name]), el('div', { class: 'v9-reason' }, [w.unit + (w.price_source ? ' · ' + w.price_source : '')])]),
+          el('td', { class: 'num' }, [fmtMoney(w.contractor_price)]), cell('pricing_mode', true), cell('includes_scaffolding'), cell('includes_equipment'),
+          cell('includes_delivery'), cell('includes_disposal'), cell('extra_costs_note'), cell('client_name')]));
+      });
+      t.appendChild(tb); tw.appendChild(t);
+      tw.appendChild(el('div', { class: 'page-sub' }, ['Показано ' + Math.min(200, list.length) + ' з ' + list.length + (list.length > 200 ? ' — уточни фільтр' : '')]));
+    }
+    if (!document.getElementById('v9IncList')) {
+      var dl = el('datalist', { id: 'v9IncList' });
+      ['так', 'ні — окремо', 'ні — окремою позицією', 'так (обладнання бригади)', 'ручний інструмент — так; спецтехніка — ні', 'ні — вивезення окремо', 'н/з'].forEach(function (v) { dl.appendChild(el('option', { value: v })); });
+      document.body.appendChild(dl);
+    }
+    cat.onchange = function () { STATE.ui.v9PmCat = cat.value; drawT(); }; search.oninput = drawT; modeF.onchange = drawT;
+    drawT();
+  }
+};
+
+/* ==================== ПУНКТИ 5–6: АКТУАЛІЗАЦІЯ ЦІН ====================== */
+V9.renderPricesPage = function (main) {
+  main.appendChild(el('div', { class: 'page-title' }, ['🔎 Актуалізація цін']));
+  main.appendChild(el('div', { class: 'page-sub' }, ['BUDNEX шукає ринкові ціни (Івано-Франківськ / Україна), пропонує нову ціну з націнкою BUDNEX (+' + (settings_().price_premium_pct || 5) + '% до середньоринкової) і показує джерела. Прайс змінюється тільки після твого підтвердження.']));
+  if (!v9Ready_()) { main.appendChild(v9Missing_()); return; }
+  var s = settings_();
+  if (s.ai_provider !== 'anthropic') main.appendChild(el('div', { class: 'margin-warn' }, ['Автоматичний пошук цін в інтернеті працює з AI-провайдером Anthropic (Налаштування → AI) і ai_web_search = так. Без нього можна додавати ціни з джерел вручну — підтвердження працює так само.']));
+  var sel = STATE.ui.v9PriceSel || (STATE.ui.v9PriceSel = {});
+  var type = STATE.ui.v9PriceType || 'work';
+  var pick = el('div', { class: 'card v9-mb', style: 'margin-bottom:14px;' });
+  main.appendChild(pick);
+  var props = el('div'); main.appendChild(props);
+
+  function drawPick() {
+    pick.innerHTML = '';
+    pick.appendChild(el('div', { class: 'chart-title' }, ['1. Обери позиції (до 6 за раз)']));
+    var typeSel = select_([['work', 'Роботи'], ['material', 'Матеріали']], type);
+    typeSel.onchange = function () { type = STATE.ui.v9PriceType = typeSel.value; STATE.ui.v9PriceSel = sel = {}; drawPick(); };
+    var cat = select_([['', 'Всі категорії']].concat((type === 'work' ? STATE.db.categories.map(function (c) { return [c.name, c.num + '. ' + c.name]; }) : [])), STATE.ui.v9PriceCat || '');
+    var search = input_({ placeholder: 'Пошук…', style: 'width:240px;' });
+    var oldOnly = el('input', { type: 'checkbox' });
+    var list = el('div', { style: 'max-height:300px;overflow:auto;border:1px solid var(--v9-line);border-radius:8px;margin-top:8px;' });
+    var nSel = el('span', { class: 'badge gray' });
+    function selCount() { var n = Object.keys(sel).length; nSel.textContent = 'вибрано: ' + n; return n; }
+    function drawList() {
+      list.innerHTML = '';
+      var fq = fuzzyPrep_(search.value);
+      var src = type === 'work' ? STATE.db.works : STATE.db.materials;
+      var limitDate = new Date(); limitDate.setMonth(limitDate.getMonth() - 3);
+      var rows = src.filter(function (x) {
+        if (type === 'work' && cat.value && x.category !== cat.value) return false;
+        if (oldOnly.checked && x.price_checked_at && new Date(x.price_checked_at) > limitDate) return false;
+        return !fq || fuzzyMatch_(x.name, fq);
+      });
+      rows.slice(0, 200).forEach(function (x) {
+        var cb = el('input', { type: 'checkbox' }); cb.checked = !!sel[x.id];
+        cb.onchange = function () {
+          if (cb.checked) { if (selCount() >= 6) { cb.checked = false; toast('Максимум 6 позицій за один запит', 'error'); return; } sel[x.id] = true; } else delete sel[x.id];
+          selCount();
+        };
+        var price = type === 'work' ? Number(x.contractor_price) : Number(x.price);
+        list.appendChild(el('label', { class: 'v9-pick', style: 'display:flex;gap:10px;align-items:center;' }, [cb, el('div', { style: 'flex:1;' }, [x.name,
+          el('div', { class: 'page-sub', style: 'margin:0;' }, [fmtMoney(price) + ' / ' + x.unit + (x.price_checked_at ? ' · перевірено ' + fmtDate(x.price_checked_at) : ' · не перевірялось') + (x.price_source ? ' · ' + String(x.price_source).slice(0, 60) : '')])])]));
+      });
+      if (!rows.length) list.appendChild(el('div', { class: 'page-sub', style: 'padding:10px;' }, ['Нічого не знайдено.']));
+    }
+    search.oninput = drawList; cat.onchange = function () { STATE.ui.v9PriceCat = cat.value; drawList(); }; oldOnly.onchange = drawList;
+    var checkB = btn_('🔎 Перевірити в інтернеті', 'primary', function () {
+      var ids = Object.keys(sel);
+      if (!ids.length) { toast('Обери позиції', 'error'); return; }
+      var done = busy_(checkB, '⏳ Шукаю ціни… (до 1–2 хв)');
+      apiCall('checkPricesOnline', { target_type: type, ids: ids }).then(function (rows) {
+        done(); rows.forEach(function (r) { upsert_('priceUpdates', r); }); saveCache_();
+        STATE.ui.v9PriceSel = sel = {};
+        toast('Отримано пропозицій: ' + rows.filter(function (r) { return r.status === 'pending'; }).length + ' з ' + rows.length, 'success');
+        drawPick(); drawProps();
+      }).catch(function (e) { done(); errToast_(e); });
+    });
+    var manualB = btn_('✍ Додати ціну з джерела', '', function () {
+      var ids = Object.keys(sel);
+      if (ids.length !== 1) { toast('Обери рівно одну позицію', 'error'); return; }
+      openManual(type, ids[0]);
+    });
+    pick.appendChild(el('div', { class: 'v9-row' }, [typeSel, type === 'work' ? cat : null, search, el('label', { class: 'v9-check' }, [oldOnly, 'не перевірені 3+ міс.']), el('div', { class: 'spacer' }), nSel, checkB, manualB]));
+    pick.appendChild(list);
+    selCount(); drawList();
+  }
+
+  function openManual(t, id) {
+    var x = byId(t === 'work' ? STATE.db.works : STATE.db.materials, id);
+    var body = el('div');
+    body.appendChild(el('p', { class: 'page-sub' }, [x.name + ' · зараз ' + fmtMoney(t === 'work' ? x.contractor_price : x.price) + ' / ' + x.unit + (t === 'work' ? ' (ціна виконавця)' : '')]));
+    var mn = input_({ type: 'number', step: 'any', placeholder: 'мін.' }), avg = input_({ type: 'number', step: 'any', placeholder: 'середня *' }), mx = input_({ type: 'number', step: 'any', placeholder: 'макс.' });
+    var url = input_({ placeholder: 'https://… посилання на джерело', style: 'width:100%;' });
+    var notes = input_({ placeholder: 'Примітка (напр. «прайс Епіцентр ІФ», «дзвінок постачальнику»)', style: 'width:100%;' });
+    body.appendChild(el('div', { class: 'v9-row' }, ['Ринкова ціна ' + (t === 'work' ? 'для замовника' : '') + ', грн/' + x.unit + ':', mn, avg, mx]));
+    body.appendChild(el('div', { style: 'margin-top:8px;' }, [url]));
+    body.appendChild(el('div', { style: 'margin-top:8px;' }, [notes]));
+    body.appendChild(el('div', { class: 'form-actions' }, [btn_('Скасувати', '', closeModal), btn_('Створити пропозицію', 'primary', function () {
+      apiCall('addManualPriceProposal', { target_type: t, target_id: id, market_min: mn.value, market_avg: avg.value, market_max: mx.value, source_url: url.value.trim(), notes: notes.value.trim() })
+        .then(function (r) { upsert_('priceUpdates', r); saveCache_(); closeModal(); drawProps(); toast('Пропозицію додано — підтверди нижче', 'success'); }).catch(errToast_);
+    })]));
+    openModal('Ціна з джерела', body);
+  }
+
+  function drawProps() {
+    props.innerHTML = '';
+    var all = db_('priceUpdates').slice().reverse();
+    var pending = all.filter(function (u) { return u.status === 'pending'; });
+    var card = el('div', { class: 'card v9-mb', style: 'margin-bottom:14px;' });
+    card.appendChild(el('div', { class: 'chart-title' }, ['2. Пропозиції на підтвердження (' + pending.length + ')']));
+    if (!pending.length) card.appendChild(el('div', { class: 'page-sub' }, ['Немає пропозицій, що чекають рішення.']));
+    else {
+      var t = el('table', { class: 'v9t' });
+      t.appendChild(el('thead', {}, [el('tr', {}, ['Позиція', 'Зараз (викон. / клієнту)', 'Ринок мін–сер–макс', 'Нова ціна виконавцю', 'Нова клієнту', 'Джерела', ''].map(function (h) { return el('th', {}, [h]); }))]));
+      var tb = el('tbody');
+      pending.forEach(function (u) {
+        var target = byId(u.target_type === 'material' ? STATE.db.materials : STATE.db.works, u.target_id) || {};
+        var np = input_({ type: 'number', step: 'any', value: u.proposed_price, style: 'width:100px;' });
+        var ncl = el('b', {}, [fmtMoney(u.proposed_client_price)]);
+        var diff = el('div', { class: 'v9-reason' });
+        function upd() {
+          var p = Number(np.value) || 0, cl;
+          if (u.target_type === 'material') cl = p * (1 + num_(settings_().material_markup_pct, 10) / 100);
+          else { var mt = target.default_markup_type || 'percent', mv = num_(target.default_markup, 25); cl = mt === 'percent' ? p * (1 + mv / 100) : p + mv; }
+          ncl.textContent = fmtMoney(cl);
+          var cur = Number(u.current_price) || 0;
+          diff.textContent = cur ? ((p - cur) / cur * 100 >= 0 ? '+' : '') + ((p - cur) / cur * 100).toFixed(1) + '% до поточної' : '';
+          diff.style.color = cur && Math.abs((p - cur) / cur) > 0.3 ? 'var(--v9-red)' : '';
+        }
+        np.oninput = upd; upd();
+        var srcCell = el('td', {});
+        parseJson_(u.sources_json, []).slice(0, 5).forEach(function (sx) {
+          if (!sx || !/^https?:\/\//.test(sx.url || '')) return;
+          srcCell.appendChild(el('div', {}, [el('a', { href: sx.url, target: '_blank', rel: 'noopener' }, [String(sx.title || sx.url).slice(0, 45)]), sx.price ? ' — ' + fmtMoney(sx.price) : '']));
+        });
+        if (u.notes) srcCell.appendChild(el('div', { class: 'v9-reason' }, [u.notes]));
+        if (u.confidence !== '' && u.confidence != null) srcCell.appendChild(el('div', { class: 'v9-reason' }, ['впевненість: ' + Math.round(Number(u.confidence) * 100) + '%']));
+        var ok = btn_('✓ Застосувати', 'small primary', function () {
+          if (!(Number(np.value) > 0)) { toast('Некоректна ціна', 'error'); return; }
+          var done = busy_(ok, '⏳');
+          apiCall('approvePriceUpdate', { id: u.id, proposed_price: Number(np.value) }).then(function (r) {
+            upsert_('priceUpdates', r.update); upsert_(u.target_type === 'material' ? 'materials' : 'works', r.target); saveCache_();
+            toast('Ціну оновлено: ' + u.target_name, 'success'); drawProps();
+          }).catch(function (e) { done(); errToast_(e); });
+        });
+        var no = btn_('✕', 'small', function () {
+          apiCall('rejectPriceUpdate', { id: u.id }).then(function (r) { upsert_('priceUpdates', r); saveCache_(); drawProps(); }).catch(errToast_);
+        }, 'Відхилити');
+        tb.appendChild(el('tr', {}, [
+          el('td', {}, [el('b', {}, [u.target_name]), el('div', { class: 'v9-reason' }, [(u.target_type === 'material' ? 'матеріал' : 'робота') + ' · ' + u.unit])]),
+          el('td', { class: 'num' }, [fmtMoney(u.current_price) + ' / ' + fmtMoney(u.current_client_price)]),
+          el('td', { class: 'num' }, [[u.market_min, u.market_avg, u.market_max].map(function (v) { return v === '' || v == null ? '—' : fmtNum(v); }).join(' – ')]),
+          el('td', {}, [np, diff]), el('td', { class: 'num' }, [ncl]), srcCell, el('td', { style: 'white-space:nowrap;' }, [ok, ' ', no])]));
+      });
+      t.appendChild(tb);
+      card.appendChild(el('div', { style: 'overflow-x:auto;' }, [t]));
+      card.appendChild(el('div', { class: 'page-sub', style: 'margin:8px 0 0;' }, ['Для робіт: ринкова ціна — це ціна для замовника; BUDNEX додає свою надбавку і перераховує ціну виконавця так, щоб з поточною націнкою позиції вийти на нову ціну клієнту. Відхилення понад 30% підсвічено червоним.']));
+    }
+    props.appendChild(card);
+    var hist = all.filter(function (u) { return u.status !== 'pending'; }).slice(0, 60);
+    if (hist.length) {
+      var hc = el('details', { class: 'card v9-mb' });
+      hc.appendChild(el('summary', { style: 'cursor:pointer;font-weight:700;' }, ['Історія (' + hist.length + ')']));
+      hist.forEach(function (u) {
+        hc.appendChild(el('div', { class: 'v9-row', style: 'padding:5px 0;border-bottom:1px solid var(--v9-line);' }, [
+          el('span', { class: 'badge ' + (u.status === 'approved' ? 'green' : u.status === 'rejected' ? 'gray' : 'red') }, [{ approved: 'застосовано', rejected: 'відхилено', not_found: 'не знайдено' }[u.status] || u.status]),
+          u.target_name, el('span', { class: 'v9-reason' }, [fmtMoney(u.current_price) + ' → ' + (u.proposed_price ? fmtMoney(u.proposed_price) : '—') + ' · ' + fmtDate(u.decided_at || u.created_at)])]));
+      });
+      props.appendChild(hc);
+    }
+  }
+  drawPick(); drawProps();
+};
+
+/* ================ ПУНКТ 7: НАЛАШТУВАННЯ АВТОМАТИЗАЦІЇ ==================== */
+var SETTING_GROUPS = [
+  ['Компанія та реквізити (для документа клієнту)', /^company_(phone|email|address|website|legal)$/],
+  ['Клієнтський документ: дизайн і тексти', /^doc_/],
+  ['Логістика', /^(base_city|city_distance_km|daily_output_uah|min_trips|default_deliveries)$/],
+  ['Ціни, націнки, матеріали', /^(material_markup_pct|auto_include_materials|price_premium_pct|price_round_to|default_markup_type)$/],
+  ['Геометрія та коефіцієнти розрахунку', /^(floor_height|plinth_height|roof_slope_factor|window_|door_|ext_door_|room_avg_area|default_wall_height)/],
+  ['Автоматичний контроль', /^check_/],
+  ['AI: модель, інструкції, веб-пошук', /^ai_(model|max_tokens|use_for_scope|web_search|extra_instructions)$/]
+];
+var SETTINGS_IN_BASE_UI = ['company_name', 'company_slogan', 'default_markup_value', 'min_margin', 'target_margin', 'fuel_price', 'fuel_consumption',
+  'amortization_rate', 'logistics_coefficient', 'ai_provider', 'ai_api_key'];
+var LONG_SETTINGS = ['doc_intro', 'doc_terms', 'ai_extra_instructions', 'company_legal', 'doc_footer'];
+
+function logoToDataUrl_(file) {
+  return new Promise(function (resolve, reject) {
+    var r = new FileReader();
+    r.onerror = function () { reject(new Error('Не вдалося прочитати файл')); };
+    r.onload = function () {
+      if (/svg/.test(file.type)) { resolve(r.result); return; }
+      var img = new Image();
+      img.onload = function () {
+        var sizes = [360, 280, 200, 140], out = '';
+        for (var i = 0; i < sizes.length; i++) {
+          var sc = Math.min(1, sizes[i] / Math.max(img.width, img.height));
+          var c = document.createElement('canvas'); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          out = c.toDataURL('image/png');
+          if (out.length < 40000) break;
+          var webp = c.toDataURL('image/webp', 0.9);
+          if (webp.indexOf('data:image/webp') === 0 && webp.length < 40000) { out = webp; break; }
+        }
+        if (out.length >= 45000) { reject(new Error('Логотип завеликий навіть після стиснення — використай https-посилання на картинку')); return; }
+        resolve(out);
+      };
+      img.onerror = function () { reject(new Error('Не вдалося відкрити зображення')); };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+V9.renderSettingsV9 = function (wrap) {
+  var card = el('div', { class: 'card v9-mb', style: 'margin-top:20px;border-color:var(--v9-gold);' });
+  card.appendChild(el('h4', { style: 'margin-top:0;' }, ['⚡ Автоматизація кошторису (етап 9)']));
+  wrap.appendChild(card);
+  if (!v9Ready_()) { card.appendChild(v9Missing_()); return; }
+  var body = el('div', {}, ['⏳ Завантажую налаштування…']);
+  card.appendChild(body);
+  var changed = {};
+  apiCall('getSettingsFull', {}).then(function (rows) {
+    body.innerHTML = '';
+    var groups = SETTING_GROUPS.map(function (g) { return { title: g[0], re: g[1], rows: [] }; });
+    var other = { title: 'Інше', rows: [] };
+    rows.forEach(function (r) {
+      if (!r.key || SETTINGS_IN_BASE_UI.indexOf(r.key) !== -1) return;
+      var g = groups.filter(function (x) { return x.re.test(r.key); })[0] || other;
+      g.rows.push(r);
+    });
+    groups.concat([other]).forEach(function (g) {
+      if (!g.rows.length) return;
+      var det = el('details', { class: 'v9-set-group' });
+      det.appendChild(el('summary', {}, [g.title + ' (' + g.rows.length + ')']));
+      var grid = el('div', { class: 'form-grid-2' });
+      g.rows.forEach(function (r) {
+        var v = r.value == null ? '' : String(r.value), inp;
+        if (LONG_SETTINGS.indexOf(r.key) !== -1) { inp = el('textarea', { class: 'v9-in', rows: '3' }); inp.value = v; }
+        else if (/^(так|ні)$/i.test(v.trim())) inp = select_(YESNO, v.trim().toLowerCase());
+        else if (r.key === 'default_markup_type') inp = select_([['percent', 'відсоток'], ['fixed', 'фіксована сума']], v);
+        else inp = input_({ value: v });
+        inp.style.width = '100%';
+        var cell = el('div', { class: 'form-row' + (LONG_SETTINGS.indexOf(r.key) !== -1 ? ' v9-span2' : '') }, [el('label', { title: r.key }, [r.description || r.key]), inp]);
+        inp.oninput = inp.onchange = function () { changed[r.key] = inp.value; };
+        if (/^doc_(accent|dark)$/.test(r.key)) {
+          var col = el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(v) ? v : '#F2C200' });
+          col.oninput = function () { inp.value = col.value; changed[r.key] = col.value; };
+          cell.appendChild(col);
+        }
+        if (r.key === 'doc_logo') {
+          cell.className = 'form-row v9-span2';
+          var prev = el('div', { class: 'v9-logo-prev' });
+          function showPrev(u) { prev.innerHTML = ''; if (docSafeUrl_(u)) prev.appendChild(el('img', { src: u, alt: 'logo' })); else prev.appendChild(el('span', { class: 'page-sub', style: 'margin:0;' }, ['Логотип не задано — у документі буде текстовий логотип BUDNEX'])); }
+          showPrev(v);
+          inp.oninput = function () { changed[r.key] = inp.value; showPrev(inp.value); };
+          var f = el('input', { type: 'file', accept: 'image/*' });
+          f.onchange = function () {
+            if (!f.files[0]) return;
+            logoToDataUrl_(f.files[0]).then(function (u) { inp.value = u; changed[r.key] = u; showPrev(u); toast('Логотип готовий — натисни «Зберегти»', 'success'); }).catch(errToast_);
+          };
+          cell.appendChild(el('div', { class: 'v9-row', style: 'margin-top:6px;' }, [f, btn_('Прибрати', 'small', function () { inp.value = ''; changed[r.key] = ''; showPrev(''); }), prev]));
+        }
+        grid.appendChild(cell);
+      });
+      det.appendChild(grid);
+      body.appendChild(det);
+    });
+    var saveB = btn_('💾 Зберегти налаштування автоматизації', 'primary', function () {
+      var keys = Object.keys(changed);
+      if (!keys.length) { toast('Змін немає'); return; }
+      var done = busy_(saveB, '⏳ Зберігаю…');
+      keys.reduce(function (p, k) { return p.then(function () { return apiCall('saveSetting', { key: k, value: changed[k] }).then(function (map) { STATE.db.settings = map; }); }); }, Promise.resolve())
+        .then(function () { done(); changed = {}; saveCache_(); toast('Збережено: ' + keys.length, 'success'); })
+        .catch(function (e) { done(); errToast_(e); });
+    });
+    var pingB = btn_('🤖 Перевірити AI', '', function () {
+      var done = busy_(pingB, '⏳');
+      apiCall('aiPing', {}).then(function () { done(); toast('AI відповідає — підключення працює', 'success'); }).catch(function (e) { done(); errToast_(e); });
+    });
+    var migB = btn_('🛠 Оновити структуру таблиці', '', function () {
+      apiCall('v9Migrate', {}).then(function (r) { toast('Структура актуальна (v' + r.schema + ')', 'success'); V9.sync(); }).catch(errToast_);
+    }, 'Додає нові колонки/аркуші, якщо їх бракує. Дані не змінює.');
+    var sample = STATE.db.estimates.slice().sort(function (a, b) { return String(b.updated_at || '').localeCompare(String(a.updated_at || '')); })[0];
+    var prevB = sample ? btn_('👁 Документ на прикладі ' + sample.id, '', function () { V9.openClientDoc(sample.id); }) : null;
+    body.appendChild(el('div', { class: 'v9-row', style: 'margin-top:12px;' }, [saveB, pingB, migB, prevB]));
+    body.appendChild(el('div', { class: 'page-sub', style: 'margin:8px 0 0;' }, ['Шаблони робіт, норми матеріалів і правила контролю — у розділі «🧩 Шаблони і норми». AI-провайдер і ключ — у блоці «AI» вище.']));
+  }).catch(function (e) { body.innerHTML = ''; body.appendChild(el('div', { class: 'margin-warn' }, ['Не вдалося завантажити: ' + e.message])); });
+};
+
+return V9;
+})();
 
 /* ============================== INITIALIZATION ================================ */
 function initApp() {
