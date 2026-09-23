@@ -127,8 +127,8 @@ table.dt tbody tr:hover{background:var(--panel2);cursor:pointer;}
 .margin-warn{background:#4a3c00;color:var(--gold2);border:1px solid var(--gold);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 
 /* setup screen */
-#setupScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;}
-#setupScreen .box{width:480px;max-width:92vw;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:32px;}
+#setupScreen,#loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;}
+#setupScreen .box,#loginScreen .box{width:480px;max-width:92vw;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:32px;}
 #setupScreen h2{margin:0 0 6px;}
 #setupScreen p{color:var(--muted);font-size:13px;line-height:1.6;}
 
@@ -227,6 +227,25 @@ tr.v9-off td{opacity:.45;}
   </div>
 </div>
 
+<div id="loginScreen" style="display:none;">
+  <div class="box">
+    <h2>Вхід у BUDNEX</h2>
+    <p>Увійди під своїм логіном і паролем. Створити акаунт може лише адміністратор — у розділі «Налаштування → Користувачі».</p>
+    <div class="form-row">
+      <label>Логін</label>
+      <input type="text" id="loginUsername" autocomplete="username" placeholder="BUDNEX">
+    </div>
+    <div class="form-row">
+      <label>Пароль</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <div id="loginError" style="color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;"></div>
+    <div class="form-actions" style="justify-content:flex-start;">
+      <button class="btn primary" id="loginBtn">Увійти</button>
+    </div>
+  </div>
+</div>
+
 <div id="app" style="display:none;">
   <div id="topbar">
     <div class="logo">BUDN<span class="ex">EX</span></div>
@@ -303,6 +322,7 @@ var NAV = [
 function currentRole_() { return STATE.currentUser ? STATE.currentUser.role : 'ADMIN'; }
 function roleAllows_(navItem) { return !navItem.roles || navItem.roles.indexOf(currentRole_()) !== -1 || currentRole_() === 'ADMIN'; }
 
+var USER_ROLES = ['ADMIN', 'MANAGER', 'ESTIMATOR', 'FOREMAN', 'ACCOUNTANT']; // дзеркало ROLES з Code.gs — на фронтенді бекендових глобалів немає
 var REQUEST_STATUSES = ['NEW','CONTACT','INSPECTION','ESTIMATE','SENT','NEGOTIATION','APPROVED','PREPARATION','IN PROGRESS','ACCEPTANCE','COMPLETED','REJECTED','PAUSED'];
 var REQUEST_STATUS_LABELS = {NEW:'Нова',CONTACT:'Контакт',INSPECTION:'Огляд',ESTIMATE:'Кошторис',SENT:'Надіслано',NEGOTIATION:'Погодження',APPROVED:'Затверджено',PREPARATION:'Підготовка','IN PROGRESS':'У роботі',ACCEPTANCE:'Приймання',COMPLETED:'Завершено',REJECTED:'Відмова',PAUSED:'Пауза'};
 var KANBAN_STATUSES = ['NEW','CONTACT','INSPECTION','ESTIMATE','SENT','NEGOTIATION','APPROVED','PREPARATION','IN PROGRESS','ACCEPTANCE','COMPLETED'];
@@ -353,12 +373,13 @@ var MUTATIONS = ['createClient','updateClient','deleteClient','createRequest','u
   'createSupplier','updateSupplier','deleteSupplier',
   'createPackage','updatePackage','deletePackage','addPackageItem','deletePackageItem','addPackageToEstimate',
   'uploadPhoto','deletePhoto',
-  'createUser','updateUser','deleteUser','loginAs',
+  'createUser','updateUser','deleteUser',
   'aiGenerateRooms',
   // ЕТАП 9 — прості зміни довідників/кошторису; важкі дії (автокошторис, затвердження,
   // застосування ціни) навмисно не ставляться в чергу: їх результат потрібен одразу.
   'createV9Row','updateV9Row','deleteV9Row','updateWorksBatch','setEstimateVars','confirmEstimateItem',
-  'saveEstimateDoc','rejectPriceUpdate','reopenEstimate','v9SetItemQty','v9DeleteEstimateItem'];
+  'saveEstimateDoc','rejectPriceUpdate','reopenEstimate','v9SetItemQty','v9DeleteEstimateItem',
+  'addEstimateLine','addLineToCatalog'];
 
 /* ================================ API ==================================== */
 function apiCall(action, data) {
@@ -449,7 +470,11 @@ function el(tag, attrs, children) {
     else if (k.indexOf('on') === 0 && typeof attrs[k] === 'function') e.addEventListener(k.slice(2), attrs[k]);
     else e.setAttribute(k, attrs[k]);
   }
-  (children || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  // числа і дати з Таблиці теж мають малюватися: appendChild(число) інакше валить сторінку
+  (children || []).forEach(function (c) {
+    if (c === null || c === undefined || c === false || c === '') return;
+    e.appendChild(typeof c === 'object' && c.nodeType ? c : document.createTextNode(String(c)));
+  });
   return e;
 }
 function fmtMoney(n) { n = Number(n) || 0; return n.toLocaleString('uk-UA', { maximumFractionDigits: 0 }) + ' грн'; }
@@ -693,8 +718,9 @@ function renderClients(main, clientId) {
     var list = STATE.db.clients.filter(function (c) {
       if (!filter) return true;
       var f = filter.toLowerCase();
-      return (c.name || '').toLowerCase().indexOf(f) !== -1 || (c.phone || '').indexOf(f) !== -1 ||
-             (c.address || '').toLowerCase().indexOf(f) !== -1 || c.id.toLowerCase().indexOf(f) !== -1;
+      // телефон із Таблиці може прийти числом — тому скрізь String()
+      return String(c.name || '').toLowerCase().indexOf(f) !== -1 || String(c.phone || '').indexOf(f) !== -1 ||
+             String(c.address || '').toLowerCase().indexOf(f) !== -1 || String(c.id || '').toLowerCase().indexOf(f) !== -1;
     });
     if (!list.length) { tableWrap.appendChild(el('div', { class: 'empty-state' }, ['Нічого не знайдено.'])); return; }
     var table = el('table', { class: 'dt' });
@@ -1040,6 +1066,8 @@ function renderEstimateEditor(container, estimate) {
   var toolbar = el('div', { class: 'toolbar' });
   var addItemBtn = el('button', { class: 'btn primary small' }, ['+ Додати позицію з прайсу']);
   addItemBtn.onclick = function () { openAddEstimateItem(estimate); };
+  var addMatBtn = el('button', { class: 'btn small' }, ['+ Матеріал вручну']);
+  addMatBtn.onclick = function () { openAddManualMaterial(estimate); };
   var aiBtn = el('button', { class: 'btn small' }, ['🤖 AI-помічник']);
   aiBtn.onclick = function () { openEstimateAiPanel(estimate); };
   var pdfBtn = el('button', { class: 'btn small' }, ['📄 PDF кошторису']);
@@ -1048,7 +1076,7 @@ function renderEstimateEditor(container, estimate) {
     apiCall('exportEstimatePdf', { id: estimate.id }).then(function (res) { downloadBase64_(res.filename, res.base64, res.mimeType); })
       .catch(function (e) { toast('Помилка PDF: ' + e.message, 'error'); });
   };
-  toolbar.appendChild(addItemBtn); toolbar.appendChild(aiBtn); toolbar.appendChild(pdfBtn);
+  toolbar.appendChild(addItemBtn); toolbar.appendChild(addMatBtn); toolbar.appendChild(aiBtn); toolbar.appendChild(pdfBtn);
   container.appendChild(toolbar);
 
   var table = el('table', { class: 'dt' });
@@ -1230,6 +1258,89 @@ function openAddEstimateItem(estimate) {
   actions.appendChild(cancel); actions.appendChild(add);
   body.appendChild(actions);
   openModal('Додати роботу з прайсу', body);
+}
+
+function openAddManualMaterial(estimate) {
+  var s = STATE.db.settings || {};
+  var defMarkup = Number(s.material_markup_pct) || 10;
+  var body = el('div');
+  body.appendChild(el('p', { class: 'page-sub' }, ['Додай матеріал, якого немає в довіднику «Матеріали і пакети» (або не хочеш його туди заносити) — напряму в цей кошторис.']));
+  body.appendChild(formField('Назва матеріалу *', '<input id="f_mname" list="matNameList" placeholder="напр. Клей для плитки Ceresit CM11, 25 кг">'));
+  var dl = el('datalist', { id: 'matNameList' });
+  STATE.db.materials.forEach(function (m) { dl.appendChild(el('option', { value: m.name })); });
+  body.appendChild(dl);
+  body.appendChild(el('div', { class: 'form-grid-2' }, [
+    formField('Одиниця', '<input id="f_munit" value="шт.">'),
+    formField('Кількість *', '<input type="number" id="f_mqty" value="1" step="any">')
+  ]));
+  var modeSel = el('select', { id: 'f_mmode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
+    el('option', { value: 'markup' }, ['Собівартість + націнка']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
+  ]);
+  body.appendChild(formField('Як рахувати ціну', ''));
+  body.lastChild.appendChild(modeSel);
+  var markupWrap = el('div', { class: 'form-grid-2' }, [
+    formField('Собівартість за од., грн *', '<input type="number" id="f_mcost" step="any" placeholder="0">'),
+    formField('Націнка, %', '<input type="number" id="f_mmarkup" step="any" value="' + defMarkup + '">')
+  ]);
+  var directWrap = el('div', { style: 'display:none;' }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_mdirect" step="any" placeholder="0">')]);
+  body.appendChild(markupWrap); body.appendChild(directWrap);
+  modeSel.onchange = function () {
+    var direct = modeSel.value === 'direct';
+    markupWrap.style.display = direct ? 'none' : ''; directWrap.style.display = direct ? '' : 'none';
+    updatePreview();
+  };
+  var preview = el('div', { class: 'card', style: 'background:var(--panel2);font-weight:700;text-align:center;margin-top:6px;' });
+  body.appendChild(preview);
+  function updatePreview() {
+    var qty = Number(document.getElementById('f_mqty').value) || 0;
+    var client;
+    if (modeSel.value === 'direct') client = Number(document.getElementById('f_mdirect').value) || 0;
+    else { var cost = Number(document.getElementById('f_mcost').value) || 0; var mk = Number(document.getElementById('f_mmarkup').value) || 0; client = cost * (1 + mk / 100); }
+    preview.textContent = 'Ціна клієнту: ' + fmtMoney(client) + ' / од. · Сума: ' + fmtMoney(client * qty);
+  }
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var add = el('button', { class: 'btn primary' }, ['Додати']);
+  add.onclick = function () {
+    var name = document.getElementById('f_mname').value.trim();
+    var unit = document.getElementById('f_munit').value.trim() || 'шт.';
+    var qty = Number(document.getElementById('f_mqty').value) || 0;
+    if (!name) { toast('Вкажи назву матеріалу', 'error'); return; }
+    if (!(qty > 0)) { toast('Вкажи кількість більше нуля', 'error'); return; }
+    var data = { estimate_id: estimate.id, name: name, unit: unit, quantity: qty, item_type: 'material', section: 'Матеріали (додано вручну)', source: 'manual' };
+    if (modeSel.value === 'direct') {
+      var direct = Number(document.getElementById('f_mdirect').value) || 0;
+      if (!(direct > 0)) { toast('Вкажи ціну для клієнта', 'error'); return; }
+      data.markup_type = 'manual'; data.contractor_price = direct; data.client_price = direct;
+    } else {
+      var cost = Number(document.getElementById('f_mcost').value) || 0;
+      if (!(cost > 0)) { toast('Вкажи собівартість матеріалу', 'error'); return; }
+      data.markup_type = 'percent'; data.markup_value = Number(document.getElementById('f_mmarkup').value) || 0; data.contractor_price = cost;
+    }
+    apiCall('addEstimateItem', data).then(function (res) {
+      STATE.db.estimateItems.push(res.item);
+      var ei = STATE.db.estimates.findIndex(function (x) { return x.id === res.estimate.id; });
+      STATE.db.estimates[ei] = res.estimate;
+      Storage.saveCache(); closeModal(); renderRoute(); toast('Матеріал додано', 'success');
+    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(add);
+  body.appendChild(actions);
+  openModal('Додати матеріал вручну', body);
+  // поля зʼявляються в DOM лише після openModal — підвʼязуємо живий перерахунок тепер
+  ['f_mqty', 'f_mcost', 'f_mmarkup', 'f_mdirect'].forEach(function (id) {
+    var el2 = document.getElementById(id); if (el2) el2.addEventListener('input', updatePreview);
+  });
+  var nameInp = document.getElementById('f_mname');
+  nameInp.addEventListener('change', function () {
+    var m = STATE.db.materials.filter(function (x) { return x.name === nameInp.value; })[0];
+    if (m) {
+      document.getElementById('f_munit').value = m.unit || 'шт.';
+      if (modeSel.value !== 'direct') document.getElementById('f_mcost').value = m.price || '';
+      updatePreview();
+    }
+  });
+  updatePreview();
 }
 
 function renderObjectTeamTab(container, o) {
@@ -2443,18 +2554,33 @@ function renderSettings(main) {
 
   // ---- users / roles (ЕТАП 8, TZ 65) ----
   var usersCard = el('div', { class: 'card', style: 'margin-top:20px;' }, [el('h4', { style: 'margin-top:0;' }, ['Користувачі та ролі'])]);
-  var addUserBtn = el('button', { class: 'btn small primary' }, ['+ Користувач']);
+  usersCard.appendChild(el('p', { class: 'page-sub' }, ['Кожен акаунт — окремий логін і пароль. Створювати акаунти й міняти ролі може лише ADMIN. Головний акаунт BUDNEX не можна видалити, поки він єдиний ADMIN.']));
+  var addUserBtn = el('button', { class: 'btn small primary' }, ['+ Новий акаунт']);
   addUserBtn.onclick = function () { openUserForm(); };
   usersCard.appendChild(addUserBtn);
-  STATE.db.users.forEach(function (u) {
-    var delB = el('button', { class: 'btn small danger' }, ['✕']);
-    delB.onclick = function () { apiCall('deleteUser', { id: u.id }).then(function () { STATE.db.users = STATE.db.users.filter(function (x) { return x.id !== u.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
-    var row = el('div', { style: 'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);' }, [
-      el('div', {}, [u.name + ' — ' + u.email]), el('span', { class: 'badge blue' }, [u.role])
-    ]);
-    row.appendChild(delB);
-    usersCard.appendChild(row);
-  });
+  var uTable = el('div', { style: 'margin-top:12px;' });
+  usersCard.appendChild(uTable);
+  function drawUsers() {
+    uTable.innerHTML = '';
+    STATE.db.users.slice().sort(function (a, b) { return (a.username || '').localeCompare(b.username || ''); }).forEach(function (u) {
+      var editB = el('button', { class: 'btn small' }, ['✎']); editB.onclick = function () { openUserForm(u); };
+      var delB = el('button', { class: 'btn small danger' }, ['✕']);
+      delB.onclick = function () {
+        confirmAction('Видалити акаунт «' + u.name + '» (' + u.username + ')? Він одразу втратить доступ.', function () {
+          apiCall('deleteUser', { id: u.id }).then(function () {
+            STATE.db.users = STATE.db.users.filter(function (x) { return x.id !== u.id; }); Storage.saveCache(); drawUsers(); toast('Акаунт видалено', 'success');
+          }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+        });
+      };
+      var row = el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;' }, [
+        el('div', {}, [el('b', {}, [u.name]), u.id === (STATE.currentUser && STATE.currentUser.id) ? el('span', { class: 'badge green', style: 'margin-left:6px;' }, ['це ти']) : null,
+          el('div', { class: 'page-sub', style: 'margin:2px 0 0;' }, ['логін: ' + u.username + (u.email ? ' · ' + u.email : '') + (u.active === false ? ' · вимкнений' : '')])]),
+        el('div', { style: 'display:flex;gap:8px;align-items:center;' }, [el('span', { class: 'badge blue' }, [u.role]), editB, delB])
+      ]);
+      uTable.appendChild(row);
+    });
+  }
+  drawUsers();
   main.appendChild(usersCard);
 
   // ---- backup / export (ЕТАП 8, TZ 47/71) ----
@@ -2474,23 +2600,41 @@ function renderSettings(main) {
   ]));
   main.appendChild(backupCard);
 }
-function openUserForm() {
+function openUserForm(existing) {
+  var u = existing || {};
   var body = el('div');
-  body.appendChild(formField('Імʼя *', '<input id="f_uname">'));
-  body.appendChild(formField('Email *', '<input type="email" id="f_uemail">'));
-  body.appendChild(formField('Роль', '<select id="f_urole">' + ['ADMIN','MANAGER','ESTIMATOR','FOREMAN','ACCOUNTANT'].map(function (r) { return '<option>' + r + '</option>'; }).join('') + '</select>'));
+  body.appendChild(formField('Імʼя *', '<input id="f_uname" value="' + esc(u.name || '') + '">'));
+  body.appendChild(formField('Логін *', '<input id="f_uusername" autocomplete="off" value="' + esc(u.username || '') + '" placeholder="латиниця, цифри, крапка/підкреслення">'));
+  body.appendChild(formField('Email', '<input type="email" id="f_uemail" value="' + esc(u.email || '') + '">'));
+  body.appendChild(formField('Роль', '<select id="f_urole">' + USER_ROLES.map(function (r) { return '<option' + (u.role === r ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>'));
+  body.appendChild(formField(existing ? 'Новий пароль (залиш пустим, щоб не міняти)' : 'Пароль * (мін. 6 символів)', '<input type="password" id="f_upass" autocomplete="new-password">'));
+  if (existing) body.appendChild(formField('Активний', '<select id="f_uactive"><option value="true"' + (u.active !== false ? ' selected' : '') + '>Так</option><option value="false"' + (u.active === false ? ' selected' : '') + '>Ні (доступ заблоковано)</option></select>'));
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
-  var save = el('button', { class: 'btn primary' }, ['Створити']);
+  var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
   save.onclick = function () {
-    var name = document.getElementById('f_uname').value.trim(), email = document.getElementById('f_uemail').value.trim();
-    if (!name || !email) { toast('Вкажи імʼя і email', 'error'); return; }
-    apiCall('createUser', { name: name, email: email, role: document.getElementById('f_urole').value, active: true }).then(function (res) {
-      STATE.db.users.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Користувача додано', 'success');
+    var name = document.getElementById('f_uname').value.trim(), username = document.getElementById('f_uusername').value.trim();
+    var email = document.getElementById('f_uemail').value.trim(), role = document.getElementById('f_urole').value;
+    var pass = document.getElementById('f_upass').value;
+    if (!name || !username) { toast("Вкажи ім'я і логін", 'error'); return; }
+    if (!existing && pass.length < 6) { toast('Пароль має бути не менше 6 символів', 'error'); return; }
+    if (pass && pass.length < 6) { toast('Пароль має бути не менше 6 символів', 'error'); return; }
+    var data = { name: name, username: username, email: email, role: role };
+    if (existing) {
+      data.id = existing.id;
+      data.active = document.getElementById('f_uactive').value === 'true';
+      if (pass) data.new_password = pass;
+    } else {
+      data.password = pass; data.active = true;
+    }
+    apiCall(existing ? 'updateUser' : 'createUser', data).then(function (res) {
+      if (existing) { var i = STATE.db.users.findIndex(function (x) { return x.id === existing.id; }); if (i !== -1) STATE.db.users[i] = res; }
+      else STATE.db.users.push(res);
+      Storage.saveCache(); closeModal(); renderRoute(); toast(existing ? 'Збережено' : 'Акаунт створено', 'success');
     }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
   };
   actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
-  openModal('Новий користувач', body);
+  openModal(existing ? 'Редагувати акаунт' : 'Новий акаунт', body);
 }
 function downloadText_(filename, text, mime) {
   var blob = new Blob([text], { type: mime || 'text/plain' });
@@ -2615,33 +2759,38 @@ document.getElementById('bellBtn').addEventListener('click', function () {
 });
 
 /* ============================== USER / ROLE SWITCHER ====================== */
-function loadCurrentUser_() {
-  try { var raw = localStorage.getItem('budnex_current_user'); if (raw) STATE.currentUser = JSON.parse(raw); } catch (e) {}
-}
 function updateUserChip_() {
   var btn = document.getElementById('userChipBtn');
-  btn.textContent = STATE.currentUser ? '👤 ' + STATE.currentUser.name + ' · ' + STATE.currentUser.role : '👤 Обрати профіль';
+  btn.textContent = STATE.currentUser ? '👤 ' + STATE.currentUser.name + ' · ' + STATE.currentUser.role : '👤 —';
 }
-function openUserSwitcher_() {
+// TZ 65 (оновлено ЕТАП 11): це вже не вибір довільного профілю без пароля —
+// лише інформація про справжній автентифікований акаунт і вихід із нього.
+function openAccountMenu_() {
+  var u = STATE.currentUser;
   var body = el('div');
-  if (!STATE.db.users.length) {
-    body.appendChild(el('p', {}, ['Спочатку синхронізуйся — список профілів завантажується з бази.']));
-  } else {
-    body.appendChild(el('p', { class: 'page-sub' }, ['Профіль лише визначає, які розділи видно в меню (розмежування обовʼязків), а не реальний логін.']));
-    STATE.db.users.forEach(function (u) {
-      var row = el('div', { class: 'card', style: 'margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;' + (STATE.currentUser && STATE.currentUser.id === u.id ? 'border-color:var(--accent);' : '') }, [
-        el('div', {}, [el('b', {}, [u.name]), el('div', { class: 'page-sub' }, [u.email + ' · ' + u.role])])
-      ]);
-      row.onclick = function () {
-        STATE.currentUser = u;
-        localStorage.setItem('budnex_current_user', JSON.stringify(u));
-        updateUserChip_(); buildSidebar(); closeModal(); renderRoute();
-        toast('Активний профіль: ' + u.name, 'success');
-      };
-      body.appendChild(row);
-    });
-  }
-  openModal('Обрати профіль (роль)', body);
+  if (!u) { body.appendChild(el('p', {}, ['Немає активної сесії.'])); openModal('Акаунт', body); return; }
+  body.appendChild(el('div', { class: 'card', style: 'margin-bottom:14px;' }, [
+    el('div', { style: 'font-weight:800;font-size:15px;' }, [u.name]),
+    el('div', { class: 'page-sub' }, ['Логін: ' + u.username + (u.email ? ' · ' + u.email : '')]),
+    el('span', { class: 'badge blue' }, [u.role])
+  ]));
+  body.appendChild(formField('Поточний пароль', '<input type="password" id="f_oldpass" autocomplete="current-password">'));
+  body.appendChild(formField('Новий пароль (мін. 6 символів)', '<input type="password" id="f_newpass" autocomplete="new-password">'));
+  var changeBtn = el('button', { class: 'btn small' }, ['Змінити пароль']);
+  changeBtn.onclick = function () {
+    var oldp = document.getElementById('f_oldpass').value, newp = document.getElementById('f_newpass').value;
+    if (!oldp || !newp) { toast('Заповни обидва поля', 'error'); return; }
+    apiCall('changePassword', { old_password: oldp, new_password: newp }).then(function () {
+      toast('Пароль змінено', 'success'); closeModal();
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  body.appendChild(el('div', { style: 'margin-bottom:14px;' }, [changeBtn]));
+  var actions = el('div', { class: 'form-actions' });
+  var closeBtn = el('button', { class: 'btn' }, ['Закрити']); closeBtn.onclick = closeModal;
+  var logoutBtn = el('button', { class: 'btn danger' }, ['Вийти']); logoutBtn.onclick = function () { closeModal(); Auth.logout(); };
+  actions.appendChild(closeBtn); actions.appendChild(logoutBtn);
+  body.appendChild(actions);
+  openModal('Акаунт', body);
 }
 
 /* ============================================================================
@@ -2742,13 +2891,42 @@ V9.planningBar = function (o) {
   ])]);
 };
 V9.worksButtons = function () {
-  return [btn_('🔎 Актуалізація цін', '', function () { location.hash = '#/prices'; }),
+  var sync = btn_('↻ Доповнити прайс', '', function () {
+    if (!confirm('Додати в прайс усі позиції з вбудованого каталогу BUDNEX, яких у тебе ще немає?\n\nНаявні позиції та їхні ціни НЕ змінюються.')) return;
+    var done = busy_(sync, '⏳ Перевіряю каталог…');
+    apiCall('syncCatalog', {}).then(function (r) {
+      done();
+      toast('Додано робіт: ' + r.works_added + ' (тепер ' + r.works_total + '), матеріалів: ' + r.materials_added, 'success');
+      if (r.added_names && r.added_names.length) {
+        var body = el('div');
+        body.appendChild(el('p', { class: 'page-sub' }, ['Додано ' + r.works_added + ' робіт і ' + r.materials_added + ' матеріалів. Ціни наявних позицій не змінювались.']));
+        r.added_names.forEach(function (n) { body.appendChild(el('div', { class: 'v9-note' }, [n])); });
+        if (r.works_added > r.added_names.length) body.appendChild(el('div', { class: 'page-sub' }, ['…та ще ' + (r.works_added - r.added_names.length)]));
+        body.appendChild(el('div', { class: 'form-actions' }, [btn_('Зрозуміло', 'primary', closeModal)]));
+        openModal('Прайс доповнено', body);
+      }
+      V9.sync();
+    }).catch(function (e) { done(); errToast_(e); });
+  }, 'Порівнює твій прайс із вбудованим каталогом BUDNEX і додає відсутні позиції');
+  return [sync, btn_('🔎 Актуалізація цін', '', function () { location.hash = '#/prices'; }),
           btn_('🧩 Що входить у ціну', '', function () { STATE.ui.v9CatTab = 'pricemeta'; location.hash = '#/catalogs'; })];
 };
 // позначки у рядку кошторису: розділ, матеріал, сумнівно, AI
 V9.itemTags = function (it) {
   var tags = [];
   if (it.item_type === 'material') tags.push(el('span', { class: 'badge blue' }, ['матеріал']));
+  if (!it.work_id && it.item_type !== 'material' || (it.item_type === 'material' && !it.parent_id)) {
+    var add = btn_('＋ у ' + (it.item_type === 'material' ? 'каталог' : 'прайс'), 'small', function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      apiCall('addLineToCatalog', { id: it.id, category: it.section || '' }).then(function (r) {
+        upsert_(r.type === 'material' ? 'materials' : 'works', r.row); saveCache_();
+        toast('Збережено в ' + (r.type === 'material' ? 'каталог матеріалів' : 'прайс') + ': ' + r.row.name, 'success');
+        V9.sync();
+      }).catch(errToast_);
+    }, 'Зберегти цю позицію в довідник, щоб наступного разу вона вже була');
+    add.style.padding = '2px 7px'; add.style.fontSize = '11px';
+    tags.push(add);
+  }
   if (it.flag === 'doubtful') tags.push(el('span', { class: 'badge gold' }, ['⚠ сумнівно']));
   if (it.source === 'ai') tags.push(el('span', { class: 'badge gray' }, ['AI']));
   if (it.section) tags.push(el('span', { class: 'v9-reason', style: 'display:inline;' }, [it.section]));
@@ -2992,7 +3170,7 @@ function drawProposal_(wrap, w, rerun) {
     items.forEach(function (it) { var e = effective_(w, it); if (e.checked && Number(e.quantity) > 0) { labor += it.client_price * e.quantity; cost += it.contractor_price * e.quantity; } });
     w.extras.forEach(function (x) { labor += x.client_price * x.quantity; cost += x.contractor_price * x.quantity; });
     var mat = 0;
-    if (w.include_materials) (p.materials || []).forEach(function (m) { mat += (m.client_price || 0) * (m.quantity || 0); });
+    if (w.include_materials && V9._matLines) V9._matLines().forEach(function (m) { mat += (m.client_price || 0) * (m.quantity || 0); });
     totalsEl.innerHTML = '';
     [['Роботи (клієнту)', fmtMoney(labor)], ['Матеріали (орієнтовно)', w.include_materials ? fmtMoney(mat) : 'не включено'],
      ['Логістика', p.vars && p.vars.distance_km ? 'авто, ' + fmtNum(p.vars.distance_km) + ' км' : 'вкажи відстань'],
@@ -3011,12 +3189,31 @@ function drawProposal_(wrap, w, rerun) {
       var q = input_({ type: 'number', step: 'any', value: e.quantity == null ? '' : e.quantity, placeholder: '?', style: 'width:90px;' });
       var sum = el('td', { class: 'num' }, [e.quantity ? fmtMoney(it.client_price * e.quantity) : '—']);
       var nameCell = el('td', {}, [el('div', {}, [it.name,
-        it.doubtful ? el('span', { class: 'badge gold', style: 'margin-left:6px;' }, ['⚠ сумнівно — підтверди']) : null,
-        it.source === 'ai' ? el('span', { class: 'badge blue', style: 'margin-left:6px;' }, ['AI']) : null])]);
+        it.is_new ? el('span', { class: 'badge blue', style: 'margin-left:6px;' }, ['нова позиція']) : null,
+        it.doubtful && !it.is_new ? el('span', { class: 'badge gold', style: 'margin-left:6px;' }, ['⚠ сумнівно — підтверди']) : null,
+        it.source === 'ai' ? el('span', { class: 'badge gray', style: 'margin-left:6px;' }, ['AI']) : null])]);
+      if (it.note) nameCell.appendChild(el('div', { class: 'v9-reason', style: 'color:var(--gold);' }, ['⚠ ' + it.note]));
       if (it.reason) nameCell.appendChild(el('div', { class: 'v9-reason' }, [it.reason]));
       if (it.missing && it.missing.length && e.quantity == null) nameCell.appendChild(el('div', { class: 'v9-reason', style: 'color:var(--v9-red);' }, ['потрібно: ' + it.missing.map(varLabel_).join(', ')]));
       if (it.quantity_formula && isNaN(Number(it.quantity_formula))) nameCell.appendChild(el('div', { class: 'v9-reason' }, ['формула: ' + it.quantity_formula]));
-      var tr = el('tr', { class: e.checked ? '' : 'v9-off' }, [el('td', {}, [cb]), nameCell, el('td', {}, [q]), el('td', {}, [it.unit]), el('td', { class: 'num' }, [fmtMoney(it.client_price)]), sum]);
+      var priceCell;
+      if (it.is_new) {
+        // нової позиції немає в прайсі — ціну виконавця можна виправити прямо тут
+        var pi = input_({ type: 'number', step: 'any', value: it.contractor_price, style: 'width:90px;' });
+        pi.title = 'Ціна виконавця, грн — клієнтська порахується з націнкою';
+        pi.oninput = function () {
+          var ov = w.overrides[itemKey_(it)] || (w.overrides[itemKey_(it)] = {});
+          ov.contractor_price = Number(pi.value) || 0;
+          it.contractor_price = ov.contractor_price;
+          it.client_price = it.markup_type === 'fixed' ? it.contractor_price + (it.markup_value || 0)
+            : it.contractor_price * (1 + (it.markup_value || 0) / 100);
+          var ee2 = effective_(w, it);
+          sum.textContent = ee2.quantity ? fmtMoney(it.client_price * ee2.quantity) : '—';
+          recalc();
+        };
+        priceCell = el('td', {}, [pi, el('div', { class: 'v9-reason' }, ['виконавцю; клієнту ≈ ' + fmtMoney(it.client_price)])]);
+      } else priceCell = el('td', { class: 'num' }, [fmtMoney(it.client_price)]);
+      var tr = el('tr', { class: e.checked ? '' : 'v9-off' }, [el('td', {}, [cb]), nameCell, el('td', {}, [q]), el('td', {}, [it.unit]), priceCell, sum]);
       function save() {
         var ov = w.overrides[itemKey_(it)] || (w.overrides[itemKey_(it)] = {});
         ov.checked = cb.checked;
@@ -3051,29 +3248,82 @@ function drawProposal_(wrap, w, rerun) {
   })]));
   wrap.appendChild(wCard);
 
-  // ---- materials ----
-  var mCard = el('div', { class: 'card v9-mb', style: 'margin-bottom:14px;' });
+  // ---- materials (редаговані: галочка, кількість, ціна, додавання вручну) ----
+  if (!w.matOverrides) w.matOverrides = {};
+  if (!w.extraMats) w.extraMats = [];
+  var mCard = el('div', { class: 'card v9-mb' });
   var inc = el('input', { type: 'checkbox' }); inc.checked = !!w.include_materials;
   var matBody = el('div');
   inc.onchange = function () { w.include_materials = inc.checked; matBody.style.display = inc.checked ? '' : 'none'; recalc(); };
-  mCard.appendChild(el('label', { class: 'chart-title', style: 'display:flex;gap:8px;align-items:center;cursor:pointer;' }, [inc, 'Матеріали за нормами витрат (з націнкою BUDNEX) — включити в кошторис']));
-  if (!(p.materials || []).length) matBody.appendChild(el('div', { class: 'page-sub' }, ['Для вибраних робіт норм матеріалів немає (їх можна додати в «Шаблони і норми»).']));
-  else {
-    var mt = el('table', { class: 'v9t' });
-    mt.appendChild(el('thead', {}, [el('tr', {}, ['Матеріал', 'К-сть', 'Од.', 'Ціна клієнту', 'Сума', 'Для робіт'].map(function (h) { return el('th', {}, [h]); }))]));
-    var mb = el('tbody');
-    p.materials.forEach(function (m) {
-      mb.appendChild(el('tr', {}, [el('td', {}, [m.name]), el('td', { class: 'num' }, [fmtNum(m.quantity)]), el('td', {}, [m.unit]),
-        el('td', { class: 'num' }, [m.price ? fmtMoney(m.client_price) : el('span', { class: 'badge red' }, ['без ціни'])]),
-        el('td', { class: 'num' }, [fmtMoney((m.client_price || 0) * m.quantity)]), el('td', { class: 'v9-reason' }, [(m.for_works || []).join(', ')])]));
-    });
-    mt.appendChild(mb);
-    matBody.appendChild(el('div', { style: 'overflow-x:auto;' }, [mt]));
-    matBody.appendChild(el('div', { class: 'page-sub', style: 'margin:6px 0 0;' }, ['Остаточні кількості перераховуються з підтверджених робіт при формуванні кошторису.']));
+  mCard.appendChild(el('label', { class: 'chart-title', style: 'display:flex;gap:8px;align-items:center;cursor:pointer;' }, [inc,
+    p.materials_source === 'ai' ? 'Матеріали, визначені за технологією (AI) — включити в кошторис' : 'Матеріали за нормами витрат — включити в кошторис']));
+  function matList_() { return (p.materials || []).concat(w.extraMats); }
+  function matEff_(m) { var ov = w.matOverrides[m.key] || {}; return { checked: ov.checked != null ? ov.checked : m.checked !== false,
+    quantity: ov.quantity != null ? ov.quantity : m.quantity, price: ov.price != null ? ov.price : m.price }; }
+  function drawMats() {
+    matBody.innerHTML = '';
+    var list = matList_();
+    if (!list.length) matBody.appendChild(el('div', { class: 'page-sub' }, ['Матеріалів не запропоновано. Додай вручну або задай норми витрат у «Шаблони і норми».']));
+    else {
+      var mt = el('table', { class: 'v9t' });
+      mt.appendChild(el('thead', {}, [el('tr', {}, ['', 'Матеріал', 'К-сть', 'Од.', 'Ціна закупівлі', 'Клієнту', 'Сума'].map(function (h) { return el('th', {}, [h]); }))]));
+      var mb = el('tbody');
+      list.forEach(function (m) {
+        var e2 = matEff_(m);
+        var cb2 = el('input', { type: 'checkbox' }); cb2.checked = !!e2.checked;
+        var qi = input_({ type: 'number', step: 'any', value: e2.quantity == null ? '' : e2.quantity, placeholder: '?', style: 'width:85px;' });
+        var pi2 = input_({ type: 'number', step: 'any', value: e2.price == null ? '' : e2.price, style: 'width:90px;' });
+        var clientCell = el('td', { class: 'num' }, []);
+        var sumCell = el('td', { class: 'num' }, []);
+        var nameCell2 = el('td', {}, [el('div', {}, [m.name,
+          m.is_new ? el('span', { class: 'badge blue', style: 'margin-left:6px;' }, ['нова']) : null])]);
+        if (m.reason) nameCell2.appendChild(el('div', { class: 'v9-reason' }, [m.reason]));
+        if (m.note) nameCell2.appendChild(el('div', { class: 'v9-reason', style: 'color:var(--gold);' }, ['⚠ ' + m.note]));
+        if ((m.for_works || []).length) nameCell2.appendChild(el('div', { class: 'v9-reason' }, ['для: ' + m.for_works.join(', ')]));
+        if (m.missing && m.missing.length && e2.quantity == null) nameCell2.appendChild(el('div', { class: 'v9-reason', style: 'color:var(--red);' }, ['потрібно: ' + m.missing.map(varLabel_).join(', ')]));
+        var tr2 = el('tr', { class: e2.checked ? '' : 'v9-off' }, [el('td', {}, [cb2]), nameCell2, el('td', {}, [qi]), el('td', {}, [m.unit]), el('td', {}, [pi2]), clientCell, sumCell]);
+        function upd2() {
+          var ov = w.matOverrides[m.key] || (w.matOverrides[m.key] = {});
+          ov.checked = cb2.checked;
+          ov.quantity = qi.value === '' ? null : Number(qi.value);
+          ov.price = pi2.value === '' ? 0 : Number(pi2.value);
+          var mk = m.markup_value != null ? m.markup_value : num_(settings_().material_markup_pct, 10);
+          var client = ov.price * (1 + mk / 100);
+          m.client_price = Math.round(client * 100) / 100;
+          clientCell.textContent = fmtMoney(client);
+          sumCell.textContent = ov.quantity ? fmtMoney(client * ov.quantity) : '—';
+          tr2.className = ov.checked ? '' : 'v9-off';
+          recalc();
+        }
+        cb2.onchange = qi.oninput = pi2.oninput = upd2;
+        upd2();
+        mb.appendChild(tr2);
+      });
+      mt.appendChild(mb);
+      matBody.appendChild(el('div', { style: 'overflow-x:auto;' }, [mt]));
+    }
+    matBody.appendChild(el('div', { class: 'v9-row', style: 'margin-top:10px;' }, [
+      btn_('+ Додати матеріал', 'small', function () {
+        V9.pickMaterial(function (mat) {
+          mat.key = 'x' + (w.extraMats.length + 1) + '_' + Date.now();
+          w.extraMats.push(mat); drawMats(); recalc();
+        });
+      }),
+      el('span', { class: 'page-sub', style: 'margin:0;' }, ['Ціна закупівлі — без націнки; клієнтська рахується автоматично (+' + fmtNum(num_(settings_().material_markup_pct, 10)) + '%).'])
+    ]));
   }
+  drawMats();
   matBody.style.display = inc.checked ? '' : 'none';
   mCard.appendChild(matBody);
   wrap.appendChild(mCard);
+  V9._matLines = function () {
+    return matList_().map(function (m) {
+      var e3 = matEff_(m);
+      return { material_id: m.material_id || '', name: m.name, unit: m.unit, quantity: e3.quantity, price: e3.price,
+               markup_value: m.markup_value, client_price: m.client_price, checked: e3.checked, is_new: !!m.is_new,
+               reason: m.reason || '', for_works: m.for_works || [] };
+    }).filter(function (m) { return m.checked && Number(m.quantity) > 0; });
+  };
 
   // ---- totals + apply ----
   var fCard = el('div', { class: 'card v9-mb v9-apply' });
@@ -3095,14 +3345,21 @@ function applyScope_(w, button) {
     var e = effective_(w, it);
     if (!e.checked) return;
     if (!(Number(e.quantity) > 0)) { bad.push(it.name); return; }
-    lines.push({ work_id: it.work_id, quantity: Number(e.quantity), stage: it.stage, doubtful: false, reason: it.reason, source: it.source, checked: true });
+    var ov = w.overrides[itemKey_(it)] || {};
+    lines.push({ work_id: it.work_id, quantity: Number(e.quantity), stage: it.stage, doubtful: !!it.doubtful && !ov.checked,
+      reason: it.reason, note: it.note, source: it.source, checked: true,
+      // власна позиція (немає в прайсі) — передаємо назву, одиницю і ціну
+      name: it.name, unit: it.unit, is_new: !!it.is_new,
+      contractor_price: ov.contractor_price != null ? ov.contractor_price : it.contractor_price,
+      markup_type: it.markup_type, markup_value: it.markup_value });
   });
   // a doubtful line the person explicitly ticked counts as confirmed; unticked are skipped
-  w.extras.forEach(function (x) { if (x.quantity > 0) lines.push({ work_id: x.work_id, quantity: x.quantity, stage: 'Додатково', reason: 'додано вручну', source: 'manual', checked: true }); });
+  w.extras.forEach(function (x) { if (x.quantity > 0) lines.push({ work_id: x.work_id, quantity: x.quantity, stage: 'Додатково', reason: 'додано вручну', source: 'manual', checked: true, name: x.name, unit: x.unit, contractor_price: x.contractor_price }); });
   if (bad.length) { toast('Немає кількості для: ' + bad.slice(0, 3).join(', ') + (bad.length > 3 ? '…' : '') + '. Дай відповідь на питання або вкажи вручну / зніми позицію.', 'error'); return; }
   if (!lines.length) { toast('Не вибрано жодної роботи', 'error'); return; }
   var req = (p.questions || []).filter(function (q) { return q.required && q.key !== 'scope_text' && (w.answers[q.key] == null || w.answers[q.key] === ''); });
   var payload = { items: lines, params: p.params, vars: p.vars, include_materials: !!w.include_materials,
+    material_lines: (w.include_materials && V9._matLines) ? V9._matLines() : [],
     text: (w.text || '') + (w.answers.scope_text ? ' ' + w.answers.scope_text : ''),
     distance_km: w.answers.distance_km != null && w.answers.distance_km !== '' ? Number(w.answers.distance_km) : (p.vars && p.vars.distance_km != null ? p.vars.distance_km : null),
     title: (w.text || '').slice(0, 120) };
@@ -3152,6 +3409,78 @@ V9.pickWork = function (cb) {
   })]));
   openModal('Додати роботу з прайсу', body);
   setTimeout(function () { search.focus(); }, 50);
+};
+
+/* --------------------- вибір матеріалу з каталогу ----------------------- */
+V9.pickMaterial = function (cb) {
+  var body = el('div');
+  var search = input_({ placeholder: 'Пошук у каталозі матеріалів…', style: 'width:100%;margin-bottom:8px;' });
+  var list = el('div', { style: 'max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:8px;' });
+  var sel = null;
+  var custom = el('div', { class: 'form-grid-2', style: 'margin-top:10px;' });
+  var cName = input_({ placeholder: 'Назва матеріалу' }), cUnit = input_({ placeholder: 'Од. (мішок, л, м²)', value: 'шт' });
+  var cPrice = input_({ type: 'number', step: 'any', placeholder: 'Ціна закупівлі, грн' });
+  var qty = input_({ type: 'number', step: 'any', value: '1', style: 'width:120px;' });
+  [['Назва', cName], ['Одиниця', cUnit], ['Ціна закупівлі, грн', cPrice]].forEach(function (f) {
+    custom.appendChild(el('div', { class: 'form-row' }, [el('label', {}, [f[0]]), f[1]]));
+  });
+  function draw() {
+    list.innerHTML = '';
+    var q = fuzzyPrep_(search.value);
+    db_('materials').filter(function (m) { return !q || fuzzyMatch_(m.name, q) || fuzzyMatch_(m.category, q); }).slice(0, 120).forEach(function (m) {
+      var r = el('div', { class: 'v9-pick' + (sel === m ? ' on' : '') }, [el('b', {}, [m.name]),
+        el('div', { class: 'page-sub', style: 'margin:0;' }, [(m.category || '') + ' · ' + fmtMoney(m.price) + ' / ' + m.unit])]);
+      r.onclick = function () { sel = m; cName.value = m.name; cUnit.value = m.unit; cPrice.value = m.price; draw(); };
+      list.appendChild(r);
+    });
+    if (!db_('materials').length) list.appendChild(el('div', { class: 'page-sub', style: 'padding:10px;' }, ['Каталог матеріалів порожній — заповни його в «Матеріали і пакети» або введи позицію вручну нижче.']));
+  }
+  search.oninput = function () { sel = null; draw(); };
+  draw();
+  body.appendChild(search); body.appendChild(list);
+  body.appendChild(el('div', { class: 'page-sub', style: 'margin:10px 0 0;' }, ['Або введи свій матеріал (його можна буде зберегти в каталог із кошторису):']));
+  body.appendChild(custom);
+  body.appendChild(el('div', { class: 'v9-row' }, ['Кількість:', qty]));
+  body.appendChild(el('div', { class: 'form-actions' }, [btn_('Скасувати', '', closeModal), btn_('Додати', 'primary', function () {
+    var name = cName.value.trim();
+    if (!name) { toast('Вкажи назву матеріалу', 'error'); return; }
+    var price = Number(cPrice.value) || 0;
+    var mk = num_(settings_().material_markup_pct, 10);
+    closeModal();
+    cb({ material_id: sel && sel.name === name ? sel.id : '', name: name, unit: cUnit.value.trim() || 'шт',
+         quantity: Number(qty.value) || 1, price: price, markup_value: mk, client_price: Math.round(price * (1 + mk / 100) * 100) / 100,
+         checked: true, is_new: !(sel && sel.name === name), reason: 'додано вручну', for_works: [] });
+  })]));
+  openModal('Матеріал у кошторис', body);
+  setTimeout(function () { search.focus(); }, 50);
+};
+
+/* ------------- додати позицію або матеріал у наявний кошторис ----------- */
+V9.addLine = function (estimateId, type) {
+  function send(data) {
+    data.estimate_id = estimateId; data.item_type = type;
+    apiCall('addEstimateLine', data).then(function (r) {
+      upsert_('estimateItems', r.item); upsert_('estimates', r.estimate); saveCache_();
+      toast('Додано: ' + r.item.name, 'success'); V9.rerender();
+    }).catch(errToast_);
+  }
+  if (type === 'material') { V9.pickMaterial(function (m) { send({ material_id: m.material_id, name: m.name, unit: m.unit, quantity: m.quantity, contractor_price: m.price, markup_value: m.markup_value, notes: m.reason }); }); return; }
+  var body = el('div');
+  body.appendChild(el('p', { class: 'page-sub' }, ['Позиція, якої немає в прайсі. Потім її можна зберегти в прайс однією кнопкою.']));
+  var n = input_({ placeholder: 'Назва роботи', style: 'width:100%;' });
+  var u = input_({ value: 'м²' }), q = input_({ type: 'number', step: 'any', value: '1' });
+  var pr = input_({ type: 'number', step: 'any', placeholder: 'ціна виконавця' });
+  var mk = input_({ type: 'number', step: 'any', value: num_(settings_().default_markup_value, 25) });
+  body.appendChild(el('div', { class: 'form-row' }, [el('label', {}, ['Назва *']), n]));
+  var g = el('div', { class: 'form-grid-2' });
+  [['Одиниця', u], ['Кількість', q], ['Ціна виконавця, грн', pr], ['Націнка, %', mk]].forEach(function (f) { g.appendChild(el('div', { class: 'form-row' }, [el('label', {}, [f[0]]), f[1]])); });
+  body.appendChild(g);
+  body.appendChild(el('div', { class: 'form-actions' }, [btn_('Скасувати', '', closeModal), btn_('Додати', 'primary', function () {
+    if (!n.value.trim()) { toast('Вкажи назву', 'error'); return; }
+    closeModal();
+    send({ name: n.value.trim(), unit: u.value.trim() || 'шт', quantity: Number(q.value) || 1, contractor_price: Number(pr.value) || 0, markup_value: Number(mk.value) || 0 });
+  })]));
+  openModal('Своя позиція в кошторис', body);
 };
 
 /* ======================= ПУНКТ 4: ПЛАНИ ТА КРЕСЛЕННЯ ===================== */
@@ -3426,7 +3755,9 @@ V9.estimateBar = function (estimate) {
     btn_('↻ Матеріали', 'small', function () { V9.recalcMaterials(estimate.id); }, 'Перерахувати матеріали з поточних робіт за нормами'),
     btn_('🚚 Логістика', 'small', function () { V9.openLogistics(estimate.id); }),
     btn_('✅ Перевірити', 'small', function () { V9.showCheck(estimate.id); }),
-    btn_('📄 Документ клієнту', 'small primary', function () { V9.openClientDoc(estimate.id); })
+    btn_('📄 Документ клієнту', 'small primary', function () { V9.openClientDoc(estimate.id); }),
+    btn_('+ Матеріал', 'small', function () { V9.addLine(estimate.id, 'material'); }, 'Додати матеріал у кошторис так само, як роботу'),
+    btn_('+ Своя позиція', 'small', function () { V9.addLine(estimate.id, 'work'); }, 'Робота, якої немає в прайсі')
   ]);
   if (isFinal) row.appendChild(btn_('🔓 Повернути в чернетку', 'small', function () {
     if (!confirm('Повернути затверджений кошторис у чернетку для змін?')) return;
@@ -4258,20 +4589,107 @@ return V9;
 })();
 
 /* ============================== INITIALIZATION ================================ */
+/* ============================================================================
+   ЕТАП 11: АВТОРИЗАЦІЯ — логін-екран, сесія, вихід
+   Кожен, хто заходить у BUDNEX, тепер вводить логін і пароль; STATE.currentUser
+   походить ЛИШЕ з відповіді сервера (login/bootstrap.me), а не з довільного
+   вибору профілю, як було раніше. Обгортає apiCall (додає token до кожного
+   запиту, розпізнає прострочену сесію) — сам apiCall і решту коду не чіпає.
+   ============================================================================ */
+var Auth = (function () {
+  var TOKEN_KEY = 'budnex_token', USER_KEY = 'budnex_auth_user';
+  function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
+  function setSession(token, user) { localStorage.setItem(TOKEN_KEY, token); localStorage.setItem(USER_KEY, JSON.stringify(user)); }
+  function clearSession() { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); }
+  function cachedUser() { try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch (e) { return null; } }
+
+  var _origApiCall = apiCall;
+  apiCall = function (action, data) {
+    data = data || {};
+    if (action !== 'login' && action !== 'ping') { var d2 = {}; for (var k in data) d2[k] = data[k]; d2.token = getToken(); data = d2; }
+    return _origApiCall(action, data).catch(function (err) {
+      if (err && /^AUTH_REQUIRED/.test(err.message)) {
+        clearSession();
+        STATE.currentUser = null;
+        showLogin_('Сесія закінчилась. Увійди ще раз.');
+      }
+      throw err;
+    });
+  };
+
+  function showLogin_(message) {
+    var app = document.getElementById('app'); if (app) app.style.display = 'none';
+    var setup = document.getElementById('setupScreen'); if (setup) setup.style.display = 'none';
+    var scr = document.getElementById('loginScreen');
+    scr.style.display = 'flex';
+    var errEl = document.getElementById('loginError');
+    errEl.textContent = message || ''; errEl.style.display = message ? 'block' : 'none';
+    setTimeout(function () { var u = document.getElementById('loginUsername'); if (u && !u.value) u.focus(); }, 30);
+  }
+  function hideLogin_() { document.getElementById('loginScreen').style.display = 'none'; }
+
+  function login(username, password) {
+    return _origApiCall('login', { username: username, password: password, user_agent: navigator.userAgent.slice(0, 200) }).then(function (res) {
+      setSession(res.token, res.user);
+      STATE.currentUser = res.user;
+      return res;
+    });
+  }
+  function logout() {
+    var t = getToken();
+    clearSession();
+    STATE.currentUser = null;
+    if (t) _origApiCall('logout', { token: t }).catch(function () {});
+    location.reload();
+  }
+  function wireForm() {
+    var btn = document.getElementById('loginBtn');
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    function submit() {
+      var u = document.getElementById('loginUsername').value.trim();
+      var p = document.getElementById('loginPassword').value;
+      var errEl = document.getElementById('loginError');
+      errEl.style.display = 'none';
+      if (!u || !p) { errEl.textContent = 'Вкажи логін і пароль'; errEl.style.display = 'block'; return; }
+      btn.disabled = true; btn.textContent = 'Вхід...';
+      login(u, p).then(function () {
+        btn.disabled = false; btn.textContent = 'Увійти';
+        document.getElementById('loginPassword').value = '';
+        hideLogin_();
+        document.getElementById('app').style.display = 'flex';
+        initApp();
+        if (!location.hash) location.hash = '#/dashboard';
+      }).catch(function (e) {
+        btn.disabled = false; btn.textContent = 'Увійти';
+        errEl.textContent = e.message || 'Не вдалося увійти'; errEl.style.display = 'block';
+      });
+    }
+    btn.addEventListener('click', submit);
+    document.getElementById('loginPassword').addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+    document.getElementById('loginUsername').addEventListener('keydown', function (e) { if (e.key === 'Enter') document.getElementById('loginPassword').focus(); });
+  }
+  return { getToken: getToken, setSession: setSession, clearSession: clearSession, cachedUser: cachedUser,
+           showLogin: showLogin_, hideLogin: hideLogin_, login: login, logout: logout, wireForm: wireForm };
+})();
+
 function initApp() {
   applyTheme(STATE.ui.theme);
-  loadCurrentUser_();
+  STATE.currentUser = Auth.cachedUser();
   updateUserChip_();
   buildSidebar();
   setupGlobalSearch();
   document.getElementById('syncBtn').addEventListener('click', syncAll);
   document.getElementById('retryConnBtn').addEventListener('click', syncAll);
   document.getElementById('themeBtn').addEventListener('click', function () { applyTheme(STATE.ui.theme === 'dark' ? 'light' : 'dark'); });
-  document.getElementById('userChipBtn').addEventListener('click', openUserSwitcher_);
+  document.getElementById('userChipBtn').addEventListener('click', openAccountMenu_);
 
   var hadCache = Storage.loadCache();
   if (hadCache) renderRoute();
-  syncAll();
+  syncAll().then(function () {
+    // bootstrap повертає найсвіжіші дані про «хто я» (напр. якщо адмін щойно змінив роль) — синхронізуємо кеш
+    if (STATE.db.me) { STATE.currentUser = STATE.db.me; Auth.setSession(Auth.getToken(), STATE.db.me); updateUserChip_(); buildSidebar(); }
+  });
 }
 
 function boot() {
@@ -4285,8 +4703,8 @@ function boot() {
       apiCall('ping', {}).then(function () {
         localStorage.setItem('budnex_api_url', url);
         document.getElementById('setupScreen').style.display = 'none';
-        document.getElementById('app').style.display = 'flex';
-        initApp();
+        Auth.wireForm();
+        Auth.showLogin();
       }).catch(function (e) {
         errEl.textContent = 'Не вдалося підключитися: ' + e.message + '. Перевір URL і що доступ надано "Anyone".';
         errEl.style.display = 'block';
@@ -4294,6 +4712,8 @@ function boot() {
     });
     return;
   }
+  Auth.wireForm();
+  if (!Auth.getToken()) { Auth.showLogin(); return; }
   document.getElementById('app').style.display = 'flex';
   initApp();
   if (!location.hash) location.hash = '#/dashboard';
