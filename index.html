@@ -1064,9 +1064,9 @@ function renderEstimateEditor(container, estimate) {
   }
 
   var toolbar = el('div', { class: 'toolbar' });
-  var addItemBtn = el('button', { class: 'btn primary small' }, ['+ Додати позицію з прайсу']);
+  var addItemBtn = el('button', { class: 'btn primary small' }, ['+ Додати роботу']);
   addItemBtn.onclick = function () { openAddEstimateItem(estimate); };
-  var addMatBtn = el('button', { class: 'btn small' }, ['+ Матеріал вручну']);
+  var addMatBtn = el('button', { class: 'btn small' }, ['+ Додати матеріал']);
   addMatBtn.onclick = function () { openAddManualMaterial(estimate); };
   var aiBtn = el('button', { class: 'btn small' }, ['🤖 AI-помічник']);
   aiBtn.onclick = function () { openEstimateAiPanel(estimate); };
@@ -1083,14 +1083,22 @@ function renderEstimateEditor(container, estimate) {
   table.appendChild(el('thead', {}, [el('tr', {}, ['Робота', 'Од.', 'К-сть', 'Ціна викон.', 'Націнка', 'Ціна клієнту', 'Сума клієнту', ''].map(function (h) { return el('th', {}, [h]); }))]));
   var tbody = el('tbody');
   items.forEach(function (it) {
+    var nameCell = el('td', { style: 'cursor:pointer;' }, [it.name, V9.itemTags(it)]);
+    nameCell.title = 'Клацни, щоб редагувати позицію';
+    nameCell.onclick = function () { openEditEstimateItem(it, estimate); };
+    var editBtn = el('button', { class: 'btn small' }, ['✎']);
+    editBtn.title = 'Редагувати';
+    editBtn.onclick = function (e) { e.stopPropagation(); openEditEstimateItem(it, estimate); };
+    var delBtn = el('button', { class: 'btn small danger' }, ['✕']);
+    delBtn.onclick = function (e) { e.stopPropagation(); deleteEstimateItem_(it.id); };
     var tr = el('tr', {}, [
-      el('td', {}, [it.name, V9.itemTags(it)]), el('td', {}, [it.unit]),
+      nameCell, el('td', {}, [it.unit]),
       el('td', {}, [inlineNumInput_(it.quantity, function (val) { updateEstimateItem_(it.id, { quantity: val }); })]),
       el('td', {}, [fmtMoney(it.contractor_price)]),
       el('td', {}, [it.markup_type === 'percent' ? '+' + it.markup_value + '%' : (it.markup_type === 'manual' ? 'вручну' : '+' + fmtMoney(it.markup_value))]),
       el('td', {}, [fmtMoney(it.client_price)]),
       el('td', {}, [fmtMoney(it.client_total)]),
-      el('td', {}, [(function () { var b = el('button', { class: 'btn small danger' }, ['✕']); b.onclick = function (e) { e.stopPropagation(); deleteEstimateItem_(it.id); }; return b; })()])
+      el('td', { style: 'white-space:nowrap;' }, [editBtn, delBtn])
     ]);
     tbody.appendChild(tr);
   });
@@ -1203,23 +1211,127 @@ function deleteEstimateItem_(itemId) {
   }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
 }
 
+// Повне редагування вже доданого рядка кошторису: назва, одиниця, кількість,
+// собівартість і будь-який тип націнки (%, грн, або ціна клієнту напряму) —
+// усе, що раніше можна було змінити лише видаленням і повторним додаванням.
+function openEditEstimateItem(it, estimate) {
+  var body = el('div');
+  var isWork = it.item_type !== 'material';
+  body.appendChild(formField((isWork ? 'Назва роботи' : 'Назва матеріалу') + ' *', '<input id="f_ename" value="' + esc(it.name || '') + '">'));
+  body.appendChild(el('div', { class: 'form-grid-2' }, [
+    formField('Одиниця', '<input id="f_eunit" value="' + esc(it.unit || '') + '">'),
+    formField('Кількість *', '<input type="number" id="f_eqty" value="' + esc(it.quantity) + '" step="any">')
+  ]));
+  var startMode = it.markup_type === 'manual' ? 'direct' : (it.markup_type === 'fixed' ? 'fixed' : 'percent');
+  var modeSel = el('select', { id: 'f_emode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
+    el('option', { value: 'percent' }, ['Собівартість + націнка, %']),
+    el('option', { value: 'fixed' }, ['Собівартість + націнка, грн']),
+    el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
+  ]);
+  modeSel.value = startMode;
+  body.appendChild(formField('Як рахувати ціну', ''));
+  body.lastChild.appendChild(modeSel);
+  var costWrap = el('div', { class: 'form-grid-2' }, [
+    formField('Собівартість за од., грн *', '<input type="number" id="f_ecost" step="any" value="' + esc(it.contractor_price) + '">'),
+    formField('Націнка', '<input type="number" id="f_emarkup" step="any" value="' + esc(it.markup_type === 'manual' ? 25 : it.markup_value) + '">')
+  ]);
+  var directWrap = el('div', { style: (startMode === 'direct' ? '' : 'display:none;') }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_edirect" step="any" value="' + esc(it.client_price) + '">')]);
+  costWrap.style.display = startMode === 'direct' ? 'none' : '';
+  body.appendChild(costWrap); body.appendChild(directWrap);
+  modeSel.onchange = function () {
+    var direct = modeSel.value === 'direct';
+    costWrap.style.display = direct ? 'none' : ''; directWrap.style.display = direct ? '' : 'none';
+    updatePreview();
+  };
+  var preview = el('div', { class: 'card', style: 'background:var(--panel2);margin-top:4px;' });
+  body.appendChild(preview);
+  function updatePreview() {
+    var qtyEl = document.getElementById('f_eqty'); if (!qtyEl) return;
+    var qty = Number(qtyEl.value) || 0;
+    var cost, client;
+    if (modeSel.value === 'direct') { cost = Number(it.contractor_price) || 0; client = Number(document.getElementById('f_edirect').value) || 0; }
+    else {
+      cost = Number(document.getElementById('f_ecost').value) || 0;
+      var mk = Number(document.getElementById('f_emarkup').value) || 0;
+      client = modeSel.value === 'percent' ? cost * (1 + mk / 100) : cost + mk;
+    }
+    var margin = client > 0 ? (client - cost) / client * 100 : 0;
+    preview.innerHTML = '';
+    var grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;' });
+    grid.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Собівартість']),
+      el('div', {}, [fmtMoney(cost) + ' / од.']), el('b', {}, ['Разом: ' + fmtMoney(cost * qty)])]));
+    grid.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Ціна клієнту']),
+      el('div', {}, [fmtMoney(client) + ' / од.']), el('b', {}, ['Разом: ' + fmtMoney(client * qty)])]));
+    preview.appendChild(grid);
+    preview.appendChild(el('div', { class: 'page-sub', style: 'margin-top:6px;' }, ['Маржа: ' + margin.toFixed(1) + '% · Прибуток: ' + fmtMoney((client - cost) * qty)]));
+  }
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var del = el('button', { class: 'btn danger' }, ['Видалити позицію']);
+  del.onclick = function () { closeModal(); confirmAction('Видалити «' + it.name + '» з кошторису?', function () { deleteEstimateItem_(it.id); }); };
+  var save = el('button', { class: 'btn primary' }, ['Зберегти']);
+  save.onclick = function () {
+    var name = document.getElementById('f_ename').value.trim();
+    var unit = document.getElementById('f_eunit').value.trim() || 'шт.';
+    var qty = Number(document.getElementById('f_eqty').value) || 0;
+    if (!name) { toast('Вкажи назву', 'error'); return; }
+    if (!(qty > 0)) { toast('Вкажи кількість більше нуля', 'error'); return; }
+    var patch = { id: it.id, name: name, unit: unit, quantity: qty };
+    if (modeSel.value === 'direct') {
+      var direct = Number(document.getElementById('f_edirect').value) || 0;
+      if (!(direct > 0)) { toast('Вкажи ціну для клієнта', 'error'); return; }
+      patch.markup_type = 'manual'; patch.client_price = direct;
+      patch.contractor_price = Number(it.contractor_price) || 0; // собівартість лишаємо як була — вона тут не редагується
+    } else {
+      var cost = Number(document.getElementById('f_ecost').value) || 0;
+      if (!(cost > 0)) { toast('Вкажи собівартість', 'error'); return; }
+      patch.contractor_price = cost;
+      patch.markup_type = modeSel.value; // 'percent' | 'fixed'
+      patch.markup_value = Number(document.getElementById('f_emarkup').value) || 0;
+    }
+    apiCall('updateEstimateItem', patch).then(function (res) {
+      var i = STATE.db.estimateItems.findIndex(function (x) { return x.id === it.id; });
+      STATE.db.estimateItems[i] = res.item;
+      var ei = STATE.db.estimates.findIndex(function (x) { return x.id === res.estimate.id; });
+      STATE.db.estimates[ei] = res.estimate;
+      Storage.saveCache(); closeModal(); renderRoute(); toast('Збережено', 'success');
+    }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(del); actions.appendChild(cancel); actions.appendChild(save);
+  body.appendChild(actions);
+  openModal('Редагувати позицію кошторису', body);
+  ['f_eqty', 'f_ecost', 'f_emarkup', 'f_edirect'].forEach(function (id) {
+    var elx = document.getElementById(id); if (elx) elx.addEventListener('input', updatePreview);
+  });
+  updatePreview();
+}
+
 function openAddEstimateItem(estimate) {
   var body = el('div');
+  var mode = 'catalog';
+  var modeSel = el('select', { style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-weight:700;margin-bottom:12px;' }, [
+    el('option', { value: 'catalog' }, ['📋 З прайсу']), el('option', { value: 'manual' }, ['✎ Вручну (роботи ще немає в прайсі)'])
+  ]);
+  body.appendChild(modeSel);
+
+  /* ---------------- режим 1: вибір готової роботи з прайсу ---------------- */
+  var catalogBlock = el('div');
   var topRow = el('div', { style: 'display:flex;gap:8px;margin-bottom:10px;' });
   var searchInput = el('input', { type: 'text', placeholder: 'Пошук роботи в прайсі...', style: 'flex:1;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' });
   var catSelect = el('select', { style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' }, [el('option', { value: '' }, ['Всі категорії'])]);
   STATE.db.categories.forEach(function (c) { catSelect.appendChild(el('option', { value: c.name }, [c.num + '. ' + c.name])); });
   topRow.appendChild(searchInput); topRow.appendChild(catSelect);
-  body.appendChild(topRow);
+  catalogBlock.appendChild(topRow);
   var countLabel = el('div', { class: 'page-sub', style: 'margin-bottom:6px;' });
-  body.appendChild(countLabel);
-  var results = el('div', { style: 'max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:8px;' });
-  body.appendChild(results);
-  var qtyRow = formField('Кількість', '<input type="number" id="f_qty" value="1" step="0.1">');
-  qtyRow.style.marginTop = '12px';
-  body.appendChild(qtyRow);
+  catalogBlock.appendChild(countLabel);
+  var results = el('div', { style: 'max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:8px;' });
+  catalogBlock.appendChild(results);
   var selectedWork = null;
   var CAP = 150;
+  function markupClientPrice(w) {
+    var cp = Number(w.contractor_price) || 0, mv = Number(w.default_markup) || 0;
+    return w.default_markup_type === 'fixed' ? cp + mv : cp * (1 + mv / 100);
+  }
   function drawResults() {
     results.innerHTML = '';
     var q = fuzzyPrep_(searchInput.value);
@@ -1233,22 +1345,119 @@ function openAddEstimateItem(estimate) {
     list.slice(0, CAP).forEach(function (w) {
       var row = el('div', { style: 'padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12.5px;' + (selectedWork && selectedWork.id === w.id ? 'background:var(--panel2);' : '') }, [
         el('div', {}, [el('b', {}, [w.name])]),
-        el('div', { class: 'page-sub' }, [w.category + (w.subcategory ? ' / ' + w.subcategory : '') + ' · ' + fmtMoney(w.contractor_price) + ' / ' + w.unit])
+        el('div', { class: 'page-sub' }, [w.category + (w.subcategory ? ' / ' + w.subcategory : '') + ' · собівартість ' + fmtMoney(w.contractor_price) + ' → клієнту ' + fmtMoney(markupClientPrice(w)) + ' / ' + w.unit])
       ]);
-      row.onclick = function () { selectedWork = w; drawResults(); };
+      row.onclick = function () { selectedWork = w; drawResults(); updatePreview(); };
       results.appendChild(row);
     });
-    if (!list.length) results.appendChild(el('div', { class: 'page-sub', style: 'padding:10px;' }, ['Нічого не знайдено. Спробуй іншу назву або обери категорію.']));
+    if (!list.length) results.appendChild(el('div', { class: 'page-sub', style: 'padding:10px;' }, ['Нічого не знайдено. Спробуй іншу назву, категорію — або перемкни на «Вручну» вище.']));
   }
-  drawResults();
   searchInput.oninput = drawResults; catSelect.onchange = drawResults;
+  body.appendChild(catalogBlock);
+
+  /* ---------------- режим 2: робота вручну (без прив'язки до прайсу) ------ */
+  var manualBlock = el('div', { style: 'display:none;' });
+  manualBlock.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, ['Додай роботу, якої немає в прайсі, напряму в цей кошторис. За бажанням її можна потім зберегти в прайс кнопкою «＋ у прайс» біля рядка кошторису.']));
+  manualBlock.appendChild(formField('Назва роботи *', '<input id="f_wname" placeholder="напр. Монтаж вентиляційної решітки">'));
+  manualBlock.appendChild(formField('Категорія', '<input id="f_wcat" list="wCatList" placeholder="напр. Загальні роботи">'));
+  var wCatList = el('datalist', { id: 'wCatList' });
+  STATE.db.categories.forEach(function (c) { wCatList.appendChild(el('option', { value: c.name })); });
+  manualBlock.appendChild(wCatList);
+  manualBlock.appendChild(formField('Одиниця', '<input id="f_wunit" value="шт.">'));
+  var wModeSel = el('select', { id: 'f_wmode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
+    el('option', { value: 'markup' }, ['Собівартість + націнка']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
+  ]);
+  manualBlock.appendChild(formField('Як рахувати ціну', ''));
+  manualBlock.lastChild.appendChild(wModeSel);
+  var wMarkupWrap = el('div', { class: 'form-grid-2' }, [
+    formField('Собівартість за од., грн *', '<input type="number" id="f_wcost" step="any" placeholder="0">'),
+    formField('Націнка, %', '<input type="number" id="f_wmarkup" step="any" value="' + (Number((STATE.db.settings || {}).default_markup_value) || 25) + '">')
+  ]);
+  var wDirectWrap = el('div', { style: 'display:none;' }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_wdirect" step="any" placeholder="0">')]);
+  manualBlock.appendChild(wMarkupWrap); manualBlock.appendChild(wDirectWrap);
+  wModeSel.onchange = function () {
+    var direct = wModeSel.value === 'direct';
+    wMarkupWrap.style.display = direct ? 'none' : ''; wDirectWrap.style.display = direct ? '' : 'none';
+    updatePreview();
+  };
+  body.appendChild(manualBlock);
+
+  /* ---------------- спільне: кількість + жива підказка по ціні ------------ */
+  var qtyRow = formField('Кількість', '<input type="number" id="f_qty" value="1" step="0.1">');
+  qtyRow.style.marginTop = '12px';
+  body.appendChild(qtyRow);
+  // Живий розрахунок собівартості й ціни клієнта — щоб було видно ДО того, як
+  // тиснеш «Додати», а не тільки після, у таблиці кошторису.
+  var preview = el('div', { class: 'card', style: 'background:var(--panel2);margin-top:4px;display:none;' });
+  body.appendChild(preview);
+  function drawPreviewBox(title, cost, client, unit, qty) {
+    var margin = client > 0 ? (client - cost) / client * 100 : 0;
+    preview.style.display = '';
+    preview.innerHTML = '';
+    if (title) preview.appendChild(el('div', { style: 'font-weight:700;margin-bottom:6px;' }, [title]));
+    var grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;' });
+    grid.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Собівартість (виконавцю)']),
+      el('div', {}, [fmtMoney(cost) + ' / ' + unit]), el('b', {}, ['Разом: ' + fmtMoney(cost * qty)])]));
+    grid.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Ціна клієнту']),
+      el('div', {}, [fmtMoney(client) + ' / ' + unit]), el('b', {}, ['Разом: ' + fmtMoney(client * qty)])]));
+    preview.appendChild(grid);
+    preview.appendChild(el('div', { class: 'page-sub', style: 'margin-top:6px;' }, ['Маржа: ' + margin.toFixed(1) + '% · Прибуток: ' + fmtMoney((client - cost) * qty)]));
+  }
+  function updatePreview() {
+    var qtyEl = document.getElementById('f_qty');
+    if (!qtyEl) { preview.style.display = 'none'; return; } // DOM ще не вставлено в документ (до openModal)
+    var qty = Number(qtyEl.value) || 0;
+    if (mode === 'catalog') {
+      if (!selectedWork) { preview.style.display = 'none'; return; }
+      drawPreviewBox(selectedWork.name, Number(selectedWork.contractor_price) || 0, markupClientPrice(selectedWork), selectedWork.unit, qty);
+    } else {
+      var unitEl = document.getElementById('f_wunit');
+      if (!unitEl) { preview.style.display = 'none'; return; }
+      var unit = unitEl.value.trim() || 'шт.';
+      var cost, client;
+      if (wModeSel.value === 'direct') { cost = 0; client = Number(document.getElementById('f_wdirect').value) || 0; }
+      else { cost = Number(document.getElementById('f_wcost').value) || 0; var mk = Number(document.getElementById('f_wmarkup').value) || 0; client = cost * (1 + mk / 100); }
+      if (!cost && !client) { preview.style.display = 'none'; return; }
+      drawPreviewBox(null, cost, client, unit, qty);
+    }
+  }
+
+  function setMode(m) {
+    mode = m;
+    catalogBlock.style.display = m === 'catalog' ? '' : 'none';
+    manualBlock.style.display = m === 'manual' ? '' : 'none';
+    updatePreview();
+  }
+  modeSel.onchange = function () { setMode(modeSel.value); };
+  drawResults();
+  mode = 'catalog'; catalogBlock.style.display = ''; manualBlock.style.display = 'none'; // без updatePreview() — DOM ще не в document
+
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
   var add = el('button', { class: 'btn primary' }, ['Додати']);
   add.onclick = function () {
-    if (!selectedWork) { toast('Вибери роботу зі списку', 'error'); return; }
     var qty = Number(document.getElementById('f_qty').value) || 1;
-    apiCall('addEstimateItem', { estimate_id: estimate.id, work_id: selectedWork.id, quantity: qty }).then(function (res) {
+    var data;
+    if (mode === 'catalog') {
+      if (!selectedWork) { toast('Вибери роботу зі списку — або перемкни на «Вручну» вгорі', 'error'); return; }
+      data = { estimate_id: estimate.id, work_id: selectedWork.id, quantity: qty };
+    } else {
+      var name = document.getElementById('f_wname').value.trim();
+      var unit = document.getElementById('f_wunit').value.trim() || 'шт.';
+      if (!name) { toast('Вкажи назву роботи', 'error'); return; }
+      data = { estimate_id: estimate.id, name: name, unit: unit, quantity: qty, item_type: 'work',
+        section: document.getElementById('f_wcat').value.trim(), source: 'manual' };
+      if (wModeSel.value === 'direct') {
+        var direct = Number(document.getElementById('f_wdirect').value) || 0;
+        if (!(direct > 0)) { toast('Вкажи ціну для клієнта', 'error'); return; }
+        data.markup_type = 'manual'; data.contractor_price = direct; data.client_price = direct;
+      } else {
+        var cost = Number(document.getElementById('f_wcost').value) || 0;
+        if (!(cost > 0)) { toast('Вкажи собівартість роботи', 'error'); return; }
+        data.markup_type = 'percent'; data.markup_value = Number(document.getElementById('f_wmarkup').value) || 0; data.contractor_price = cost;
+      }
+    }
+    apiCall('addEstimateItem', data).then(function (res) {
       STATE.db.estimateItems.push(res.item);
       var ei = STATE.db.estimates.findIndex(function (x) { return x.id === res.estimate.id; });
       STATE.db.estimates[ei] = res.estimate;
@@ -1257,65 +1466,165 @@ function openAddEstimateItem(estimate) {
   };
   actions.appendChild(cancel); actions.appendChild(add);
   body.appendChild(actions);
-  openModal('Додати роботу з прайсу', body);
+  openModal('Додати роботу в кошторис', body);
+  ['f_qty', 'f_wcost', 'f_wmarkup', 'f_wdirect'].forEach(function (id) {
+    var elx = document.getElementById(id); if (elx) elx.addEventListener('input', updatePreview);
+  });
 }
 
 function openAddManualMaterial(estimate) {
   var s = STATE.db.settings || {};
   var defMarkup = Number(s.material_markup_pct) || 10;
   var body = el('div');
-  body.appendChild(el('p', { class: 'page-sub' }, ['Додай матеріал, якого немає в довіднику «Матеріали і пакети» (або не хочеш його туди заносити) — напряму в цей кошторис.']));
-  body.appendChild(formField('Назва матеріалу *', '<input id="f_mname" list="matNameList" placeholder="напр. Клей для плитки Ceresit CM11, 25 кг">'));
+  var mode = 'catalog';
+  var modeSel = el('select', { style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-weight:700;margin-bottom:12px;' }, [
+    el('option', { value: 'catalog' }, ['📦 З каталогу матеріалів']), el('option', { value: 'manual' }, ['✎ Вручну (матеріалу ще немає в каталозі)'])
+  ]);
+  body.appendChild(modeSel);
+
+  /* ---------------- режим 1: вибір матеріалу з довідника ------------------ */
+  var catalogBlock = el('div');
+  var topRow = el('div', { style: 'display:flex;gap:8px;margin-bottom:10px;' });
+  var searchInput = el('input', { type: 'text', placeholder: 'Пошук матеріалу в каталозі...', style: 'flex:1;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' });
+  var matCats = []; STATE.db.materials.forEach(function (m) { if (m.category && matCats.indexOf(m.category) === -1) matCats.push(m.category); });
+  matCats.sort(function (a, b) { return a.localeCompare(b, 'uk'); });
+  var catSelect = el('select', { style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' }, [el('option', { value: '' }, ['Всі категорії'])]);
+  matCats.forEach(function (c) { catSelect.appendChild(el('option', { value: c }, [c])); });
+  topRow.appendChild(searchInput); topRow.appendChild(catSelect);
+  catalogBlock.appendChild(topRow);
+  var countLabel = el('div', { class: 'page-sub', style: 'margin-bottom:6px;' });
+  catalogBlock.appendChild(countLabel);
+  var results = el('div', { style: 'max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:8px;' });
+  catalogBlock.appendChild(results);
+  var selectedMat = null;
+  var CAP = 150;
+  function matClientPrice(m) { return (Number(m.price) || 0) * (1 + defMarkup / 100); }
+  function drawResults() {
+    results.innerHTML = '';
+    var q = fuzzyPrep_(searchInput.value);
+    var list = STATE.db.materials.filter(function (m) {
+      if (m.active === false) return false;
+      if (catSelect.value && m.category !== catSelect.value) return false;
+      if (q && !fuzzyMatch_(m.name, q) && !fuzzyMatch_(m.category, q)) return false;
+      return true;
+    });
+    list.sort(function (a, b) { return (a.category || '' + a.name).localeCompare((b.category || '') + b.name, 'uk'); });
+    countLabel.textContent = 'Знайдено ' + list.length + ' з ' + STATE.db.materials.length + (list.length > CAP ? ' (показано перші ' + CAP + ' — уточни пошук)' : '');
+    list.slice(0, CAP).forEach(function (m) {
+      var row = el('div', { style: 'padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12.5px;' + (selectedMat && selectedMat.id === m.id ? 'background:var(--panel2);' : '') }, [
+        el('div', {}, [el('b', {}, [m.name])]),
+        el('div', { class: 'page-sub' }, [(m.category || 'без категорії') + ' · собівартість ' + fmtMoney(m.price) + ' → клієнту ' + fmtMoney(matClientPrice(m)) + ' / ' + m.unit])
+      ]);
+      row.onclick = function () { selectedMat = m; drawResults(); updatePreview(); };
+      results.appendChild(row);
+    });
+    if (!list.length) results.appendChild(el('div', { class: 'page-sub', style: 'padding:10px;' }, ['Нічого не знайдено. Спробуй іншу назву, категорію — або перемкни на «Вручну» вгорі.']));
+  }
+  searchInput.oninput = drawResults; catSelect.onchange = drawResults;
+  body.appendChild(catalogBlock);
+
+  /* ---------------- режим 2: матеріал вручну ------------------------------ */
+  var manualBlock = el('div', { style: 'display:none;' });
+  manualBlock.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, ['Додай матеріал, якого немає в довіднику «Матеріали і пакети» — напряму в цей кошторис. За бажанням його можна потім зберегти в каталог кнопкою «＋ у каталог» біля рядка кошторису.']));
+  manualBlock.appendChild(formField('Назва матеріалу *', '<input id="f_mname" list="matNameList" placeholder="напр. Клей для плитки Ceresit CM11, 25 кг">'));
   var dl = el('datalist', { id: 'matNameList' });
   STATE.db.materials.forEach(function (m) { dl.appendChild(el('option', { value: m.name })); });
-  body.appendChild(dl);
-  body.appendChild(el('div', { class: 'form-grid-2' }, [
+  manualBlock.appendChild(dl);
+  manualBlock.appendChild(el('div', { class: 'form-grid-2' }, [
     formField('Одиниця', '<input id="f_munit" value="шт.">'),
-    formField('Кількість *', '<input type="number" id="f_mqty" value="1" step="any">')
   ]));
-  var modeSel = el('select', { id: 'f_mmode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
+  var mModeSel = el('select', { id: 'f_mmode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
     el('option', { value: 'markup' }, ['Собівартість + націнка']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
   ]);
-  body.appendChild(formField('Як рахувати ціну', ''));
-  body.lastChild.appendChild(modeSel);
+  manualBlock.appendChild(formField('Як рахувати ціну', ''));
+  manualBlock.lastChild.appendChild(mModeSel);
   var markupWrap = el('div', { class: 'form-grid-2' }, [
     formField('Собівартість за од., грн *', '<input type="number" id="f_mcost" step="any" placeholder="0">'),
     formField('Націнка, %', '<input type="number" id="f_mmarkup" step="any" value="' + defMarkup + '">')
   ]);
   var directWrap = el('div', { style: 'display:none;' }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_mdirect" step="any" placeholder="0">')]);
-  body.appendChild(markupWrap); body.appendChild(directWrap);
-  modeSel.onchange = function () {
-    var direct = modeSel.value === 'direct';
+  manualBlock.appendChild(markupWrap); manualBlock.appendChild(directWrap);
+  mModeSel.onchange = function () {
+    var direct = mModeSel.value === 'direct';
     markupWrap.style.display = direct ? 'none' : ''; directWrap.style.display = direct ? '' : 'none';
     updatePreview();
   };
-  var preview = el('div', { class: 'card', style: 'background:var(--panel2);font-weight:700;text-align:center;margin-top:6px;' });
+  body.appendChild(manualBlock);
+
+  /* ---------------- спільне: кількість + жива підказка --------------------- */
+  var qtyRow = formField('Кількість *', '<input type="number" id="f_mqty" value="1" step="any">');
+  qtyRow.style.marginTop = '12px';
+  body.appendChild(qtyRow);
+  var preview = el('div', { class: 'card', style: 'background:var(--panel2);margin-top:4px;display:none;' });
   body.appendChild(preview);
-  function updatePreview() {
-    var qty = Number(document.getElementById('f_mqty').value) || 0;
-    var client;
-    if (modeSel.value === 'direct') client = Number(document.getElementById('f_mdirect').value) || 0;
-    else { var cost = Number(document.getElementById('f_mcost').value) || 0; var mk = Number(document.getElementById('f_mmarkup').value) || 0; client = cost * (1 + mk / 100); }
-    preview.textContent = 'Ціна клієнту: ' + fmtMoney(client) + ' / од. · Сума: ' + fmtMoney(client * qty);
+  function drawPreviewBox(title, cost, client, unit, qty) {
+    var margin = client > 0 ? (client - cost) / client * 100 : 0;
+    preview.style.display = '';
+    preview.innerHTML = '';
+    if (title) preview.appendChild(el('div', { style: 'font-weight:700;margin-bottom:6px;' }, [title]));
+    var grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;' });
+    grid.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Собівартість']),
+      el('div', {}, [fmtMoney(cost) + ' / ' + unit]), el('b', {}, ['Разом: ' + fmtMoney(cost * qty)])]));
+    grid.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Ціна клієнту']),
+      el('div', {}, [fmtMoney(client) + ' / ' + unit]), el('b', {}, ['Разом: ' + fmtMoney(client * qty)])]));
+    preview.appendChild(grid);
+    preview.appendChild(el('div', { class: 'page-sub', style: 'margin-top:6px;' }, ['Маржа: ' + margin.toFixed(1) + '% · Прибуток: ' + fmtMoney((client - cost) * qty)]));
   }
+  function updatePreview() {
+    var qtyEl = document.getElementById('f_mqty');
+    if (!qtyEl) { preview.style.display = 'none'; return; } // DOM ще не вставлено в документ (до openModal)
+    var qty = Number(qtyEl.value) || 0;
+    if (mode === 'catalog') {
+      if (!selectedMat) { preview.style.display = 'none'; return; }
+      drawPreviewBox(selectedMat.name, Number(selectedMat.price) || 0, matClientPrice(selectedMat), selectedMat.unit, qty);
+    } else {
+      var unitEl = document.getElementById('f_munit');
+      if (!unitEl) { preview.style.display = 'none'; return; }
+      var unit = unitEl.value.trim() || 'шт.';
+      var cost, client;
+      if (mModeSel.value === 'direct') { cost = 0; client = Number(document.getElementById('f_mdirect').value) || 0; }
+      else { cost = Number(document.getElementById('f_mcost').value) || 0; var mk = Number(document.getElementById('f_mmarkup').value) || 0; client = cost * (1 + mk / 100); }
+      if (!cost && !client) { preview.style.display = 'none'; return; }
+      drawPreviewBox(null, cost, client, unit, qty);
+    }
+  }
+
+  function setMode(m) {
+    mode = m;
+    catalogBlock.style.display = m === 'catalog' ? '' : 'none';
+    manualBlock.style.display = m === 'manual' ? '' : 'none';
+    updatePreview();
+  }
+  modeSel.onchange = function () { setMode(modeSel.value); };
+  drawResults();
+  mode = 'catalog'; catalogBlock.style.display = ''; manualBlock.style.display = 'none'; // без updatePreview() — DOM ще не в document
+
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
   var add = el('button', { class: 'btn primary' }, ['Додати']);
   add.onclick = function () {
-    var name = document.getElementById('f_mname').value.trim();
-    var unit = document.getElementById('f_munit').value.trim() || 'шт.';
     var qty = Number(document.getElementById('f_mqty').value) || 0;
-    if (!name) { toast('Вкажи назву матеріалу', 'error'); return; }
     if (!(qty > 0)) { toast('Вкажи кількість більше нуля', 'error'); return; }
-    var data = { estimate_id: estimate.id, name: name, unit: unit, quantity: qty, item_type: 'material', section: 'Матеріали (додано вручну)', source: 'manual' };
-    if (modeSel.value === 'direct') {
-      var direct = Number(document.getElementById('f_mdirect').value) || 0;
-      if (!(direct > 0)) { toast('Вкажи ціну для клієнта', 'error'); return; }
-      data.markup_type = 'manual'; data.contractor_price = direct; data.client_price = direct;
+    var data;
+    if (mode === 'catalog') {
+      if (!selectedMat) { toast('Вибери матеріал зі списку — або перемкни на «Вручну» вгорі', 'error'); return; }
+      data = { estimate_id: estimate.id, material_id: selectedMat.id, name: selectedMat.name, unit: selectedMat.unit, quantity: qty,
+        item_type: 'material', section: selectedMat.category || 'Матеріали', source: 'catalog',
+        markup_type: 'percent', markup_value: defMarkup, contractor_price: Number(selectedMat.price) || 0 };
     } else {
-      var cost = Number(document.getElementById('f_mcost').value) || 0;
-      if (!(cost > 0)) { toast('Вкажи собівартість матеріалу', 'error'); return; }
-      data.markup_type = 'percent'; data.markup_value = Number(document.getElementById('f_mmarkup').value) || 0; data.contractor_price = cost;
+      var name = document.getElementById('f_mname').value.trim();
+      var unit = document.getElementById('f_munit').value.trim() || 'шт.';
+      if (!name) { toast('Вкажи назву матеріалу', 'error'); return; }
+      data = { estimate_id: estimate.id, name: name, unit: unit, quantity: qty, item_type: 'material', section: 'Матеріали (додано вручну)', source: 'manual' };
+      if (mModeSel.value === 'direct') {
+        var direct = Number(document.getElementById('f_mdirect').value) || 0;
+        if (!(direct > 0)) { toast('Вкажи ціну для клієнта', 'error'); return; }
+        data.markup_type = 'manual'; data.contractor_price = direct; data.client_price = direct;
+      } else {
+        var cost = Number(document.getElementById('f_mcost').value) || 0;
+        if (!(cost > 0)) { toast('Вкажи собівартість матеріалу', 'error'); return; }
+        data.markup_type = 'percent'; data.markup_value = Number(document.getElementById('f_mmarkup').value) || 0; data.contractor_price = cost;
+      }
     }
     apiCall('addEstimateItem', data).then(function (res) {
       STATE.db.estimateItems.push(res.item);
@@ -1326,7 +1635,7 @@ function openAddManualMaterial(estimate) {
   };
   actions.appendChild(cancel); actions.appendChild(add);
   body.appendChild(actions);
-  openModal('Додати матеріал вручну', body);
+  openModal('Додати матеріал в кошторис', body);
   // поля зʼявляються в DOM лише після openModal — підвʼязуємо живий перерахунок тепер
   ['f_mqty', 'f_mcost', 'f_mmarkup', 'f_mdirect'].forEach(function (id) {
     var el2 = document.getElementById(id); if (el2) el2.addEventListener('input', updatePreview);
@@ -1336,7 +1645,7 @@ function openAddManualMaterial(estimate) {
     var m = STATE.db.materials.filter(function (x) { return x.name === nameInp.value; })[0];
     if (m) {
       document.getElementById('f_munit').value = m.unit || 'шт.';
-      if (modeSel.value !== 'direct') document.getElementById('f_mcost').value = m.price || '';
+      if (mModeSel.value !== 'direct') document.getElementById('f_mcost').value = m.price || '';
       updatePreview();
     }
   });
@@ -3388,21 +3697,41 @@ function applyScope_(w, button) {
 V9.pickWork = function (cb) {
   var body = el('div');
   var search = input_({ placeholder: 'Пошук роботи в прайсі…', style: 'width:100%;margin-bottom:8px;' });
-  var list = el('div', { style: 'max-height:320px;overflow:auto;border:1px solid var(--v9-line);border-radius:8px;' });
+  var list = el('div', { style: 'max-height:280px;overflow:auto;border:1px solid var(--v9-line);border-radius:8px;' });
   var qty = input_({ type: 'number', step: 'any', value: '1', style: 'width:120px;' });
+  var preview = el('div', { class: 'v9-card', style: 'margin-top:10px;display:none;' });
   var sel = null;
+  function markupClientPrice(w) {
+    var cp = Number(w.contractor_price) || 0, mv = Number(w.default_markup) || 0;
+    return w.default_markup_type === 'fixed' ? cp + mv : cp * (1 + mv / 100);
+  }
+  function updatePreview() {
+    if (!sel) { preview.style.display = 'none'; return; }
+    var q = Number(qty.value) || 0;
+    var cost = Number(sel.contractor_price) || 0, client = markupClientPrice(sel);
+    var margin = client > 0 ? (client - cost) / client * 100 : 0;
+    preview.style.display = '';
+    preview.innerHTML = '';
+    preview.appendChild(el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;' }, [
+      el('div', {}, [el('div', { class: 'v9-reason' }, ['Собівартість']), el('div', {}, [fmtMoney(cost) + ' / ' + sel.unit]), el('b', {}, ['Разом: ' + fmtMoney(cost * q)])]),
+      el('div', {}, [el('div', { class: 'v9-reason' }, ['Ціна клієнту']), el('div', {}, [fmtMoney(client) + ' / ' + sel.unit]), el('b', {}, ['Разом: ' + fmtMoney(client * q)])])
+    ]));
+    preview.appendChild(el('div', { class: 'v9-reason', style: 'margin-top:6px;' }, ['Маржа: ' + margin.toFixed(1) + '%']));
+  }
   function draw() {
     list.innerHTML = '';
     var q = fuzzyPrep_(search.value);
     STATE.db.works.filter(function (wk) { return !q || fuzzyMatch_(wk.name, q) || fuzzyMatch_(wk.category, q); }).slice(0, 120).forEach(function (wk) {
-      var r = el('div', { class: 'v9-pick' + (sel === wk ? ' on' : '') }, [el('b', {}, [wk.name]), el('div', { class: 'page-sub', style: 'margin:0;' }, [wk.category + ' · ' + fmtMoney(wk.contractor_price) + ' / ' + wk.unit])]);
-      r.onclick = function () { sel = wk; draw(); };
+      var r = el('div', { class: 'v9-pick' + (sel === wk ? ' on' : '') }, [el('b', {}, [wk.name]), el('div', { class: 'page-sub', style: 'margin:0;' }, [wk.category + ' · собівартість ' + fmtMoney(wk.contractor_price) + ' → клієнту ' + fmtMoney(markupClientPrice(wk)) + ' / ' + wk.unit])]);
+      r.onclick = function () { sel = wk; draw(); updatePreview(); };
       list.appendChild(r);
     });
   }
   search.oninput = draw; draw();
   body.appendChild(search); body.appendChild(list);
   body.appendChild(el('div', { class: 'v9-row', style: 'margin-top:10px;' }, ['Кількість:', qty]));
+  body.appendChild(preview);
+  qty.addEventListener('input', updatePreview);
   body.appendChild(el('div', { class: 'form-actions' }, [btn_('Скасувати', '', closeModal), btn_('Додати', 'primary', function () {
     if (!sel) { toast('Обери роботу', 'error'); return; }
     closeModal(); cb(sel, Number(qty.value) || 1);
@@ -4672,6 +5001,52 @@ var Auth = (function () {
   return { getToken: getToken, setSession: setSession, clearSession: clearSession, cachedUser: cachedUser,
            showLogin: showLogin_, hideLogin: hideLogin_, login: login, logout: logout, wireForm: wireForm };
 })();
+
+/* ============================================================================
+   ЕТАП 12: СИНХРОНІЗАЦІЯ МІЖ ВКЛАДКАМИ / ПРИСТРОЯМИ
+   1) Одна й та сама людина, дві вкладки одного браузера: щойно щось збережено
+      в одній — інша миттєво підхоплює зміну через BroadcastChannel (без мережі,
+      без затримки). 2) Інший пристрій/людина: раз на 25с тиха фонова
+      синхронізація, плюс одразу при поверненні на вкладку. Не заважає, поки
+      відкрита форма (модалка) — оновлення чекає, доки її закриють.
+   ============================================================================ */
+var Sync = (function () {
+  var bc = null;
+  try { if (typeof BroadcastChannel !== 'undefined') bc = new BroadcastChannel('budnex_sync_v1'); } catch (e) { bc = null; }
+  var pending = null;
+  function modalOpen_() { var m = document.getElementById('modalOverlay'); return m && m.classList.contains('open'); }
+  function refresh(delay) {
+    clearTimeout(pending);
+    pending = setTimeout(function () {
+      if (!Auth.getToken()) return;
+      if (modalOpen_()) { refresh(3000); return; } // не рвати людину посеред заповнення форми — спробувати трохи пізніше
+      syncAll();
+    }, delay || 400);
+  }
+  if (bc) bc.onmessage = function (e) { if (e && e.data && e.data.type === 'changed') refresh(250); };
+  function announce(action) { if (bc) { try { bc.postMessage({ type: 'changed', action: action, at: Date.now() }); } catch (e) {} } }
+  setInterval(function () {
+    if (document.visibilityState !== 'visible' || !Auth.getToken() || modalOpen_()) return;
+    syncAll();
+  }, 25000);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && Auth.getToken()) refresh(150);
+  });
+  return { announce: announce };
+})();
+// дії, після яких синхронізувати інші вкладки не потрібно (нічого не змінюють
+// або результат уже видно лише в поточній вкладці — прев'ю, перевірка тощо)
+var SYNC_READONLY_ACTIONS = { ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
+  autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
+  checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
+  exportBackupJson: 1, changePassword: 1 };
+var _syncOrigApiCall_ = apiCall;
+apiCall = function (action, data) {
+  return _syncOrigApiCall_(action, data).then(function (res) {
+    if (!SYNC_READONLY_ACTIONS[action]) Sync.announce(action);
+    return res;
+  });
+};
 
 function initApp() {
   applyTheme(STATE.ui.theme);
