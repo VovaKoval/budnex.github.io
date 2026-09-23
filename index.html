@@ -1080,9 +1080,16 @@ function renderEstimateEditor(container, estimate) {
   container.appendChild(toolbar);
 
   var table = el('table', { class: 'dt' });
-  table.appendChild(el('thead', {}, [el('tr', {}, ['Робота', 'Од.', 'К-сть', 'Ціна викон.', 'Націнка', 'Ціна клієнту', 'Сума клієнту', ''].map(function (h) { return el('th', {}, [h]); }))]));
+  table.appendChild(el('thead', {}, [el('tr', {}, ['Робота', 'Од.', 'К-сть', 'Собівартість', 'Мій дохід', 'Ціна клієнту', ''].map(function (h) { return el('th', {}, [h]); }))]));
   var tbody = el('tbody');
+  var sumCost = 0, sumProfit = 0, sumClient = 0;
   items.forEach(function (it) {
+    var qty = Number(it.quantity) || 0;
+    var costUnit = Number(it.contractor_price) || 0, costTotal = Number(it.contractor_total) || 0;
+    var clientUnit = Number(it.client_price) || 0, clientTotal = Number(it.client_total) || 0;
+    var profitUnit = clientUnit - costUnit, profitTotal = it.profit != null ? Number(it.profit) : (clientTotal - costTotal);
+    var marginPct = clientTotal > 0 ? (profitTotal / clientTotal * 100) : 0;
+    sumCost += costTotal; sumProfit += profitTotal; sumClient += clientTotal;
     var nameCell = el('td', { style: 'cursor:pointer;' }, [it.name, V9.itemTags(it)]);
     nameCell.title = 'Клацни, щоб редагувати позицію';
     nameCell.onclick = function () { openEditEstimateItem(it, estimate); };
@@ -1094,15 +1101,24 @@ function renderEstimateEditor(container, estimate) {
     var tr = el('tr', {}, [
       nameCell, el('td', {}, [it.unit]),
       el('td', {}, [inlineNumInput_(it.quantity, function (val) { updateEstimateItem_(it.id, { quantity: val }); })]),
-      el('td', {}, [fmtMoney(it.contractor_price)]),
-      el('td', {}, [it.markup_type === 'percent' ? '+' + it.markup_value + '%' : (it.markup_type === 'manual' ? 'вручну' : '+' + fmtMoney(it.markup_value))]),
-      el('td', {}, [fmtMoney(it.client_price)]),
-      el('td', {}, [fmtMoney(it.client_total)]),
+      estimateMoneyCell_(costUnit, costTotal),
+      estimateMoneyCell_(profitUnit, profitTotal, marginPct.toFixed(1) + '% маржі'),
+      estimateMoneyCell_(clientUnit, clientTotal),
       el('td', { style: 'white-space:nowrap;' }, [editBtn, delBtn])
     ]);
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
+  if (items.length) {
+    var totalMargin = sumClient > 0 ? (sumProfit / sumClient * 100) : 0;
+    table.appendChild(el('tfoot', {}, [el('tr', { style: 'font-weight:700;border-top:2px solid var(--border);' }, [
+      el('td', { colspan: '3' }, ['Разом по кошторису']),
+      el('td', {}, [fmtMoney(sumCost)]),
+      el('td', {}, [fmtMoney(sumProfit) + ' (' + totalMargin.toFixed(1) + '%)']),
+      el('td', {}, [fmtMoney(sumClient)]),
+      el('td', {}, [''])
+    ])]));
+  }
   container.appendChild(table);
 
   var totals = el('div', { class: 'grid cols-4', style: 'margin-top:16px;' }, [
@@ -1188,6 +1204,17 @@ function openEstimateAiPanel(estimate) {
   openModal('AI-помічник кошторису', body);
 }
 
+// Комірка «за одиницю / разом» для собівартості, доходу й ціни клієнту в
+// таблиці кошторису — щоб по кожному рядку одразу було видно, скільки йде
+// на роботу, скільки лишається як дохід, і що з цього складається ціна
+// клієнту (собівартість + дохід), без відкриття окремого вікна.
+function estimateMoneyCell_(perUnit, total, sub) {
+  return el('td', {}, [
+    el('div', { class: 'page-sub', style: 'margin:0;white-space:nowrap;' }, [fmtMoney(perUnit) + ' / од.']),
+    el('div', { style: 'font-weight:700;white-space:nowrap;' }, [fmtMoney(total)]),
+    sub ? el('div', { class: 'page-sub', style: 'margin:0;white-space:nowrap;' }, [sub]) : null
+  ]);
+}
 function inlineNumInput_(value, onChange) {
   var input = el('input', { type: 'number', value: value, style: 'width:70px;padding:5px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' });
   input.onchange = function () { onChange(Number(input.value) || 0); };
