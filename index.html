@@ -189,6 +189,11 @@ tr.v9-off td{opacity:.45;}
 .v9-span2{grid-column:1/-1;}
 .v9-logo-prev img{max-height:44px;max-width:200px;background:#000;padding:6px;border-radius:6px;}
 #v9DocOverlay{position:fixed;inset:0;z-index:250;background:var(--bg);display:flex;flex-direction:column;}
+#publicView{position:fixed;inset:0;z-index:50;background:#e9e9e9;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:24px 12px;}
+#publicView .pv-frame{width:100%;max-width:860px;height:70vh;border:0;background:#fff;box-shadow:0 6px 30px rgba(0,0,0,.15);}
+#publicView .pv-actions{width:100%;max-width:860px;background:#fff;padding:18px;margin-top:-4px;box-shadow:0 6px 30px rgba(0,0,0,.15);}
+#publicView .pv-actions .btn.primary{background:#F2C200;border-color:#F2C200;color:#000;}
+#publicView .pv-actions .btn.danger{color:#e5484d;border-color:#e5484d;background:transparent;}
 .v9-doc-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:2px solid var(--gold);background:var(--panel);}
 .v9-doc-top .spacer{flex:1;}
 .v9-doc-body{flex:1;display:flex;min-height:0;}
@@ -246,6 +251,8 @@ tr.v9-off td{opacity:.45;}
   </div>
 </div>
 
+<div id="publicView" style="display:none;"></div>
+
 <div id="app" style="display:none;">
   <div id="topbar">
     <div class="logo">BUDN<span class="ex">EX</span></div>
@@ -291,28 +298,32 @@ var STATE = {
   db: { settings:{}, clients:[], requests:[], objects:[], works:[], categories:[], estimates:[],
         estimateItems:[], partners:[], teams:[], assignments:[], payments:[], expenses:[], tasks:[], notifications:[],
         projects:[], projectRooms:[], projectWalls:[], projectOpenings:[], projectElements:[], boq:[], projectMaterials:[],
-        materials:[], suppliers:[], packages:[], packageItems:[], photos:[], documents:[], users:[], roles:[],
+        materials:[], suppliers:[], packages:[], packageItems:[], photos:[], documents:[], users:[], roles:[], rolesFull:[],
         workTemplates:[], templateItems:[], workMaterials:[], checkRules:[], priceUpdates:[], v9:null },
   ui: { theme: localStorage.getItem('budnex_theme') || 'dark', priceView: 'internal' },
   currentUser: null
 };
 
+// resource — розділ для перевірки прав (canDo_(resource,'view')), для будь-якої
+// ролі, включно з новими, яких ADMIN ще не створив на момент написання коду.
+// roles — запасний варіант лише там, де розділ не зводиться до одного ресурсу
+// (дашборд/обʼєкти/завдання — завжди видимі; календар/налаштування — особливі).
 var NAV = [
   { id:'dashboard', label:'Дашборд', icon:'📊', roles:null },
-  { id:'auto', label:'Авто-кошторис', icon:'⚡', roles:['ADMIN','MANAGER','ESTIMATOR'] },
-  { id:'clients', label:'Клієнти', icon:'👤', roles:null },
-  { id:'requests', label:'Заявки', icon:'📥', roles:null },
+  { id:'auto', label:'Авто-кошторис', icon:'⚡', resource:'estimates' },
+  { id:'clients', label:'Клієнти', icon:'👤', resource:'clients' },
+  { id:'requests', label:'Заявки', icon:'📥', resource:'requests' },
   { id:'objects', label:"Об'єкти", icon:'🏗️', roles:null },
-  { id:'works', label:'Прайс робіт', icon:'📋', roles:['ADMIN','MANAGER','ESTIMATOR'] },
-  { id:'estimates', label:'Кошториси', icon:'🧾', roles:['ADMIN','MANAGER','ESTIMATOR'] },
-  { id:'partners', label:'Бригади', icon:'👷', roles:null },
-  { id:'materials', label:'Матеріали і пакети', icon:'📦', roles:['ADMIN','MANAGER','ESTIMATOR'] },
-  { id:'catalogs', label:'Шаблони і норми', icon:'🧩', roles:['ADMIN','ESTIMATOR'] },
-  { id:'prices', label:'Актуалізація цін', icon:'🔎', roles:['ADMIN','MANAGER','ESTIMATOR'] },
-  { id:'finance', label:'Фінанси', icon:'💰', roles:['ADMIN','MANAGER','ACCOUNTANT'] },
-  { id:'calendar', label:'Календар', icon:'📅', roles:null },
+  { id:'works', label:'Прайс робіт', icon:'📋', resource:'price_list' },
+  { id:'estimates', label:'Кошториси', icon:'🧾', resource:'estimates' },
+  { id:'partners', label:'Бригади', icon:'👷', resource:'partners' },
+  { id:'materials', label:'Матеріали і пакети', icon:'📦', resource:'materials' },
+  { id:'catalogs', label:'Шаблони і норми', icon:'🧩', resource:'catalogs' },
+  { id:'prices', label:'Актуалізація цін', icon:'🔎', resource:'price_updates' },
+  { id:'finance', label:'Фінанси', icon:'💰', resource:'finance' },
+  { id:'calendar', label:'Календар', icon:'📅', resource:'requests' },
   { id:'tasks', label:'Завдання', icon:'✅', roles:null },
-  { id:'analytics', label:'Аналітика', icon:'📈', roles:['ADMIN','MANAGER','ACCOUNTANT'] },
+  { id:'analytics', label:'Аналітика', icon:'📈', resource:'estimates' },
   { id:'settings', label:'Налаштування', icon:'⚙️', roles:['ADMIN'] }
 ];
 
@@ -320,7 +331,46 @@ var NAV = [
 // Code.gs for why this can't be a real server-side security boundary on an
 // Apps Script Web App deployed as "Anyone"). ADMIN always sees everything.
 function currentRole_() { return STATE.currentUser ? STATE.currentUser.role : 'ADMIN'; }
-function roleAllows_(navItem) { return !navItem.roles || navItem.roles.indexOf(currentRole_()) !== -1 || currentRole_() === 'ADMIN'; }
+// ЕТАП 14: права більше не прив'язані до фіксованих імен ролей — сервер
+// надсилає в bootstrap.me власні прапорці поточного користувача (see_cost,
+// scope_own_objects) і повну карту дозволів по розділах (myPermissions), і
+// саме на них тепер зважає інтерфейс. Це працює однаково і для 5 вбудованих
+// ролей, і для будь-якої нової ролі, яку ADMIN створить у «Ролі та права».
+function canDo_(resource, op) {
+  if (currentRole_() === 'ADMIN') return true;
+  var p = (STATE.db.myPermissions || {})[resource];
+  return !!(p && p['can_' + op]);
+}
+function roleAllows_(navItem) {
+  if (currentRole_() === 'ADMIN') return true;
+  if (navItem.resource) return canDo_(navItem.resource, 'view');
+  return !navItem.roles || navItem.roles.indexOf(currentRole_()) !== -1;
+}
+// чи бачить ця роль собівартість/націнку/прибуток. Сервер і так уже прибирає
+// ці поля з відповіді для будь-кого без цього прапорця — це лише дзеркало на
+// фронтенді, щоб інтерфейс не намагався показати чи попросити те, чого в
+// даних просто немає.
+function canSeeCost_() { return currentRole_() === 'ADMIN' || !!(STATE.currentUser && STATE.currentUser.see_cost); }
+// Кошторисник лише читає клієнтів/обʼєкти/заявки (рахує кошториси, не веде
+// CRM) — тепер це перевірка права «створення» на кожен розділ окремо, а не
+// єдиний блок на три розділи разом, тож нову роль можна налаштувати тонше.
+function canManageClients_() { return canDo_('clients', 'create'); }
+function canManageRequests_() { return canDo_('requests', 'create'); }
+function canManageObjects_() { return canDo_('objects', 'create'); }
+// «лише свої обʼєкти» (як бригадир) — теж прапорець ролі, а не літеральна назва.
+function isForeman_() { return !!(STATE.currentUser && STATE.currentUser.scope_own_objects); }
+// Ціна клієнту з рядка WORKS/MATERIALS незалежно від того, прийшли дані повні
+// (є contractor_price/default_markup) чи вже прибрані сервером (є готове
+// client_price) — так само працює для будь-кого без перевірки ролі.
+function workClientPrice_(w) {
+  if (w.client_price != null) return Number(w.client_price) || 0;
+  var cp = Number(w.contractor_price) || 0, mv = Number(w.default_markup) || 0;
+  return w.default_markup_type === 'fixed' ? cp + mv : cp * (1 + mv / 100);
+}
+function matClientPrice_(m, markupPct) {
+  if (m.client_price != null) return Number(m.client_price) || 0;
+  return (Number(m.price) || 0) * (1 + (Number(markupPct) || 0) / 100);
+}
 
 var USER_ROLES = ['ADMIN', 'MANAGER', 'ESTIMATOR', 'FOREMAN', 'ACCOUNTANT']; // дзеркало ROLES з Code.gs — на фронтенді бекендових глобалів немає
 var REQUEST_STATUSES = ['NEW','CONTACT','INSPECTION','ESTIMATE','SENT','NEGOTIATION','APPROVED','PREPARATION','IN PROGRESS','ACCEPTANCE','COMPLETED','REJECTED','PAUSED'];
@@ -446,8 +496,14 @@ function syncAll() {
       packages: data.packages || [], packageItems: data.packageItems || [], photos: data.photos || [],
       documents: data.documents || [], users: data.users || [], roles: data.roles || [],
       workTemplates: data.workTemplates || [], templateItems: data.templateItems || [], workMaterials: data.workMaterials || [],
-      checkRules: data.checkRules || [], priceUpdates: data.priceUpdates || [], v9: data.v9 || null
+      checkRules: data.checkRules || [], priceUpdates: data.priceUpdates || [], v9: data.v9 || null,
+      me: data.me || null, myPermissions: data.myPermissions || {}, rolesFull: (STATE.db && STATE.db.rolesFull) || []
     };
+    // «me» несе найсвіжіші see_cost/scope_own_objects/роль — синхронізуємо це в
+    // STATE.currentUser щоразу (раніше це перевірялось один раз одразу після
+    // логіну й ніколи більше не оновлювалось, тому зміна ролі адміном не
+    // застосовувалась, поки людина сама не перелогінювалась).
+    if (STATE.db.me) { STATE.currentUser = STATE.db.me; Auth.setSession(Auth.getToken(), STATE.db.me); updateUserChip_(); buildSidebar(); }
     STATE.lastSync = new Date();
     Storage.saveCache();
     document.getElementById('syncBtn').textContent = '🔄 Синхронізувати';
@@ -573,7 +629,7 @@ function buildSidebar() {
 /* ============================== DASHBOARD ================================ */
 function renderDashboard(main) {
   var db = STATE.db;
-  if (db.clients.length === 0) {
+  if (db.clients.length === 0 && !isForeman_()) {
     V9.dashboardHero(main);
     main.appendChild(el('div', { class: 'empty-state' }, [
       el('div', { style: 'font-size:40px;' }, ['🏗️']),
@@ -586,7 +642,33 @@ function renderDashboard(main) {
 
   main.appendChild(el('div', { class: 'page-title' }, ["Дашборд"]));
   main.appendChild(el('div', { class: 'page-sub' }, [new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' })]));
+
+  // Бригадир: замість загальної статистики компанії (заявки, фінанси тощо,
+  // яких він і так не бачить — усе прийшло б нулями) — короткий список саме
+  // його об'єктів і найближчих завдань по них.
+  if (isForeman_()) {
+    if (!db.objects.length) {
+      main.appendChild(el('div', { class: 'empty-state' }, [el('div', { style: 'font-size:40px;' }, ['🏗️']), el('h3', {}, ['Тобі ще не призначили обʼєкт']), el('p', {}, ['Звернись до адміністратора.'])]));
+      return;
+    }
+    var oc = el('div', { class: 'card' }, [el('div', { class: 'chart-title' }, ['Мої обʼєкти'])]);
+    db.objects.forEach(function (o) {
+      var client = byId(db.clients, o.client_id);
+      var myTasks = db.tasks.filter(function (t) { return t.object_id === o.id && t.status !== 'DONE'; });
+      var row = el('div', { style: 'padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;' }, [
+        el('div', { style: 'font-weight:700;' }, [o.name]),
+        el('div', { class: 'page-sub' }, [(client ? client.name + ' · ' : '') + (o.address || '') + ' · ' + (o.status || '')]),
+        myTasks.length ? el('div', { class: 'page-sub' }, ['Відкритих завдань: ' + myTasks.length]) : null
+      ]);
+      row.onclick = function () { location.hash = '#/objects/' + o.id; };
+      oc.appendChild(row);
+    });
+    main.appendChild(oc);
+    return;
+  }
+
   V9.dashboardHero(main);
+  renderAttentionCard_(main);
 
   // requests KPI
   var reqByStatus = groupCount_(db.requests, 'status');
@@ -595,26 +677,30 @@ function renderDashboard(main) {
   var objByStatus = groupCount_(db.objects, 'status');
   var teamsByStatus = groupCount_(db.teams, 'status');
 
-  var revenue = sum_(db.payments.filter(function (p) { return p.direction === 'in'; }), 'amount');
-  var expensesIn = sum_(db.payments.filter(function (p) { return p.direction === 'out'; }), 'amount') + sum_(db.expenses, 'amount');
-  var profit = revenue - expensesIn;
-  var estimatesTotal = sum_(db.estimates, 'client_total');
-  var estimatesProfit = sum_(db.estimates, 'profit');
-  var margin = estimatesTotal > 0 ? (estimatesProfit / estimatesTotal * 100) : 0;
-
-  var kpis = el('div', { class: 'grid cols-4', style: 'margin-bottom:18px;' }, [
+  var showCost = canSeeCost_();
+  var kpiList = [
     kpiCard('Заявки', db.requests.length, [['нові', reqByStatus.NEW || 0], ['у роботі', reqActive], ['завершено', reqByStatus.COMPLETED || 0], ['відмова', reqByStatus.REJECTED || 0]]),
     kpiCard("Об'єкти", db.objects.length, OBJECT_STATUSES.map(function (s) { return [s, objByStatus[s] || 0]; }).filter(function (p) { return p[1] > 0; })),
-    kpiCard('Бригади', db.teams.length, [['вільні', teamsByStatus['вільна'] || 0], ['зайняті', teamsByStatus['зайнята'] || 0], ['заброньовані', teamsByStatus['заброньована'] || 0]]),
-    kpiCard('Фінанси', fmtMoney(profit), [['виручка', fmtMoney(revenue)], ['витрати', fmtMoney(expensesIn)], ['маржа кошторисів', margin.toFixed(1) + '%']])
-  ]);
-  main.appendChild(kpis);
+    kpiCard('Бригади', db.teams.length, [['вільні', teamsByStatus['вільна'] || 0], ['зайняті', teamsByStatus['зайнята'] || 0], ['заброньовані', teamsByStatus['заброньована'] || 0]])
+  ];
+  // «Фінанси» (виручка/витрати/маржа кошторисів) — внутрішні цифри компанії,
+  // ті самі, що й собівартість/націнка: показуємо лише тим, хто їх бачить.
+  if (showCost) {
+    var revenue = sum_(db.payments.filter(function (p) { return p.direction === 'in'; }), 'amount');
+    var expensesIn = sum_(db.payments.filter(function (p) { return p.direction === 'out'; }), 'amount') + sum_(db.expenses, 'amount');
+    var profit = revenue - expensesIn;
+    var estimatesTotal = sum_(db.estimates, 'client_total');
+    var estimatesProfit = sum_(db.estimates, 'profit');
+    var margin = estimatesTotal > 0 ? (estimatesProfit / estimatesTotal * 100) : 0;
+    kpiList.push(kpiCard('Фінанси', fmtMoney(profit), [['виручка', fmtMoney(revenue)], ['витрати', fmtMoney(expensesIn)], ['маржа кошторисів', margin.toFixed(1) + '%']]));
+  } else {
+    kpiList.push(kpiCard('Кошториси', fmtMoney(sum_(db.estimates, 'client_total')), [['кількість', db.estimates.length]]));
+  }
+  main.appendChild(el('div', { class: 'grid cols-4', style: 'margin-bottom:18px;' }, kpiList));
 
-  var charts = el('div', { class: 'grid cols-2' }, [
-    chartCard('Заявки по місяцях', monthlySeries_(db.requests, 'date')),
-    chartCard('Надходження по місяцях', monthlySeries_(db.payments.filter(function(p){return p.direction==='in';}), 'date', 'amount'))
-  ]);
-  main.appendChild(charts);
+  var chartList = [chartCard('Заявки по місяцях', monthlySeries_(db.requests, 'date'))];
+  if (showCost) chartList.push(chartCard('Надходження по місяцях', monthlySeries_(db.payments.filter(function(p){return p.direction==='in';}), 'date', 'amount')));
+  main.appendChild(el('div', { class: 'grid cols-2' }, chartList));
 
   var notifs = db.notifications.filter(function (n) { return n.status !== 'read'; }).slice(-5).reverse();
   if (notifs.length) {
@@ -627,6 +713,49 @@ function renderDashboard(main) {
     });
     main.appendChild(nc);
   }
+}
+
+// ЕТАП 15: «Потребує уваги» — те, що зазвичай губиться: прострочені
+// завдання, нові заявки без руху, забуті чернетки кошторисів і сумнівні
+// позиції, які ще ніхто не підтвердив. Кожен рядок — клік одразу туди.
+// Показує лише те, що дозволяє бачити роль (дані й так уже відфільтровані).
+function renderAttentionCard_(main) {
+  var db = STATE.db, now = new Date(), day = 86400000, items = [];
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  db.tasks.forEach(function (t) {
+    if (t.status === 'DONE' || !t.deadline) return;
+    var dl = new Date(t.deadline); if (isNaN(dl) || dl >= today) return;
+    var o = byId(db.objects, t.object_id);
+    items.push({ lvl: 3, icon: '⏰', text: 'Прострочене завдання: «' + t.title + '»' + (o ? ' · ' + o.name : '') + ' (до ' + fmtDate(t.deadline) + ')', go: o ? '#/objects/' + o.id : '#/tasks', tab: 'tasks' });
+  });
+  db.requests.forEach(function (r) {
+    if (r.status !== 'NEW') return;
+    var d = new Date(r.date || r.created_at); if (isNaN(d) || now - d < 2 * day) return;
+    var c = byId(db.clients, r.client_id);
+    items.push({ lvl: 2, icon: '📥', text: 'Нова заявка без руху ' + Math.floor((now - d) / day) + ' дн.: ' + (c ? c.name : r.id), go: '#/requests' });
+  });
+  var latestByObj = {};
+  db.estimates.forEach(function (e) { if (!latestByObj[e.object_id] || Number(e.version) > Number(latestByObj[e.object_id].version)) latestByObj[e.object_id] = e; });
+  Object.keys(latestByObj).forEach(function (oid) {
+    var e = latestByObj[oid];
+    var o = byId(db.objects, oid);
+    var doubtful = db.estimateItems.filter(function (it) { return it.estimate_id === e.id && it.flag === 'doubtful'; }).length;
+    if (doubtful) items.push({ lvl: 2, icon: '⚠', text: doubtful + ' сумнівн. позицій не підтверджено: ' + (o ? o.name : e.id), go: '#/objects/' + oid, tab: 'estimate' });
+    if (e.status !== 'final') {
+      var upd = new Date(e.updated_at || e.created_at);
+      if (!isNaN(upd) && now - upd > 7 * day) items.push({ lvl: 1, icon: '🧾', text: 'Чернетка кошторису без змін ' + Math.floor((now - upd) / day) + ' дн.: ' + (o ? o.name : e.id), go: '#/objects/' + oid, tab: 'estimate' });
+    }
+  });
+  if (!items.length) return;
+  items.sort(function (a, b) { return b.lvl - a.lvl; });
+  var card = el('div', { class: 'card', style: 'margin-bottom:18px;border-color:var(--gold);' }, [el('div', { class: 'chart-title' }, ['🔔 Потребує уваги (' + items.length + ')'])]);
+  items.slice(0, 8).forEach(function (it) {
+    var row = el('div', { style: 'padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;' }, [it.icon + ' ' + it.text]);
+    row.onclick = function () { if (it.tab) STATE.ui.objectTab = it.tab; if (location.hash === it.go) renderRoute(); else location.hash = it.go; };
+    card.appendChild(row);
+  });
+  if (items.length > 8) card.appendChild(el('div', { class: 'page-sub', style: 'margin:6px 0 0;' }, ['…і ще ' + (items.length - 8)]));
+  main.appendChild(card);
 }
 
 function kpiCard(label, value, breakdown) {
@@ -707,7 +836,7 @@ function renderClients(main, clientId) {
   toolbar.appendChild(csvBtn);
   var addBtn = el('button', { class: 'btn primary' }, ['+ Новий клієнт']);
   addBtn.onclick = function () { openClientForm(); };
-  toolbar.appendChild(addBtn);
+  if (canManageClients_()) toolbar.appendChild(addBtn);
   main.appendChild(toolbar);
 
   var tableWrap = el('div', {});
@@ -789,7 +918,7 @@ function renderClientCard(main, clientId) {
     el('div', {}, [el('div', { class: 'page-title' }, [c.name]), el('div', { class: 'page-sub' }, [c.id + ' · ' + (c.phone || '') + ' · ' + (c.city || '')])])
   ]);
   var editBtn = el('button', { class: 'btn' }, ['Редагувати']); editBtn.onclick = function () { openClientForm(c); };
-  head.appendChild(editBtn);
+  if (canDo_('clients', 'edit')) head.appendChild(editBtn);
   main.appendChild(head);
 
   var reqs = STATE.db.requests.filter(function (r) { return r.client_id === c.id; });
@@ -828,7 +957,7 @@ function renderRequests(main) {
   var toolbar = el('div', { class: 'toolbar' });
   toolbar.appendChild(el('div', { class: 'spacer' }));
   var addBtn = el('button', { class: 'btn primary' }, ['+ Нова заявка']); addBtn.onclick = function () { openRequestForm(); };
-  toolbar.appendChild(addBtn);
+  if (canManageRequests_()) toolbar.appendChild(addBtn);
   main.appendChild(toolbar);
 
   var board = el('div', { class: 'kanban' });
@@ -839,7 +968,7 @@ function renderRequests(main) {
     ]);
     items.forEach(function (r) {
       var client = byId(STATE.db.clients, r.client_id);
-      var card = el('div', { class: 'kanban-card', draggable: 'true' }, [
+      var card = el('div', { class: 'kanban-card', draggable: canManageRequests_() ? 'true' : 'false' }, [
         el('div', { class: 'kc-title' }, [client ? client.name : r.client_id]),
         el('div', { class: 'kc-meta' }, [(r.description || '').slice(0, 60)]),
         el('div', { class: 'kc-meta' }, [r.address || '', r.budget ? ' · ' + fmtMoney(r.budget) : ''])
@@ -880,7 +1009,7 @@ function openRequestForm(existing) {
   body.appendChild(formField('Статус', '<select id="f_status">' + statusOpts + '</select>'));
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
-  if (existing) {
+  if (existing && currentRole_() === 'ADMIN') {
     var del = el('button', { class: 'btn danger' }, ['Видалити']);
     del.onclick = function () { confirmAction('Видалити цю заявку?', function () {
       apiCall('deleteRequest', { id: existing.id }).then(function () {
@@ -910,7 +1039,8 @@ function openRequestForm(existing) {
       Storage.saveCache(); closeModal(); toast('Збережено', 'success'); renderRoute();
     }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
   };
-  actions.appendChild(cancel); actions.appendChild(save);
+  actions.appendChild(cancel);
+  if (existing ? canDo_('requests', 'edit') : canDo_('requests', 'create')) actions.appendChild(save);
   body.appendChild(actions);
   openModal(existing ? 'Заявка ' + existing.id : 'Нова заявка', body);
 }
@@ -922,7 +1052,7 @@ function renderObjects(main, objectId) {
   var toolbar = el('div', { class: 'toolbar' });
   toolbar.appendChild(el('div', { class: 'spacer' }));
   var addBtn = el('button', { class: 'btn primary' }, ["+ Новий об'єкт"]); addBtn.onclick = function () { openObjectForm(); };
-  toolbar.appendChild(addBtn);
+  if (canManageObjects_()) toolbar.appendChild(addBtn);
   main.appendChild(toolbar);
 
   if (!STATE.db.objects.length) { main.appendChild(el('div', { class: 'empty-state' }, ["Ще немає об'єктів."])); return; }
@@ -956,6 +1086,10 @@ function openObjectForm(existing) {
   body.appendChild(formField('Менеджер', '<input id="f_manager" value="' + esc(o.manager || 'Богдана') + '">'));
   var statusOpts = OBJECT_STATUSES.map(function (s) { return '<option value="' + s + '"' + (o.status === s ? ' selected' : '') + '>' + s + '</option>'; }).join('');
   body.appendChild(formField('Статус', '<select id="f_status">' + statusOpts + '</select>'));
+  var foremen = STATE.db.users.filter(function (u) { return u.role === 'FOREMAN' && u.active !== false; });
+  var fmnOpts = '<option value="">— не призначено —</option>' + foremen.map(function (u) { return '<option value="' + u.id + '"' + (o.foreman_user_id === u.id ? ' selected' : '') + '>' + esc(u.name) + '</option>'; }).join('');
+  body.appendChild(formField('Бригадир', '<select id="f_foreman">' + fmnOpts + '</select>'));
+  body.appendChild(el('div', { class: 'page-sub', style: 'margin:-6px 0 10px;' }, ['Бригадир бачить лише свої закріплені обʼєкти й може додавати по них завдання та фото — без доступу до кошторису.']));
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
   var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
@@ -967,7 +1101,8 @@ function openObjectForm(existing) {
       object_type: document.getElementById('f_otype').value.trim(),
       area: Number(document.getElementById('f_area').value) || 0,
       manager: document.getElementById('f_manager').value.trim(),
-      status: document.getElementById('f_status').value
+      status: document.getElementById('f_status').value,
+      foreman_user_id: document.getElementById('f_foreman').value
     };
     if (!data.name) { toast("Вкажи назву об'єкта", 'error'); return; }
     var action = existing ? 'updateObject' : 'createObject';
@@ -992,7 +1127,7 @@ function renderObjectCard(main, objectId) {
     el('div', {}, [el('div', { class: 'page-title' }, [o.name]), el('div', { class: 'page-sub' }, [o.id + ' · ' + (client ? client.name : '') + ' · ' + (o.address || '')])])
   ]);
   var editBtn = el('button', { class: 'btn' }, ['Редагувати']); editBtn.onclick = function () { openObjectForm(o); };
-  head.appendChild(editBtn);
+  if (canDo_('objects', 'edit')) head.appendChild(editBtn);
   main.appendChild(head);
 
   var tabs = el('div', { class: 'tabs' });
@@ -1005,11 +1140,14 @@ function renderObjectCard(main, objectId) {
     ['tasks', 'Завдання', function (c) { renderObjectTasksTab(c, o); }],
     ['photos', 'Фото/Документи', function (c) { renderObjectPhotosTab(c, o); }]
   ];
+  // Бригадир на своєму обʼєкті бачить лише «Завдання» й «Фото» — звіт про
+  // виконану роботу, без доступу до кошторису, команди чи фінансів.
+  if (isForeman_()) tabDefs = tabDefs.filter(function (t) { return t[0] === 'tasks' || t[0] === 'photos'; });
   // Every save inside a tab calls the full renderRoute(), which rebuilds this
   // card from scratch — persisting the active tab on STATE.ui (rather than a
   // fresh local var reset to 'estimate' each time) keeps the user's place
   // after every edit instead of bouncing them back to the first tab.
-  if (!STATE.ui.objectTab) STATE.ui.objectTab = 'estimate';
+  if (!STATE.ui.objectTab || !tabDefs.some(function (t) { return t[0] === STATE.ui.objectTab; })) STATE.ui.objectTab = tabDefs[0][0];
   function drawTabs() {
     tabs.innerHTML = '';
     tabDefs.forEach(function (t) {
@@ -1051,6 +1189,7 @@ function renderEstimateEditor(container, estimate) {
   var settings = STATE.db.settings;
   var minMargin = Number(settings.min_margin) || 15;
   var targetMargin = Number(settings.target_margin) || 25;
+  var showCost = canSeeCost_();
   var items = STATE.db.estimateItems.filter(function (it) { return it.estimate_id === estimate.id; })
     .map(function (it, i) { return { it: it, i: i }; })
     .sort(function (a, b) { var sa = Number(a.it.sort) || 0, sb = Number(b.it.sort) || 0; return sa !== sb ? sa - sb : a.i - b.i; })
@@ -1059,7 +1198,7 @@ function renderEstimateEditor(container, estimate) {
   container.appendChild(el('div', { class: 'page-sub' }, ['Кошторис ' + estimate.id + ' · версія ' + estimate.version + ' · статус: ' + estimate.status]));
   container.appendChild(V9.estimateBar(estimate));
 
-  if (Number(estimate.margin) < minMargin) {
+  if (showCost && Number(estimate.margin) < minMargin) {
     container.appendChild(el('div', { class: 'margin-warn' }, ['⚠ УВАГА: маржа (' + Number(estimate.margin).toFixed(1) + '%) нижче встановленого мінімуму (' + minMargin + '%). Цільова маржа: ' + targetMargin + '%.']));
   }
 
@@ -1077,19 +1216,23 @@ function renderEstimateEditor(container, estimate) {
       .catch(function (e) { toast('Помилка PDF: ' + e.message, 'error'); });
   };
   toolbar.appendChild(addItemBtn); toolbar.appendChild(addMatBtn); toolbar.appendChild(aiBtn); toolbar.appendChild(pdfBtn);
+  if (canDo_('estimates', 'create')) {
+    var dupBtn = el('button', { class: 'btn small' }, ['📑 Копіювати']);
+    dupBtn.title = 'Нова версія цього кошторису або копія на інший обʼєкт';
+    dupBtn.onclick = function () { openDuplicateEstimate(estimate); };
+    toolbar.appendChild(dupBtn);
+  }
   container.appendChild(toolbar);
 
+  var headers = showCost ? ['Робота', 'Од.', 'К-сть', 'Собівартість', 'Мій дохід', 'Ціна клієнту', ''] : ['Робота', 'Од.', 'К-сть', 'Ціна клієнту', ''];
   var table = el('table', { class: 'dt' });
-  table.appendChild(el('thead', {}, [el('tr', {}, ['Робота', 'Од.', 'К-сть', 'Собівартість', 'Мій дохід', 'Ціна клієнту', ''].map(function (h) { return el('th', {}, [h]); }))]));
+  table.appendChild(el('thead', {}, [el('tr', {}, headers.map(function (h) { return el('th', {}, [h]); }))]));
   var tbody = el('tbody');
   var sumCost = 0, sumProfit = 0, sumClient = 0;
   items.forEach(function (it) {
     var qty = Number(it.quantity) || 0;
-    var costUnit = Number(it.contractor_price) || 0, costTotal = Number(it.contractor_total) || 0;
     var clientUnit = Number(it.client_price) || 0, clientTotal = Number(it.client_total) || 0;
-    var profitUnit = clientUnit - costUnit, profitTotal = it.profit != null ? Number(it.profit) : (clientTotal - costTotal);
-    var marginPct = clientTotal > 0 ? (profitTotal / clientTotal * 100) : 0;
-    sumCost += costTotal; sumProfit += profitTotal; sumClient += clientTotal;
+    sumClient += clientTotal;
     var nameCell = el('td', { style: 'cursor:pointer;' }, [it.name, V9.itemTags(it)]);
     nameCell.title = 'Клацни, щоб редагувати позицію';
     nameCell.onclick = function () { openEditEstimateItem(it, estimate); };
@@ -1098,34 +1241,39 @@ function renderEstimateEditor(container, estimate) {
     editBtn.onclick = function (e) { e.stopPropagation(); openEditEstimateItem(it, estimate); };
     var delBtn = el('button', { class: 'btn small danger' }, ['✕']);
     delBtn.onclick = function (e) { e.stopPropagation(); deleteEstimateItem_(it.id); };
-    var tr = el('tr', {}, [
-      nameCell, el('td', {}, [it.unit]),
-      el('td', {}, [inlineNumInput_(it.quantity, function (val) { updateEstimateItem_(it.id, { quantity: val }); })]),
-      estimateMoneyCell_(costUnit, costTotal),
-      estimateMoneyCell_(profitUnit, profitTotal, marginPct.toFixed(1) + '% маржі'),
-      estimateMoneyCell_(clientUnit, clientTotal),
-      el('td', { style: 'white-space:nowrap;' }, [editBtn, delBtn])
-    ]);
-    tbody.appendChild(tr);
+    var cells = [nameCell, el('td', {}, [it.unit]),
+      el('td', {}, [inlineNumInput_(it.quantity, function (val) { updateEstimateItem_(it.id, { quantity: val }); })])];
+    if (showCost) {
+      var costUnit = Number(it.contractor_price) || 0, costTotal = Number(it.contractor_total) || 0;
+      var profitUnit = clientUnit - costUnit, profitTotal = it.profit != null ? Number(it.profit) : (clientTotal - costTotal);
+      var marginPct = clientTotal > 0 ? (profitTotal / clientTotal * 100) : 0;
+      sumCost += costTotal; sumProfit += profitTotal;
+      cells.push(estimateMoneyCell_(costUnit, costTotal), estimateMoneyCell_(profitUnit, profitTotal, marginPct.toFixed(1) + '% маржі'));
+    }
+    cells.push(estimateMoneyCell_(clientUnit, clientTotal));
+    cells.push(el('td', { style: 'white-space:nowrap;' }, [editBtn, delBtn]));
+    tbody.appendChild(el('tr', {}, cells));
   });
   table.appendChild(tbody);
   if (items.length) {
-    var totalMargin = sumClient > 0 ? (sumProfit / sumClient * 100) : 0;
-    table.appendChild(el('tfoot', {}, [el('tr', { style: 'font-weight:700;border-top:2px solid var(--border);' }, [
-      el('td', { colspan: '3' }, ['Разом по кошторису']),
-      el('td', {}, [fmtMoney(sumCost)]),
-      el('td', {}, [fmtMoney(sumProfit) + ' (' + totalMargin.toFixed(1) + '%)']),
-      el('td', {}, [fmtMoney(sumClient)]),
-      el('td', {}, [''])
-    ])]));
+    var footCells = [el('td', { colspan: '3' }, ['Разом по кошторису'])];
+    if (showCost) {
+      var totalMargin = sumClient > 0 ? (sumProfit / sumClient * 100) : 0;
+      footCells.push(el('td', {}, [fmtMoney(sumCost)]), el('td', {}, [fmtMoney(sumProfit) + ' (' + totalMargin.toFixed(1) + '%)']));
+    }
+    footCells.push(el('td', {}, [fmtMoney(sumClient)]), el('td', {}, ['']));
+    table.appendChild(el('tfoot', {}, [el('tr', { style: 'font-weight:700;border-top:2px solid var(--border);' }, footCells)]));
   }
   container.appendChild(table);
 
-  var totals = el('div', { class: 'grid cols-4', style: 'margin-top:16px;' }, [
+  var totals = showCost ? el('div', { class: 'grid cols-4', style: 'margin-top:16px;' }, [
     kpiCard('Собівартість (виконавцю)', fmtMoney(estimate.contractor_total)),
     kpiCard('Матеріали + логістика', fmtMoney((Number(estimate.materials_total)||0) + (Number(estimate.logistics_total)||0))),
     kpiCard('Ціна клієнту', fmtMoney(estimate.client_total)),
     kpiCard('Прибуток BUDNEX', fmtMoney(estimate.profit) + ' (' + Number(estimate.margin).toFixed(1) + '%)')
+  ]) : el('div', { class: 'grid cols-2', style: 'margin-top:16px;' }, [
+    kpiCard('Логістика', fmtMoney(estimate.logistics_total)),
+    kpiCard('Разом до сплати клієнтом', fmtMoney(estimate.client_total))
   ]);
   container.appendChild(totals);
 
@@ -1241,9 +1389,42 @@ function deleteEstimateItem_(itemId) {
 // Повне редагування вже доданого рядка кошторису: назва, одиниця, кількість,
 // собівартість і будь-який тип націнки (%, грн, або ціна клієнту напряму) —
 // усе, що раніше можна було змінити лише видаленням і повторним додаванням.
+// ЕТАП 15: копія кошторису — нова версія на тому ж обʼєкті або готовий
+// кошторис для схожого обʼєкта, без ручного переносу кожного рядка.
+function openDuplicateEstimate(estimate) {
+  var body = el('div');
+  var count = STATE.db.estimateItems.filter(function (it) { return it.estimate_id === estimate.id; }).length;
+  body.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, ['Скопіюються всі ' + count + ' позицій з тими самими цінами. Оригінал не зміниться, копія буде чернеткою.']));
+  var objOpts = STATE.db.objects.map(function (o) {
+    var c = byId(STATE.db.clients, o.client_id);
+    return '<option value="' + o.id + '"' + (o.id === estimate.object_id ? ' selected' : '') + '>' + esc(o.name + (c ? ' · ' + c.name : '')) + (o.id === estimate.object_id ? ' (цей же — нова версія)' : '') + '</option>';
+  }).join('');
+  body.appendChild(formField("Куди скопіювати", '<select id="f_dupobj">' + objOpts + '</select>'));
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var go = el('button', { class: 'btn primary' }, ['Копіювати']);
+  go.onclick = function () {
+    var target = document.getElementById('f_dupobj').value;
+    go.disabled = true; go.textContent = '⏳ Копіюю…';
+    apiCall('duplicateEstimate', { estimate_id: estimate.id, object_id: target }).then(function (res) {
+      STATE.db.estimates.push(res.estimate);
+      res.items.forEach(function (it) { STATE.db.estimateItems.push(it); });
+      Storage.saveCache(); closeModal();
+      toast('Скопійовано: ' + res.estimate.id + ' (версія ' + res.estimate.version + ')', 'success');
+      STATE.ui.objectTab = 'estimate';
+      var hash = '#/objects/' + target;
+      if (location.hash === hash) renderRoute(); else location.hash = hash;
+    }).catch(function (e) { go.disabled = false; go.textContent = 'Копіювати'; toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  actions.appendChild(cancel); actions.appendChild(go);
+  body.appendChild(actions);
+  openModal('Копіювати кошторис ' + estimate.id, body);
+}
+
 function openEditEstimateItem(it, estimate) {
   var body = el('div');
   var isWork = it.item_type !== 'material';
+  var showCost = canSeeCost_();
   body.appendChild(formField((isWork ? 'Назва роботи' : 'Назва матеріалу') + ' *', '<input id="f_ename" value="' + esc(it.name || '') + '">'));
   body.appendChild(el('div', { class: 'form-grid-2' }, [
     formField('Одиниця', '<input id="f_eunit" value="' + esc(it.unit || '') + '">'),
@@ -1256,15 +1437,15 @@ function openEditEstimateItem(it, estimate) {
     el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
   ]);
   modeSel.value = startMode;
-  body.appendChild(formField('Як рахувати ціну', ''));
-  body.lastChild.appendChild(modeSel);
+  if (showCost) { body.appendChild(formField('Як рахувати ціну', '')); body.lastChild.appendChild(modeSel); }
   var costWrap = el('div', { class: 'form-grid-2' }, [
     formField('Собівартість за од., грн *', '<input type="number" id="f_ecost" step="any" value="' + esc(it.contractor_price) + '">'),
     formField('Націнка', '<input type="number" id="f_emarkup" step="any" value="' + esc(it.markup_type === 'manual' ? 25 : it.markup_value) + '">')
   ]);
-  var directWrap = el('div', { style: (startMode === 'direct' ? '' : 'display:none;') }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_edirect" step="any" value="' + esc(it.client_price) + '">')]);
-  costWrap.style.display = startMode === 'direct' ? 'none' : '';
-  body.appendChild(costWrap); body.appendChild(directWrap);
+  var directWrap = el('div', { style: (startMode === 'direct' || !showCost ? '' : 'display:none;') }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_edirect" step="any" value="' + esc(it.client_price) + '">')]);
+  costWrap.style.display = (startMode === 'direct' || !showCost) ? 'none' : '';
+  if (showCost) { body.appendChild(costWrap); body.appendChild(directWrap); }
+  else { body.appendChild(directWrap); } // без прав на собівартість — лише ціна для клієнта, без вибору режиму
   modeSel.onchange = function () {
     var direct = modeSel.value === 'direct';
     costWrap.style.display = direct ? 'none' : ''; directWrap.style.display = direct ? '' : 'none';
@@ -1276,14 +1457,20 @@ function openEditEstimateItem(it, estimate) {
     var qtyEl = document.getElementById('f_eqty'); if (!qtyEl) return;
     var qty = Number(qtyEl.value) || 0;
     var cost, client;
-    if (modeSel.value === 'direct') { cost = Number(it.contractor_price) || 0; client = Number(document.getElementById('f_edirect').value) || 0; }
+    if (!showCost) { client = Number(document.getElementById('f_edirect').value) || 0; }
+    else if (modeSel.value === 'direct') { cost = Number(it.contractor_price) || 0; client = Number(document.getElementById('f_edirect').value) || 0; }
     else {
       cost = Number(document.getElementById('f_ecost').value) || 0;
       var mk = Number(document.getElementById('f_emarkup').value) || 0;
       client = modeSel.value === 'percent' ? cost * (1 + mk / 100) : cost + mk;
     }
-    var margin = client > 0 ? (client - cost) / client * 100 : 0;
     preview.innerHTML = '';
+    if (!showCost) {
+      preview.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Ціна клієнту']),
+        el('div', {}, [fmtMoney(client) + ' / од.']), el('b', {}, ['Разом: ' + fmtMoney(client * qty)])]));
+      return;
+    }
+    var margin = client > 0 ? (client - cost) / client * 100 : 0;
     var grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;' });
     grid.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Собівартість']),
       el('div', {}, [fmtMoney(cost) + ' / од.']), el('b', {}, ['Разом: ' + fmtMoney(cost * qty)])]));
@@ -1304,10 +1491,16 @@ function openEditEstimateItem(it, estimate) {
     if (!name) { toast('Вкажи назву', 'error'); return; }
     if (!(qty > 0)) { toast('Вкажи кількість більше нуля', 'error'); return; }
     var patch = { id: it.id, name: name, unit: unit, quantity: qty };
-    if (modeSel.value === 'direct') {
+    if (!showCost) {
+      // немає прав бачити собівартість — не чіпаємо її взагалі: не шлемо
+      // contractor_price, сервер сам лишить те значення, що вже було.
       var direct = Number(document.getElementById('f_edirect').value) || 0;
       if (!(direct > 0)) { toast('Вкажи ціну для клієнта', 'error'); return; }
       patch.markup_type = 'manual'; patch.client_price = direct;
+    } else if (modeSel.value === 'direct') {
+      var direct2 = Number(document.getElementById('f_edirect').value) || 0;
+      if (!(direct2 > 0)) { toast('Вкажи ціну для клієнта', 'error'); return; }
+      patch.markup_type = 'manual'; patch.client_price = direct2;
       patch.contractor_price = Number(it.contractor_price) || 0; // собівартість лишаємо як була — вона тут не редагується
     } else {
       var cost = Number(document.getElementById('f_ecost').value) || 0;
@@ -1333,8 +1526,10 @@ function openEditEstimateItem(it, estimate) {
   updatePreview();
 }
 
+
 function openAddEstimateItem(estimate) {
   var body = el('div');
+  var showCost = canSeeCost_();
   var mode = 'catalog';
   var modeSel = el('select', { style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-weight:700;margin-bottom:12px;' }, [
     el('option', { value: 'catalog' }, ['📋 З прайсу']), el('option', { value: 'manual' }, ['✎ Вручну (роботи ще немає в прайсі)'])
@@ -1355,10 +1550,6 @@ function openAddEstimateItem(estimate) {
   catalogBlock.appendChild(results);
   var selectedWork = null;
   var CAP = 150;
-  function markupClientPrice(w) {
-    var cp = Number(w.contractor_price) || 0, mv = Number(w.default_markup) || 0;
-    return w.default_markup_type === 'fixed' ? cp + mv : cp * (1 + mv / 100);
-  }
   function drawResults() {
     results.innerHTML = '';
     var q = fuzzyPrep_(searchInput.value);
@@ -1370,9 +1561,11 @@ function openAddEstimateItem(estimate) {
     list.sort(function (a, b) { return (a.category + a.name).localeCompare(b.category + b.name, 'uk'); });
     countLabel.textContent = 'Знайдено ' + list.length + ' з ' + STATE.db.works.length + (list.length > CAP ? ' (показано перші ' + CAP + ' — уточни пошук)' : '');
     list.slice(0, CAP).forEach(function (w) {
+      var priceLine = showCost ? 'собівартість ' + fmtMoney(w.contractor_price) + ' → клієнту ' + fmtMoney(workClientPrice_(w)) + ' / ' + w.unit
+                                : fmtMoney(workClientPrice_(w)) + ' / ' + w.unit;
       var row = el('div', { style: 'padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12.5px;' + (selectedWork && selectedWork.id === w.id ? 'background:var(--panel2);' : '') }, [
         el('div', {}, [el('b', {}, [w.name])]),
-        el('div', { class: 'page-sub' }, [w.category + (w.subcategory ? ' / ' + w.subcategory : '') + ' · собівартість ' + fmtMoney(w.contractor_price) + ' → клієнту ' + fmtMoney(markupClientPrice(w)) + ' / ' + w.unit])
+        el('div', { class: 'page-sub' }, [w.category + (w.subcategory ? ' / ' + w.subcategory : '') + ' · ' + priceLine])
       ]);
       row.onclick = function () { selectedWork = w; drawResults(); updatePreview(); };
       results.appendChild(row);
@@ -1384,7 +1577,9 @@ function openAddEstimateItem(estimate) {
 
   /* ---------------- режим 2: робота вручну (без прив'язки до прайсу) ------ */
   var manualBlock = el('div', { style: 'display:none;' });
-  manualBlock.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, ['Додай роботу, якої немає в прайсі, напряму в цей кошторис. За бажанням її можна потім зберегти в прайс кнопкою «＋ у прайс» біля рядка кошторису.']));
+  manualBlock.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, [showCost
+    ? 'Додай роботу, якої немає в прайсі, напряму в цей кошторис. За бажанням її можна потім зберегти в прайс кнопкою «＋ у прайс» біля рядка кошторису.'
+    : 'Додай роботу, якої немає в прайсі, напряму в цей кошторис.']));
   manualBlock.appendChild(formField('Назва роботи *', '<input id="f_wname" placeholder="напр. Монтаж вентиляційної решітки">'));
   manualBlock.appendChild(formField('Категорія', '<input id="f_wcat" list="wCatList" placeholder="напр. Загальні роботи">'));
   var wCatList = el('datalist', { id: 'wCatList' });
@@ -1394,14 +1589,14 @@ function openAddEstimateItem(estimate) {
   var wModeSel = el('select', { id: 'f_wmode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
     el('option', { value: 'markup' }, ['Собівартість + націнка']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
   ]);
-  manualBlock.appendChild(formField('Як рахувати ціну', ''));
-  manualBlock.lastChild.appendChild(wModeSel);
+  if (showCost) { manualBlock.appendChild(formField('Як рахувати ціну', '')); manualBlock.lastChild.appendChild(wModeSel); }
   var wMarkupWrap = el('div', { class: 'form-grid-2' }, [
     formField('Собівартість за од., грн *', '<input type="number" id="f_wcost" step="any" placeholder="0">'),
     formField('Націнка, %', '<input type="number" id="f_wmarkup" step="any" value="' + (Number((STATE.db.settings || {}).default_markup_value) || 25) + '">')
   ]);
-  var wDirectWrap = el('div', { style: 'display:none;' }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_wdirect" step="any" placeholder="0">')]);
-  manualBlock.appendChild(wMarkupWrap); manualBlock.appendChild(wDirectWrap);
+  var wDirectWrap = el('div', { style: (showCost ? 'display:none;' : '') }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_wdirect" step="any" placeholder="0">')]);
+  if (showCost) { manualBlock.appendChild(wMarkupWrap); manualBlock.appendChild(wDirectWrap); }
+  else { manualBlock.appendChild(wDirectWrap); } // без прав на собівартість — лише одна ціна для клієнта, без вибору режиму
   wModeSel.onchange = function () {
     var direct = wModeSel.value === 'direct';
     wMarkupWrap.style.display = direct ? 'none' : ''; wDirectWrap.style.display = direct ? '' : 'none';
@@ -1418,10 +1613,15 @@ function openAddEstimateItem(estimate) {
   var preview = el('div', { class: 'card', style: 'background:var(--panel2);margin-top:4px;display:none;' });
   body.appendChild(preview);
   function drawPreviewBox(title, cost, client, unit, qty) {
-    var margin = client > 0 ? (client - cost) / client * 100 : 0;
     preview.style.display = '';
     preview.innerHTML = '';
     if (title) preview.appendChild(el('div', { style: 'font-weight:700;margin-bottom:6px;' }, [title]));
+    if (!showCost) {
+      preview.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Ціна клієнту']),
+        el('div', {}, [fmtMoney(client) + ' / ' + unit]), el('b', {}, ['Разом: ' + fmtMoney(client * qty)])]));
+      return;
+    }
+    var margin = client > 0 ? (client - cost) / client * 100 : 0;
     var grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;' });
     grid.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Собівартість (виконавцю)']),
       el('div', {}, [fmtMoney(cost) + ' / ' + unit]), el('b', {}, ['Разом: ' + fmtMoney(cost * qty)])]));
@@ -1436,13 +1636,13 @@ function openAddEstimateItem(estimate) {
     var qty = Number(qtyEl.value) || 0;
     if (mode === 'catalog') {
       if (!selectedWork) { preview.style.display = 'none'; return; }
-      drawPreviewBox(selectedWork.name, Number(selectedWork.contractor_price) || 0, markupClientPrice(selectedWork), selectedWork.unit, qty);
+      drawPreviewBox(selectedWork.name, Number(selectedWork.contractor_price) || 0, workClientPrice_(selectedWork), selectedWork.unit, qty);
     } else {
       var unitEl = document.getElementById('f_wunit');
       if (!unitEl) { preview.style.display = 'none'; return; }
       var unit = unitEl.value.trim() || 'шт.';
       var cost, client;
-      if (wModeSel.value === 'direct') { cost = 0; client = Number(document.getElementById('f_wdirect').value) || 0; }
+      if (!showCost || wModeSel.value === 'direct') { cost = 0; client = Number(document.getElementById('f_wdirect').value) || 0; }
       else { cost = Number(document.getElementById('f_wcost').value) || 0; var mk = Number(document.getElementById('f_wmarkup').value) || 0; client = cost * (1 + mk / 100); }
       if (!cost && !client) { preview.style.display = 'none'; return; }
       drawPreviewBox(null, cost, client, unit, qty);
@@ -1474,7 +1674,7 @@ function openAddEstimateItem(estimate) {
       if (!name) { toast('Вкажи назву роботи', 'error'); return; }
       data = { estimate_id: estimate.id, name: name, unit: unit, quantity: qty, item_type: 'work',
         section: document.getElementById('f_wcat').value.trim(), source: 'manual' };
-      if (wModeSel.value === 'direct') {
+      if (!showCost || wModeSel.value === 'direct') {
         var direct = Number(document.getElementById('f_wdirect').value) || 0;
         if (!(direct > 0)) { toast('Вкажи ціну для клієнта', 'error'); return; }
         data.markup_type = 'manual'; data.contractor_price = direct; data.client_price = direct;
@@ -1502,6 +1702,7 @@ function openAddEstimateItem(estimate) {
 function openAddManualMaterial(estimate) {
   var s = STATE.db.settings || {};
   var defMarkup = Number(s.material_markup_pct) || 10;
+  var showCost = canSeeCost_();
   var body = el('div');
   var mode = 'catalog';
   var modeSel = el('select', { style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-weight:700;margin-bottom:12px;' }, [
@@ -1525,7 +1726,6 @@ function openAddManualMaterial(estimate) {
   catalogBlock.appendChild(results);
   var selectedMat = null;
   var CAP = 150;
-  function matClientPrice(m) { return (Number(m.price) || 0) * (1 + defMarkup / 100); }
   function drawResults() {
     results.innerHTML = '';
     var q = fuzzyPrep_(searchInput.value);
@@ -1538,9 +1738,11 @@ function openAddManualMaterial(estimate) {
     list.sort(function (a, b) { return (a.category || '' + a.name).localeCompare((b.category || '') + b.name, 'uk'); });
     countLabel.textContent = 'Знайдено ' + list.length + ' з ' + STATE.db.materials.length + (list.length > CAP ? ' (показано перші ' + CAP + ' — уточни пошук)' : '');
     list.slice(0, CAP).forEach(function (m) {
+      var priceLine = showCost ? 'собівартість ' + fmtMoney(m.price) + ' → клієнту ' + fmtMoney(matClientPrice_(m, defMarkup)) + ' / ' + m.unit
+                                : fmtMoney(matClientPrice_(m, defMarkup)) + ' / ' + m.unit;
       var row = el('div', { style: 'padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12.5px;' + (selectedMat && selectedMat.id === m.id ? 'background:var(--panel2);' : '') }, [
         el('div', {}, [el('b', {}, [m.name])]),
-        el('div', { class: 'page-sub' }, [(m.category || 'без категорії') + ' · собівартість ' + fmtMoney(m.price) + ' → клієнту ' + fmtMoney(matClientPrice(m)) + ' / ' + m.unit])
+        el('div', { class: 'page-sub' }, [(m.category || 'без категорії') + ' · ' + priceLine])
       ]);
       row.onclick = function () { selectedMat = m; drawResults(); updatePreview(); };
       results.appendChild(row);
@@ -1552,7 +1754,9 @@ function openAddManualMaterial(estimate) {
 
   /* ---------------- режим 2: матеріал вручну ------------------------------ */
   var manualBlock = el('div', { style: 'display:none;' });
-  manualBlock.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, ['Додай матеріал, якого немає в довіднику «Матеріали і пакети» — напряму в цей кошторис. За бажанням його можна потім зберегти в каталог кнопкою «＋ у каталог» біля рядка кошторису.']));
+  manualBlock.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, [showCost
+    ? 'Додай матеріал, якого немає в довіднику «Матеріали і пакети» — напряму в цей кошторис. За бажанням його можна потім зберегти в каталог кнопкою «＋ у каталог» біля рядка кошторису.'
+    : 'Додай матеріал, якого немає в довіднику «Матеріали і пакети» — напряму в цей кошторис.']));
   manualBlock.appendChild(formField('Назва матеріалу *', '<input id="f_mname" list="matNameList" placeholder="напр. Клей для плитки Ceresit CM11, 25 кг">'));
   var dl = el('datalist', { id: 'matNameList' });
   STATE.db.materials.forEach(function (m) { dl.appendChild(el('option', { value: m.name })); });
@@ -1563,14 +1767,14 @@ function openAddManualMaterial(estimate) {
   var mModeSel = el('select', { id: 'f_mmode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
     el('option', { value: 'markup' }, ['Собівартість + націнка']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
   ]);
-  manualBlock.appendChild(formField('Як рахувати ціну', ''));
-  manualBlock.lastChild.appendChild(mModeSel);
+  if (showCost) { manualBlock.appendChild(formField('Як рахувати ціну', '')); manualBlock.lastChild.appendChild(mModeSel); }
   var markupWrap = el('div', { class: 'form-grid-2' }, [
     formField('Собівартість за од., грн *', '<input type="number" id="f_mcost" step="any" placeholder="0">'),
     formField('Націнка, %', '<input type="number" id="f_mmarkup" step="any" value="' + defMarkup + '">')
   ]);
-  var directWrap = el('div', { style: 'display:none;' }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_mdirect" step="any" placeholder="0">')]);
-  manualBlock.appendChild(markupWrap); manualBlock.appendChild(directWrap);
+  var directWrap = el('div', { style: (showCost ? 'display:none;' : '') }, [formField('Ціна для клієнта за од., грн *', '<input type="number" id="f_mdirect" step="any" placeholder="0">')]);
+  if (showCost) { manualBlock.appendChild(markupWrap); manualBlock.appendChild(directWrap); }
+  else { manualBlock.appendChild(directWrap); }
   mModeSel.onchange = function () {
     var direct = mModeSel.value === 'direct';
     markupWrap.style.display = direct ? 'none' : ''; directWrap.style.display = direct ? '' : 'none';
@@ -1585,10 +1789,15 @@ function openAddManualMaterial(estimate) {
   var preview = el('div', { class: 'card', style: 'background:var(--panel2);margin-top:4px;display:none;' });
   body.appendChild(preview);
   function drawPreviewBox(title, cost, client, unit, qty) {
-    var margin = client > 0 ? (client - cost) / client * 100 : 0;
     preview.style.display = '';
     preview.innerHTML = '';
     if (title) preview.appendChild(el('div', { style: 'font-weight:700;margin-bottom:6px;' }, [title]));
+    if (!showCost) {
+      preview.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Ціна клієнту']),
+        el('div', {}, [fmtMoney(client) + ' / ' + unit]), el('b', {}, ['Разом: ' + fmtMoney(client * qty)])]));
+      return;
+    }
+    var margin = client > 0 ? (client - cost) / client * 100 : 0;
     var grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;' });
     grid.appendChild(el('div', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, ['Собівартість']),
       el('div', {}, [fmtMoney(cost) + ' / ' + unit]), el('b', {}, ['Разом: ' + fmtMoney(cost * qty)])]));
@@ -1603,13 +1812,13 @@ function openAddManualMaterial(estimate) {
     var qty = Number(qtyEl.value) || 0;
     if (mode === 'catalog') {
       if (!selectedMat) { preview.style.display = 'none'; return; }
-      drawPreviewBox(selectedMat.name, Number(selectedMat.price) || 0, matClientPrice(selectedMat), selectedMat.unit, qty);
+      drawPreviewBox(selectedMat.name, Number(selectedMat.price) || 0, matClientPrice_(selectedMat, defMarkup), selectedMat.unit, qty);
     } else {
       var unitEl = document.getElementById('f_munit');
       if (!unitEl) { preview.style.display = 'none'; return; }
       var unit = unitEl.value.trim() || 'шт.';
       var cost, client;
-      if (mModeSel.value === 'direct') { cost = 0; client = Number(document.getElementById('f_mdirect').value) || 0; }
+      if (!showCost || mModeSel.value === 'direct') { cost = 0; client = Number(document.getElementById('f_mdirect').value) || 0; }
       else { cost = Number(document.getElementById('f_mcost').value) || 0; var mk = Number(document.getElementById('f_mmarkup').value) || 0; client = cost * (1 + mk / 100); }
       if (!cost && !client) { preview.style.display = 'none'; return; }
       drawPreviewBox(null, cost, client, unit, qty);
@@ -1635,15 +1844,17 @@ function openAddManualMaterial(estimate) {
     var data;
     if (mode === 'catalog') {
       if (!selectedMat) { toast('Вибери матеріал зі списку — або перемкни на «Вручну» вгорі', 'error'); return; }
+      // ціну сервер бере напряму з каталогу за material_id; поля тут лише для
+      // передпоказу і безпечно ігноруються навіть якщо собівартості в цій
+      // відповіді немає (для ролей без прав її бачити).
       data = { estimate_id: estimate.id, material_id: selectedMat.id, name: selectedMat.name, unit: selectedMat.unit, quantity: qty,
-        item_type: 'material', section: selectedMat.category || 'Матеріали', source: 'catalog',
-        markup_type: 'percent', markup_value: defMarkup, contractor_price: Number(selectedMat.price) || 0 };
+        item_type: 'material', section: selectedMat.category || 'Матеріали', source: 'catalog' };
     } else {
       var name = document.getElementById('f_mname').value.trim();
       var unit = document.getElementById('f_munit').value.trim() || 'шт.';
       if (!name) { toast('Вкажи назву матеріалу', 'error'); return; }
       data = { estimate_id: estimate.id, name: name, unit: unit, quantity: qty, item_type: 'material', section: 'Матеріали (додано вручну)', source: 'manual' };
-      if (mModeSel.value === 'direct') {
+      if (!showCost || mModeSel.value === 'direct') {
         var direct = Number(document.getElementById('f_mdirect').value) || 0;
         if (!(direct > 0)) { toast('Вкажи ціну для клієнта', 'error'); return; }
         data.markup_type = 'manual'; data.contractor_price = direct; data.client_price = direct;
@@ -1672,12 +1883,13 @@ function openAddManualMaterial(estimate) {
     var m = STATE.db.materials.filter(function (x) { return x.name === nameInp.value; })[0];
     if (m) {
       document.getElementById('f_munit').value = m.unit || 'шт.';
-      if (mModeSel.value !== 'direct') document.getElementById('f_mcost').value = m.price || '';
+      if (showCost && mModeSel.value !== 'direct') document.getElementById('f_mcost').value = m.price || '';
       updatePreview();
     }
   });
   updatePreview();
 }
+
 
 function renderObjectTeamTab(container, o) {
   var assignments = STATE.db.assignments.filter(function (a) { return a.object_id === o.id; });
@@ -2236,6 +2448,8 @@ function nowIsoClient_() { return new Date().toISOString().slice(0, 19); }
 
 /* ============================== WORKS / PRICE LIST ========================= */
 function renderWorks(main) {
+  var showCost = canSeeCost_();
+  var canEdit = canDo_('price_list', 'edit') || canDo_('price_list', 'delete');
   main.appendChild(el('div', { class: 'page-title' }, ['Прайс робіт']));
   main.appendChild(el('div', { class: 'page-sub' }, [STATE.db.works.length + ' позицій']));
   var toolbar = el('div', { class: 'toolbar' });
@@ -2246,17 +2460,20 @@ function renderWorks(main) {
     el('option', { value: 'internal' }, ['Внутрішній вигляд']),
     el('option', { value: 'client' }, ['Клієнтський вигляд'])
   ]);
-  viewToggle.value = STATE.ui.priceView;
+  viewToggle.value = canEdit ? STATE.ui.priceView : 'client';
   if (STATE.ui.worksSearchPrefill) { search.value = STATE.ui.worksSearchPrefill; delete STATE.ui.worksSearchPrefill; }
   if (STATE.ui.worksCatPrefill) { catSelect.value = STATE.ui.worksCatPrefill; delete STATE.ui.worksCatPrefill; }
-  toolbar.appendChild(search); toolbar.appendChild(catSelect); toolbar.appendChild(viewToggle);
+  toolbar.appendChild(search); toolbar.appendChild(catSelect);
+  if (canEdit) toolbar.appendChild(viewToggle);
   toolbar.appendChild(el('div', { class: 'spacer' }));
   var csvBtn = el('button', { class: 'btn' }, ['⬇ CSV']);
   csvBtn.onclick = function () { downloadText_('BUDNEX_прайс.csv', arrayToCsv_(STATE.db.works), 'text/csv;charset=utf-8'); };
   toolbar.appendChild(csvBtn);
-  V9.worksButtons().forEach(function (b) { toolbar.appendChild(b); });
-  var addBtn = el('button', { class: 'btn primary' }, ['+ Нова робота']); addBtn.onclick = function () { openWorkForm(); };
-  toolbar.appendChild(addBtn);
+  if (canDo_('price_list', 'create')) V9.worksButtons().forEach(function (b) { toolbar.appendChild(b); });
+  if (canDo_('price_list', 'create')) {
+    var addBtn = el('button', { class: 'btn primary' }, ['+ Нова робота']); addBtn.onclick = function () { openWorkForm(); };
+    toolbar.appendChild(addBtn);
+  }
   main.appendChild(toolbar);
 
   var tableWrap = el('div', {});
@@ -2264,7 +2481,7 @@ function renderWorks(main) {
 
   function draw() {
     tableWrap.innerHTML = '';
-    var internal = viewToggle.value === 'internal';
+    var internal = canEdit && viewToggle.value === 'internal';
     var q = fuzzyPrep_(search.value);
     var list = STATE.db.works.filter(function (w) {
       if (catSelect.value && w.category !== catSelect.value) return false;
@@ -2273,16 +2490,18 @@ function renderWorks(main) {
     });
     list.sort(function (a, b) { return (a.category + a.name).localeCompare(b.category + b.name, 'uk'); });
     var table = el('table', { class: 'dt' });
-    var headCols = internal ? ['Категорія', 'Робота', 'Од.', 'Ціна виконавця', 'Націнка', 'Ціна клієнту', ''] : ['Категорія', 'Робота', 'Од.', 'Ціна'];
+    var headCols = internal && showCost ? ['Категорія', 'Робота', 'Од.', 'Ціна виконавця', 'Націнка', 'Ціна клієнту', ''] : (internal ? ['Категорія', 'Робота', 'Од.', 'Ціна клієнту', ''] : ['Категорія', 'Робота', 'Од.', 'Ціна']);
     table.appendChild(el('thead', {}, [el('tr', {}, headCols.map(function (h) { return el('th', {}, [h]); }))]));
     var tbody = el('tbody');
     var CAP = 600;
     list.slice(0, CAP).forEach(function (w) {
-      var client = w.default_markup_type === 'percent' ? w.contractor_price * (1 + w.default_markup / 100) : Number(w.contractor_price) + Number(w.default_markup);
+      var client = workClientPrice_(w);
       var nameCell = w.name + (w.subcategory ? ' <span class="page-sub" style="display:inline">(' + esc(w.subcategory) + ')</span>' : '');
       var cells;
-      if (internal) {
+      if (internal && showCost) {
         cells = [w.category, nameCell, w.unit, fmtMoney(w.contractor_price), (w.default_markup_type === 'percent' ? '+' + w.default_markup + '%' : '+' + fmtMoney(w.default_markup)), fmtMoney(client)];
+      } else if (internal) {
+        cells = [w.category, nameCell, w.unit, fmtMoney(client)];
       } else {
         cells = [w.category, nameCell, w.unit, fmtMoney(client)];
       }
@@ -2291,18 +2510,23 @@ function renderWorks(main) {
         tr.style.cursor = 'pointer';
         tr.onclick = function () { openWorkForm(w); };
         var actionsTd = el('td', { style: 'white-space:nowrap;' });
-        var editBtn = el('button', { class: 'btn small' }, ['✎']);
-        editBtn.onclick = function (e) { e.stopPropagation(); openWorkForm(w); };
-        var delBtn = el('button', { class: 'btn small danger' }, ['✕']);
-        delBtn.onclick = function (e) {
-          e.stopPropagation();
-          if (!confirm('Видалити роботу "' + w.name + '" з прайсу?')) return;
-          apiCall('deleteWork', { id: w.id }).then(function () {
-            STATE.db.works = STATE.db.works.filter(function (x) { return x.id !== w.id; });
-            Storage.saveCache(); toast('Роботу видалено', 'success'); draw();
-          }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
-        };
-        actionsTd.appendChild(editBtn); actionsTd.appendChild(delBtn);
+        if (canDo_('price_list', 'edit')) {
+          var editBtn = el('button', { class: 'btn small' }, ['✎']);
+          editBtn.onclick = function (e) { e.stopPropagation(); openWorkForm(w); };
+          actionsTd.appendChild(editBtn);
+        } else { tr.onclick = null; tr.style.cursor = ''; }
+        if (canDo_('price_list', 'delete')) {
+          var delBtn = el('button', { class: 'btn small danger' }, ['✕']);
+          delBtn.onclick = function (e) {
+            e.stopPropagation();
+            if (!confirm('Видалити роботу "' + w.name + '" з прайсу?')) return;
+            apiCall('deleteWork', { id: w.id }).then(function () {
+              STATE.db.works = STATE.db.works.filter(function (x) { return x.id !== w.id; });
+              Storage.saveCache(); toast('Роботу видалено', 'success'); draw();
+            }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+          };
+          actionsTd.appendChild(delBtn);
+        }
         tr.appendChild(actionsTd);
       }
       tbody.appendChild(tr);
@@ -2527,17 +2751,29 @@ function renderMaterialsPage(main) {
 }
 
 function renderMaterialsSubtab(c) {
-  var addBtn = el('button', { class: 'btn small primary' }, ['+ Матеріал']);
-  addBtn.onclick = function () { openMaterialForm(); };
-  c.appendChild(el('div', { style: 'margin-bottom:10px;' }, [addBtn]));
+  var showCost = canSeeCost_();
+  var canEdit = canDo_('materials', 'edit') || canDo_('materials', 'delete');
+  var matPct = Number((STATE.db.settings || {}).material_markup_pct) || 10;
+  if (canDo_('materials', 'create')) {
+    var addBtn = el('button', { class: 'btn small primary' }, ['+ Матеріал']);
+    addBtn.onclick = function () { openMaterialForm(); };
+    c.appendChild(el('div', { style: 'margin-bottom:10px;' }, [addBtn]));
+  }
   var table = el('table', { class: 'dt' });
-  table.appendChild(el('thead', {}, [el('tr', {}, ['Назва', 'Категорія', 'Од.', 'Ціна', 'Норма витрат', ''].map(function (h) { return el('th', {}, [h]); }))]));
+  var heads = (canEdit && showCost) ? ['Назва', 'Категорія', 'Од.', 'Ціна', 'Норма витрат', ''] : ['Назва', 'Категорія', 'Од.', 'Ціна клієнту'];
+  table.appendChild(el('thead', {}, [el('tr', {}, heads.map(function (h) { return el('th', {}, [h]); }))]));
   var tbody = el('tbody');
   STATE.db.materials.forEach(function (m) {
-    var delB = el('button', { class: 'btn small danger' }, ['✕']);
-    delB.onclick = function () { apiCall('deleteMaterial', { id: m.id }).then(function () { STATE.db.materials = STATE.db.materials.filter(function (x) { return x.id !== m.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
-    var tr = el('tr', {}, [el('td', {}, [m.name]), el('td', {}, [m.category || '—']), el('td', {}, [m.unit || '—']), el('td', {}, [fmtMoney(m.price)]), el('td', {}, [m.consumption_norm != null ? fmtNum(m.consumption_norm) : '—']), el('td', {}, [delB])]);
-    tr.onclick = function (e) { if (e.target !== delB) openMaterialForm(m); };
+    var tr;
+    if (canEdit && showCost) {
+      var delB = el('button', { class: 'btn small danger' }, ['✕']);
+      delB.style.display = canDo_('materials', 'delete') ? '' : 'none';
+      delB.onclick = function () { apiCall('deleteMaterial', { id: m.id }).then(function () { STATE.db.materials = STATE.db.materials.filter(function (x) { return x.id !== m.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+      tr = el('tr', {}, [el('td', {}, [m.name]), el('td', {}, [m.category || '—']), el('td', {}, [m.unit || '—']), el('td', {}, [fmtMoney(m.price)]), el('td', {}, [m.consumption_norm != null ? fmtNum(m.consumption_norm) : '—']), el('td', {}, [delB])]);
+      if (canDo_('materials', 'edit')) { tr.style.cursor = 'pointer'; tr.onclick = function (e) { if (e.target !== delB) openMaterialForm(m); }; }
+    } else {
+      tr = el('tr', {}, [el('td', {}, [m.name]), el('td', {}, [m.category || '—']), el('td', {}, [m.unit || '—']), el('td', {}, [fmtMoney(matClientPrice_(m, matPct))])]);
+    }
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
@@ -2771,18 +3007,20 @@ function renderTasks(main) {
 function renderAnalytics(main) {
   main.appendChild(el('div', { class: 'page-title' }, ['Аналітика']));
   var db = STATE.db;
+  var showCost = canSeeCost_();
 
-  var revenueByMonth = monthlySeries_(db.payments.filter(function (p) { return p.direction === 'in'; }), 'date', 'amount');
-  var expensesByMonth = monthlySeries_(db.expenses, 'date', 'amount');
   var estimatesByMonth = monthlySeries_(db.estimates, 'created_at', 'client_total');
-
   var row1 = el('div', { class: 'grid cols-3', style: 'margin-bottom:18px;' });
-  row1.appendChild(chartCard('Надходження по місяцях', revenueByMonth));
-  row1.appendChild(chartCard('Витрати по місяцях', expensesByMonth));
+  // «Надходження»/«Витрати» — фінанси компанії, та сама чутливість, що й
+  // собівартість/маржа: лише ADMIN/ACCOUNTANT.
+  if (showCost) {
+    row1.appendChild(chartCard('Надходження по місяцях', monthlySeries_(db.payments.filter(function (p) { return p.direction === 'in'; }), 'date', 'amount')));
+    row1.appendChild(chartCard('Витрати по місяцях', monthlySeries_(db.expenses, 'date', 'amount')));
+  }
   row1.appendChild(chartCard('Сума кошторисів по місяцях', estimatesByMonth));
   main.appendChild(row1);
 
-  // top clients by revenue
+  // top clients by revenue (client_total бачать усі — не чутливо)
   var clientTotals = {};
   db.objects.forEach(function (o) {
     var estTotal = sum_(db.estimates.filter(function (e) { return e.object_id === o.id; }), 'client_total');
@@ -2791,31 +3029,164 @@ function renderAnalytics(main) {
   var topClients = Object.keys(clientTotals).map(function (cid) { var c = byId(db.clients, cid); return { name: c ? c.name : cid, total: clientTotals[cid] }; })
     .sort(function (a, b) { return b.total - a.total; }).slice(0, 10);
 
-  // expenses by category
-  var expByCat = {};
-  db.expenses.forEach(function (e) { var k = e.category || 'інше'; expByCat[k] = (expByCat[k] || 0) + (Number(e.amount) || 0); });
-  var expCatList = Object.keys(expByCat).map(function (k) { return { label: k, value: expByCat[k] }; }).sort(function (a, b) { return b.value - a.value; });
-
-  // margin distribution across estimates
-  var marginBuckets = { '<15%': 0, '15-25%': 0, '25-35%': 0, '>35%': 0 };
-  db.estimates.forEach(function (e) {
-    var m = Number(e.margin) || 0;
-    if (m < 15) marginBuckets['<15%']++; else if (m < 25) marginBuckets['15-25%']++; else if (m < 35) marginBuckets['25-35%']++; else marginBuckets['>35%']++;
-  });
-
   var row2 = el('div', { class: 'grid cols-3' });
   var topClientsCard = el('div', { class: 'chart-wrap' }, [el('div', { class: 'chart-title' }, ['Топ клієнтів за сумою кошторисів'])]);
   if (!topClients.length) topClientsCard.appendChild(el('div', { class: 'page-sub' }, ['Недостатньо даних.']));
   topClients.forEach(function (c, i) { topClientsCard.appendChild(el('div', { style: 'display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--border);' }, [(i + 1) + '. ' + c.name, fmtMoney(c.total)])); });
   row2.appendChild(topClientsCard);
-  row2.appendChild(chartCard('Витрати за категоріями', expCatList));
-  var marginCard = el('div', { class: 'chart-wrap' }, [el('div', { class: 'chart-title' }, ['Розподіл кошторисів за маржею'])]);
-  Object.keys(marginBuckets).forEach(function (k) { marginCard.appendChild(el('div', { style: 'display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--border);' }, [k, String(marginBuckets[k])])); });
-  row2.appendChild(marginCard);
+
+  if (showCost) {
+    // витрати за категоріями й розподіл маржі — теж внутрішні цифри
+    var expByCat = {};
+    db.expenses.forEach(function (e) { var k = e.category || 'інше'; expByCat[k] = (expByCat[k] || 0) + (Number(e.amount) || 0); });
+    var expCatList = Object.keys(expByCat).map(function (k) { return { label: k, value: expByCat[k] }; }).sort(function (a, b) { return b.value - a.value; });
+    row2.appendChild(chartCard('Витрати за категоріями', expCatList));
+
+    var marginBuckets = { '<15%': 0, '15-25%': 0, '25-35%': 0, '>35%': 0 };
+    db.estimates.forEach(function (e) {
+      var m = Number(e.margin) || 0;
+      if (m < 15) marginBuckets['<15%']++; else if (m < 25) marginBuckets['15-25%']++; else if (m < 35) marginBuckets['25-35%']++; else marginBuckets['>35%']++;
+    });
+    var marginCard = el('div', { class: 'chart-wrap' }, [el('div', { class: 'chart-title' }, ['Розподіл кошторисів за маржею'])]);
+    Object.keys(marginBuckets).forEach(function (k) { marginCard.appendChild(el('div', { style: 'display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--border);' }, [k, String(marginBuckets[k])])); });
+    row2.appendChild(marginCard);
+  }
   main.appendChild(row2);
 }
 
 /* ============================== SETTINGS ===================================== */
+/* ============================== ROLES & PERMISSIONS =========================
+   ЕТАП 14: ADMIN сам визначає, хто що бачить/створює/редагує/видаляє — без
+   втручання в код. Права зберігаються в базі (ROLES/ROLE_PERMISSIONS) і
+   застосовуються сервером одразу, у той самий спосіб, у який раніше були
+   зашиті в код фіксовані ролі — просто тепер це таблиця, а не текст програми.
+   ============================================================================ */
+var AUTH_RESOURCES = ['clients', 'requests', 'objects', 'estimates', 'price_list', 'materials', 'catalogs',
+  'price_updates', 'partners', 'finance', 'tasks', 'photos_docs', 'planning'];
+var AUTH_RESOURCE_LABELS = {
+  clients: 'Клієнти', requests: 'Заявки', objects: "Обʼєкти", estimates: 'Кошториси', price_list: 'Прайс робіт',
+  materials: 'Матеріали і пакети', catalogs: 'Шаблони і норми', price_updates: 'Актуалізація цін',
+  partners: 'Бригади і партнери', finance: 'Фінанси (платежі, витрати)', tasks: 'Завдання',
+  photos_docs: 'Фото і документи', planning: "Планування обʼєктів"
+};
+var AUTH_OPS = ['view', 'create', 'edit', 'delete'];
+var AUTH_OP_LABELS = { view: 'Перегляд', create: 'Створення', edit: 'Редагування', delete: 'Видалення' };
+
+function renderRolesCard(main) {
+  var card = el('div', { class: 'card', style: 'margin-top:20px;' }, [el('h4', { style: 'margin-top:0;' }, ['Ролі та права'])]);
+  card.appendChild(el('p', { class: 'page-sub' }, ['Для кожної ролі окремо вмикай перегляд, створення, редагування й видалення по кожному розділу. Можна створити нову роль або видалити непотрібну (якщо на ній зараз нікого немає). Права ADMIN завжди повні й тут не редагуються.']));
+  var newBtn = el('button', { class: 'btn small primary' }, ['+ Нова роль']);
+  newBtn.onclick = function () { openRoleEditor(null, redraw); };
+  card.appendChild(newBtn);
+  var list = el('div', { style: 'margin-top:12px;' });
+  card.appendChild(list);
+  var loaded = false;
+  function redraw() {
+    list.innerHTML = '';
+    if (!loaded) { list.appendChild(el('div', { class: 'page-sub' }, ['Завантаження…'])); return; }
+    STATE.db.rolesFull.slice().sort(function (a, b) { return (Number(a.sort) || 0) - (Number(b.sort) || 0); }).forEach(function (r) {
+      var isAdmin = r.id === 'ADMIN';
+      var badges = [el('span', { class: 'badge blue' }, [r.users_count + (r.users_count === 1 ? ' акаунт' : ' акаунтів')])];
+      if (isAdmin || r.see_cost) badges.push(el('span', { class: 'badge gold' }, ['💰 бачить собівартість']));
+      if (r.scope_own_objects) badges.push(el('span', { class: 'badge green' }, ['🔒 лише свої обʼєкти']));
+      var editB = el('button', { class: 'btn small' }, [isAdmin ? 'Переглянути' : 'Редагувати']);
+      editB.onclick = function () { openRoleEditor(r, redraw); };
+      var row = el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;' }, [
+        el('div', {}, [el('b', {}, [r.id]), el('div', { style: 'margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;' }, badges)]),
+        el('div', {}, [editB])
+      ]);
+      list.appendChild(row);
+    });
+  }
+  redraw();
+  apiCall('getRoles', {}).then(function (roles) { STATE.db.rolesFull = roles; loaded = true; redraw(); })
+    .catch(function (e) { list.innerHTML = ''; list.appendChild(el('div', { class: 'margin-warn' }, ['Не вдалося завантажити ролі: ' + (e && e.message || e)])); });
+  main.appendChild(card);
+}
+
+function openRoleEditor(existing, onSaved) {
+  var isNew = !existing;
+  var isAdmin = existing && existing.id === 'ADMIN';
+  var body = el('div');
+  if (isNew) body.appendChild(formField('Назва ролі *', '<input id="f_rname" placeholder="напр. Технолог, Комірник...">'));
+  else body.appendChild(el('div', { style: 'font-weight:700;font-size:15px;margin-bottom:10px;' }, [existing.id]));
+
+  var seeCostCb = el('input', { type: 'checkbox' }); seeCostCb.checked = !!(existing && existing.see_cost) || isAdmin;
+  var scopeCb = el('input', { type: 'checkbox' }); scopeCb.checked = !!(existing && existing.scope_own_objects);
+  if (isAdmin) { seeCostCb.disabled = true; scopeCb.disabled = true; }
+  body.appendChild(el('label', { class: 'v9-check', style: 'display:flex;gap:8px;align-items:center;margin-bottom:6px;' }, [seeCostCb, 'Бачить собівартість, націнку, прибуток і фінанси компанії']));
+  body.appendChild(el('label', { class: 'v9-check', style: 'display:flex;gap:8px;align-items:center;margin-bottom:14px;' }, [scopeCb, 'Обмежена лише власними закріпленими обʼєктами (як бригадир)']));
+
+  // permission matrix
+  var permByResource = {};
+  if (existing) (existing.permissions || []).forEach(function (p) { permByResource[p.resource] = p; });
+  var table = el('table', { class: 'dt' });
+  table.appendChild(el('thead', {}, [el('tr', {}, ['Розділ'].concat(AUTH_OPS.map(function (op) { return AUTH_OP_LABELS[op]; })).map(function (h) { return el('th', {}, [h]); }))]));
+  var tbody = el('tbody');
+  var checkboxes = {};
+  AUTH_RESOURCES.forEach(function (resource) {
+    var p = permByResource[resource] || {};
+    var cells = [el('td', {}, [AUTH_RESOURCE_LABELS[resource]])];
+    checkboxes[resource] = {};
+    AUTH_OPS.forEach(function (op) {
+      var cb = el('input', { type: 'checkbox' });
+      cb.checked = isAdmin || !!p['can_' + op];
+      if (isAdmin) cb.disabled = true;
+      checkboxes[resource][op] = cb;
+      cells.push(el('td', { style: 'text-align:center;' }, [cb]));
+    });
+    tbody.appendChild(el('tr', {}, cells));
+  });
+  table.appendChild(tbody);
+  if (!isAdmin) {
+    var hint = el('div', { class: 'page-sub', style: 'margin:8px 0;' }, ['Немає позначки — розділ недоступний: дані не показуються, дія відхиляється.']);
+    body.appendChild(hint);
+  }
+  body.appendChild(el('div', { style: 'overflow-x:auto;' }, [table]));
+
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Закрити']); cancel.onclick = closeModal;
+  actions.appendChild(cancel);
+  if (!isNew && !isAdmin) {
+    var del = el('button', { class: 'btn danger' }, ['Видалити роль']);
+    del.onclick = function () {
+      confirmAction('Видалити роль «' + existing.id + '»? Можливо лише якщо зараз на ній немає жодного акаунта.', function () {
+        apiCall('deleteRole', { id: existing.id }).then(function () {
+          STATE.db.rolesFull = STATE.db.rolesFull.filter(function (r) { return r.id !== existing.id; });
+          closeModal(); toast('Роль видалено', 'success'); onSaved();
+        }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+      });
+    };
+    actions.appendChild(del);
+  }
+  if (!isAdmin) {
+    var save = el('button', { class: 'btn primary' }, [isNew ? 'Створити' : 'Зберегти']);
+    save.onclick = function () {
+      var permissions = {};
+      AUTH_RESOURCES.forEach(function (resource) {
+        permissions[resource] = { can_view: checkboxes[resource].view.checked, can_create: checkboxes[resource].create.checked,
+                                   can_edit: checkboxes[resource].edit.checked, can_delete: checkboxes[resource].delete.checked };
+      });
+      var data = { see_cost: seeCostCb.checked, scope_own_objects: scopeCb.checked, permissions: permissions };
+      var action;
+      if (isNew) {
+        var name = document.getElementById('f_rname').value.trim();
+        if (!name) { toast('Вкажи назву ролі', 'error'); return; }
+        data.id = name; action = 'createRole';
+      } else { data.id = existing.id; action = 'updateRole'; }
+      apiCall(action, data).then(function (res) {
+        if (isNew) STATE.db.rolesFull.push(res);
+        else { var i = STATE.db.rolesFull.findIndex(function (r) { return r.id === res.id; }); if (i !== -1) STATE.db.rolesFull[i] = res; }
+        Storage.saveCache(); closeModal(); toast('Збережено', 'success'); onSaved();
+        syncAll(); // підхопити оновлений список ролей для форми користувача
+      }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+    };
+    actions.appendChild(save);
+  }
+  body.appendChild(actions);
+  openModal(isNew ? 'Нова роль' : 'Роль «' + existing.id + '»', body, { wide: true });
+}
+
 function renderSettings(main) {
   main.appendChild(el('div', { class: 'page-title' }, ['Налаштування']));
   var s = STATE.db.settings;
@@ -2919,6 +3290,8 @@ function renderSettings(main) {
   drawUsers();
   main.appendChild(usersCard);
 
+  renderRolesCard(main);
+
   // ---- backup / export (ЕТАП 8, TZ 47/71) ----
   var backupCard = el('div', { class: 'card', style: 'margin-top:20px;' }, [
     el('h4', { style: 'margin-top:0;' }, ['Резервна копія та експорт']),
@@ -2942,7 +3315,8 @@ function openUserForm(existing) {
   body.appendChild(formField('Імʼя *', '<input id="f_uname" value="' + esc(u.name || '') + '">'));
   body.appendChild(formField('Логін *', '<input id="f_uusername" autocomplete="off" value="' + esc(u.username || '') + '" placeholder="латиниця, цифри, крапка/підкреслення">'));
   body.appendChild(formField('Email', '<input type="email" id="f_uemail" value="' + esc(u.email || '') + '">'));
-  body.appendChild(formField('Роль', '<select id="f_urole">' + USER_ROLES.map(function (r) { return '<option' + (u.role === r ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>'));
+  var roleOpts = (STATE.db.roles && STATE.db.roles.length ? STATE.db.roles : USER_ROLES);
+  body.appendChild(formField('Роль', '<select id="f_urole">' + roleOpts.map(function (r) { return '<option' + (u.role === r ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>'));
   body.appendChild(formField(existing ? 'Новий пароль (залиш пустим, щоб не міняти)' : 'Пароль * (мін. 6 символів)', '<input type="password" id="f_upass" autocomplete="new-password">'));
   if (existing) body.appendChild(formField('Активний', '<select id="f_uactive"><option value="true"' + (u.active !== false ? ' selected' : '') + '>Так</option><option value="false"' + (u.active === false ? ' selected' : '') + '>Ні (доступ заблоковано)</option></select>'));
   var actions = el('div', { class: 'form-actions' });
@@ -3269,10 +3643,12 @@ V9.itemTags = function (it) {
   return tags.length ? el('div', { style: 'margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;' }, tags) : null;
 };
 V9.estimateStatusBadge = function (e) {
-  if (e.status === 'final') return el('span', { class: 'badge green' }, ['🔒 затверджено']);
+  var resp = e.client_response === 'approved' ? el('span', { class: 'badge green', style: 'margin-left:4px;' }, ['✅ клієнт погодив'])
+    : e.client_response === 'declined' ? el('span', { class: 'badge gold', style: 'margin-left:4px;' }, ['❌ зауваження']) : null;
+  if (e.status === 'final') return el('span', {}, [el('span', { class: 'badge green' }, ['🔒 затверджено']), resp]);
   var cs = e.check_status;
-  return el('span', { class: 'badge ' + (cs === 'ok' ? 'green' : cs === 'warnings' ? 'gold' : cs === 'errors' ? 'red' : 'gray') },
-    [e.status + (cs ? ' · ' + (cs === 'ok' ? 'перевірено' : cs === 'warnings' ? 'попередження' : 'помилки') : '')]);
+  return el('span', {}, [el('span', { class: 'badge ' + (cs === 'ok' ? 'green' : cs === 'warnings' ? 'gold' : cs === 'errors' ? 'red' : 'gray') },
+    [e.status + (cs ? ' · ' + (cs === 'ok' ? 'перевірено' : cs === 'warnings' ? 'попередження' : 'помилки') : '')]), resp]);
 };
 
 /* =================== ПУНКТИ 2–3: АВТОКОШТОРИС ЗА ОПИСОМ =================== */
@@ -4294,6 +4670,8 @@ V9.openClientDoc = function (estimateId) {
       if (d.hiddenSum) warnBox.appendChild(el('div', { class: 'v9-note gold' }, ['Приховано позицій на ' + fmtMoney(d.hiddenSum) + ' — сума документа менша за кошторис.']));
       else if (d.differs) warnBox.appendChild(el('div', { class: 'v9-note gold' }, ['Сума документа відрізняється від кошторису — натисни «Синхронізувати».']));
       if (est.status !== 'final') warnBox.appendChild(el('div', { class: 'v9-note' }, ['ℹ Кошторис ще не затверджено (чернетка).']));
+      if (est.client_response === 'approved') warnBox.appendChild(el('div', { class: 'v9-note' }, ['✅ Клієнт погодив кошторис' + (est.client_responded_at ? ' · ' + fmtDate(est.client_responded_at) : '')]));
+      else if (est.client_response === 'declined') warnBox.appendChild(el('div', { class: 'v9-note gold' }, ['❌ Клієнт має зауваження' + (est.client_comment ? ': ' + est.client_comment : '')]));
     }, 200);
   }
   function close() { ov.remove(); }
@@ -4393,6 +4771,7 @@ V9.openClientDoc = function (estimateId) {
       if (!confirm('Скинути всі зміни документа до налаштувань за замовчуванням?')) return;
       est.doc_json = ''; close(); V9.openClientDoc(est.id); toast('Скинуто. Натисни «Зберегти», щоб зафіксувати.');
     }),
+    btn_('🔗 Поділитися з клієнтом', 'small primary', function () { openShareEstimateLink_(est); }),
     btn_('✕ Закрити', 'small', close)
   ]);
   ov.appendChild(top);
@@ -4400,6 +4779,38 @@ V9.openClientDoc = function (estimateId) {
   document.body.appendChild(ov);
   refresh();
 };
+
+// ЕТАП 16: клієнт відкриває це посилання без логіну, бачить той самий
+// документ і тисне «Погоджую»/«Є зауваження» — статус одразу летить назад
+// сюди (сповіщенням і, при погодженні, завданням «узгодити старт робіт»).
+function openShareEstimateLink_(est) {
+  var body = el('div');
+  body.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, ['Клієнт побачить лише цей документ (без цін виконавця чи внутрішніх даних) і зможе одразу погодити кошторис або лишити зауваження — без входу в систему.']));
+  var box = el('div', { class: 'card' }, ['⏳ Готую посилання…']);
+  body.appendChild(box);
+  if (est.client_response) {
+    var respTxt = est.client_response === 'approved' ? '✅ Клієнт погодив ' + (est.client_responded_at ? fmtDate(est.client_responded_at) : '') : '❌ Клієнт має зауваження ' + (est.client_responded_at ? fmtDate(est.client_responded_at) : '');
+    body.appendChild(el('div', { class: 'v9-note ' + (est.client_response === 'approved' ? '' : 'gold') }, [respTxt + (est.client_comment ? ': ' + est.client_comment : '')]));
+  }
+  var actions = el('div', { class: 'form-actions' });
+  var close = el('button', { class: 'btn' }, ['Закрити']); close.onclick = closeModal;
+  actions.appendChild(close);
+  body.appendChild(actions);
+  openModal('Посилання для клієнта', body);
+  apiCall('getEstimateShareLink', { id: est.id }).then(function (res) {
+    var url = location.origin + location.pathname + '#/public/' + res.share_token + '?a=' + encodeURIComponent(CONFIG.API_URL);
+    box.innerHTML = '';
+    var inp = el('input', { class: 'v9-in', style: 'width:100%;', readonly: 'true', value: url });
+    inp.onclick = function () { inp.select(); };
+    var copyBtn = el('button', { class: 'btn small primary' }, ['Скопіювати посилання']);
+    copyBtn.onclick = function () {
+      (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { toast('Скопійовано', 'success'); })
+        .catch(function () { inp.select(); document.execCommand('copy'); toast('Скопійовано', 'success'); });
+    };
+    box.appendChild(inp);
+    box.appendChild(el('div', { style: 'margin-top:8px;' }, [copyBtn]));
+  }).catch(function (e) { box.innerHTML = ''; box.appendChild(el('div', { class: 'margin-warn' }, ['Не вдалося створити посилання: ' + (e && e.message || e)])); });
+}
 
 /* ============ ПУНКТ 7: ШАБЛОНИ, НОРМИ, ПРАВИЛА, ЩО ВХОДИТЬ У ЦІНУ ========== */
 var YESNO = [['так', 'так'], ['ні', 'ні']];
@@ -5088,13 +5499,89 @@ function initApp() {
 
   var hadCache = Storage.loadCache();
   if (hadCache) renderRoute();
-  syncAll().then(function () {
-    // bootstrap повертає найсвіжіші дані про «хто я» (напр. якщо адмін щойно змінив роль) — синхронізуємо кеш
-    if (STATE.db.me) { STATE.currentUser = STATE.db.me; Auth.setSession(Auth.getToken(), STATE.db.me); updateUserChip_(); buildSidebar(); }
+  syncAll();
+}
+
+// ЕТАП 16: посилання для клієнта — #/public/<токен>?a=<адреса бекенду>,
+// відкривається БЕЗ входу в систему. Перевіряється першим, до setup/login.
+function parsePublicRoute_() {
+  var h = location.hash || '';
+  var m = /^#\/public\/([a-f0-9]+)(?:\?a=(.*))?$/i.exec(h);
+  if (!m) return null;
+  return { token: m[1], api: m[2] ? decodeURIComponent(m[2]) : '' };
+}
+function publicApiCall_(action, data) {
+  return fetch(CONFIG.API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, data: data || {} }) })
+    .then(function (r) { return r.json(); })
+    .then(function (json) { if (!json.success) throw new Error(json.error || 'Невідома помилка сервера'); return json.data; });
+}
+function bootPublicView_(route) {
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  var pv = document.getElementById('publicView');
+  pv.style.display = 'flex';
+  pv.innerHTML = '';
+  pv.appendChild(el('div', { style: 'color:#333;margin-top:40px;' }, ['⏳ Завантаження кошторису…']));
+  if (route.api) CONFIG.API_URL = route.api;
+  if (!CONFIG.API_URL) { pv.innerHTML = ''; pv.appendChild(el('div', { style: 'color:#333;margin-top:40px;' }, ['Посилання неповне — зверніться до того, хто його надіслав.'])); return; }
+  publicApiCall_('getPublicEstimate', { share_token: route.token }).then(function (data) {
+    renderPublicView_(data, route.token);
+  }).catch(function (e) {
+    pv.innerHTML = '';
+    pv.appendChild(el('div', { style: 'background:#fff;padding:30px;border-radius:10px;max-width:480px;text-align:center;color:#333;margin-top:40px;' }, [
+      el('div', { style: 'font-size:32px;margin-bottom:10px;' }, ['⚠️']),
+      el('div', { style: 'font-weight:700;margin-bottom:6px;' }, ['Не вдалося відкрити кошторис']),
+      el('div', { style: 'color:#777;' }, [e && e.message || String(e)])
+    ]));
   });
+}
+function renderPublicView_(data, token) {
+  // мінімальний STATE.db, якого досить для V9.docHtml/V9.docData — інших
+  // даних тут просто немає (і не може бути: це відповідь без входу в систему)
+  STATE.db = { estimates: [data.estimate], estimateItems: data.items, works: [], settings: data.settings || {},
+    objects: [data.object], clients: [data.client] };
+  var est = data.estimate;
+  var m = V9.docModel(est);
+  var pv = document.getElementById('publicView');
+  pv.innerHTML = '';
+  var frame = el('iframe', { class: 'pv-frame' });
+  pv.appendChild(frame);
+  frame.srcdoc = V9.docHtml(est, m, false);
+
+  var actions = el('div', { class: 'pv-actions' });
+  if (est.client_response) {
+    var txt = est.client_response === 'approved'
+      ? '✅ Дякуємо! Ви погодили цей кошторис' + (est.client_responded_at ? ' ' + fmtDate(est.client_responded_at) : '') + '.'
+      : '❌ Ваше зауваження надіслано' + (est.client_responded_at ? ' ' + fmtDate(est.client_responded_at) : '') + '. Ми звʼяжемось із вами.';
+    actions.appendChild(el('div', { style: 'font-weight:700;text-align:center;padding:10px;' }, [txt]));
+  } else {
+    var commentInp = el('textarea', { id: 'pv_comment', class: 'v9-in', style: 'width:100%;', rows: '2', placeholder: 'Що саме варто змінити?' });
+    var declineBox = el('div', { style: 'display:none;margin-top:10px;' }, [commentInp]);
+    var approveBtn = el('button', { class: 'btn primary' }, ['✅ Погоджую кошторис']);
+    var declineBtn = el('button', { class: 'btn danger' }, ['✎ Є зауваження']);
+    var sendBtn = el('button', { class: 'btn primary', style: 'display:none;' }, ['Надіслати зауваження']);
+    function respond(response, comment) {
+      approveBtn.disabled = declineBtn.disabled = sendBtn.disabled = true;
+      publicApiCall_('respondPublicEstimate', { share_token: token, response: response, comment: comment || '' }).then(function (res) {
+        renderPublicView_(res.view, token);
+      }).catch(function (e) {
+        approveBtn.disabled = declineBtn.disabled = sendBtn.disabled = false;
+        alert('Не вдалося зберегти відповідь: ' + (e && e.message || e));
+      });
+    }
+    approveBtn.onclick = function () { if (confirm('Погодити цей кошторис?')) respond('approved'); };
+    declineBtn.onclick = function () { declineBox.style.display = ''; declineBtn.style.display = 'none'; sendBtn.style.display = ''; commentInp.focus(); };
+    sendBtn.onclick = function () { respond('declined', commentInp.value.trim()); };
+    actions.appendChild(el('div', { class: 'v9-row', style: 'justify-content:center;' }, [approveBtn, declineBtn, sendBtn]));
+    actions.appendChild(declineBox);
+  }
+  pv.appendChild(actions);
 }
 
 function boot() {
+  var pubRoute = parsePublicRoute_();
+  if (pubRoute) { bootPublicView_(pubRoute); return; }
   if (!CONFIG.API_URL) {
     document.getElementById('setupScreen').style.display = 'flex';
     document.getElementById('setupConnectBtn').addEventListener('click', function () {
