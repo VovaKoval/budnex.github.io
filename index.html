@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -92,7 +92,7 @@ table.dt tbody tr:hover{background:var(--panel2);cursor:pointer;}
 .badge.blue{background:#123354;color:#9ec9ff;}
 
 /* modal */
-#modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:200;}
+#modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:260;}
 #modalOverlay.open{display:flex;}
 .modal{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);width:520px;max-width:92vw;max-height:88vh;overflow:auto;padding:20px 22px;}
 .modal h3{margin:0 0 14px;font-size:16px;}
@@ -220,7 +220,7 @@ tr.v9-off td{opacity:.45;}
 <div id="setupScreen" style="display:none;">
   <div class="box">
     <h2>Налаштування BUDNEX</h2>
-    <p>Встав URL Google Apps Script Web App (Deploy → New deployment → Web app → скопіювати /exec URL). Це потрібно один раз — далі BUDNEX сам підключатиметься до твоєї Google Таблиці.</p>
+    <p>Встав URL Google Apps Script Web App (Deploy → New deployment → Web app → скопіювати /exec URL). Це потрібно один раз — далі BUDNEX сам підключатиметься до твоєї Google Таблиці. Якщо ти не адміністратор — попроси в нього посилання-запрошення, воно підключить усе саме.</p>
     <div class="form-row">
       <label>Apps Script Web App URL</label>
       <input type="text" id="setupUrl" placeholder="https://script.google.com/macros/s/.../exec">
@@ -285,8 +285,13 @@ tr.v9-off td{opacity:.45;}
 'use strict';
 
 /* ============================== CONFIG ================================= */
+// Адреса бекенду (Apps Script Web App). Щоб нові користувачі ніколи не бачили
+// екран «встав URL» — впиши її сюди ОДИН раз (між лапками) перед тим, як
+// викладати файл. Порожньо = як раніше: URL береться з браузера або з
+// посилання-запрошення (Налаштування → «Запросити людину»).
+var DEFAULT_API_URL = '';
 var CONFIG = {
-  API_URL: localStorage.getItem('budnex_api_url') || '',
+  API_URL: localStorage.getItem('budnex_api_url') || DEFAULT_API_URL,
   APP_NAME: 'BUDNEX'
 };
 
@@ -1169,7 +1174,7 @@ function renderObjectEstimateTab(container, o) {
   if (!estimate) {
     container.appendChild(el('div', { class: 'empty-state' }, [
       el('p', {}, ['Для цього об’єкта ще немає кошторису.']),
-      (function () {
+      !canDo_('estimates', 'create') ? null : (function () {
         var b = el('button', { class: 'btn primary' }, ['+ Створити кошторис']);
         b.onclick = function () {
           apiCall('createEstimate', { object_id: o.id, client_id: o.client_id }).then(function (res) {
@@ -1311,11 +1316,13 @@ function openEstimateAiPanel(estimate) {
   body.appendChild(el('p', { class: 'page-sub' }, ['Порада щодо маржі, пошук робіт за типом приміщення, швидке додавання позиції звичайною мовою. Нічого не застосовується автоматично.']));
 
   var adviceWrap = el('div', { class: 'card', style: 'margin-bottom:10px;' });
-  adviceWrap.appendChild(el('div', { class: 'chart-title' }, ['Порада щодо маржі']));
-  var adviceBody = el('div', { class: 'page-sub' }, ['Рахую...']);
-  adviceWrap.appendChild(adviceBody);
-  apiCall('aiMarginAdvice', { estimate_id: estimate.id }).then(function (res) { adviceBody.textContent = res.message; }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
-  body.appendChild(adviceWrap);
+  if (canSeeCost_()) {
+    adviceWrap.appendChild(el('div', { class: 'chart-title' }, ['Порада щодо маржі']));
+    var adviceBody = el('div', { class: 'page-sub' }, ['Рахую...']);
+    adviceWrap.appendChild(adviceBody);
+    apiCall('aiMarginAdvice', { estimate_id: estimate.id }).then(function (res) { adviceBody.textContent = res.message; }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+    body.appendChild(adviceWrap);
+  }
 
   var quickWrap = el('div', { class: 'card', style: 'margin-bottom:10px;' });
   quickWrap.appendChild(el('div', { class: 'chart-title' }, ['Швидке додавання (звичайною мовою)']));
@@ -2034,7 +2041,7 @@ function renderObjectPlanningTab(container, o) {
   if (!project) {
     container.appendChild(el('div', { class: 'empty-state' }, [
       el('p', {}, ['Для цього обʼєкта ще немає проєкту планування.']),
-      (function () {
+      !canDo_('planning', 'create') ? null : (function () {
         var b = el('button', { class: 'btn primary' }, ['+ Створити проєкт планування']);
         b.onclick = function () {
           apiCall('createProject', { object_id: o.id, name: 'План — ' + o.name }).then(function (res) {
@@ -2384,6 +2391,7 @@ function openAiRoomGenModal(project) {
 /* ==================== PHOTOS / DOCUMENTS TAB (ЕТАП 8/51) =================== */
 function renderObjectPhotosTab(container, o) {
   container.appendChild(el('h4', { style: 'margin-top:0;' }, ['Фото']));
+  if (canDo_('photos_docs', 'create')) {
   var uploadRow = el('div', { style: 'margin-bottom:12px;' });
   var fileInput = el('input', { type: 'file', accept: 'image/*' });
   var catInput = el('input', { placeholder: 'категорія (до/після/проблема...)', style: 'margin-left:8px;' });
@@ -2402,6 +2410,7 @@ function renderObjectPhotosTab(container, o) {
   };
   uploadRow.appendChild(fileInput); uploadRow.appendChild(catInput); uploadRow.appendChild(uploadBtn);
   container.appendChild(uploadRow);
+  }
 
   var photos = STATE.db.photos.filter(function (p) { return p.object_id === o.id; });
   if (!photos.length) container.appendChild(el('div', { class: 'page-sub' }, ['Ще немає фото.']));
@@ -2411,9 +2420,11 @@ function renderObjectPhotosTab(container, o) {
       el('a', { href: p.url, target: '_blank' }, [el('div', { style: 'font-size:11px;word-break:break-all;' }, ['🖼 ' + (p.category || 'фото')])]),
       el('div', { class: 'page-sub' }, [fmtDate(p.date)])
     ]);
-    var delB = el('button', { class: 'btn small danger', style: 'margin-top:6px;' }, ['✕']);
-    delB.onclick = function () { apiCall('deletePhoto', { id: p.id }).then(function () { STATE.db.photos = STATE.db.photos.filter(function (x) { return x.id !== p.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
-    card.appendChild(delB);
+    if (canDo_('photos_docs', 'delete')) {
+      var delB = el('button', { class: 'btn small danger', style: 'margin-top:6px;' }, ['✕']);
+      delB.onclick = function () { apiCall('deletePhoto', { id: p.id }).then(function () { STATE.db.photos = STATE.db.photos.filter(function (x) { return x.id !== p.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
+      card.appendChild(delB);
+    }
     grid.appendChild(card);
   });
   container.appendChild(grid);
@@ -2664,14 +2675,17 @@ function renderPartners(main) {
   main.appendChild(el('div', { class: 'page-title' }, ['Бригади та партнери']));
   var toolbar = el('div', { class: 'toolbar' });
   toolbar.appendChild(el('div', { class: 'spacer' }));
-  var addBtn = el('button', { class: 'btn primary' }, ['+ Новий партнер']); addBtn.onclick = function () { openPartnerForm(); };
-  toolbar.appendChild(addBtn);
+  if (canDo_('partners', 'create')) {
+    var addBtn = el('button', { class: 'btn primary' }, ['+ Новий партнер']); addBtn.onclick = function () { openPartnerForm(); };
+    toolbar.appendChild(addBtn);
+  }
   main.appendChild(toolbar);
 
   if (!STATE.db.partners.length) { main.appendChild(el('div', { class: 'empty-state' }, ['Ще немає партнерів.'])); return; }
   var table = el('table', { class: 'dt' });
   table.appendChild(el('thead', {}, [el('tr', {}, ['Назва', 'Телефон', 'Місто', 'Спеціалізація', 'Людей', 'Статус'].map(function (h) { return el('th', {}, [h]); }))]));
   var tbody = el('tbody');
+  var canEditPartner = canDo_('partners', 'edit');
   STATE.db.partners.forEach(function (p) {
     var statusClass = p.status === 'вільна' ? 'green' : (p.status === 'зайнята' ? 'red' : 'gold');
     var tr = el('tr', {}, [
@@ -2679,7 +2693,7 @@ function renderPartners(main) {
       el('td', {}, [p.specialization || '—']), el('td', {}, [String(p.team_size || '—')]),
       el('td', {}, [el('span', { class: 'badge ' + statusClass }, [p.status || '—'])])
     ]);
-    tr.onclick = function () { openPartnerForm(p); };
+    if (canEditPartner) { tr.style.cursor = 'pointer'; tr.onclick = function () { openPartnerForm(p); }; }
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
@@ -2805,9 +2819,11 @@ function openMaterialForm(existing) {
 }
 
 function renderSuppliersSubtab(c) {
-  var addBtn = el('button', { class: 'btn small primary' }, ['+ Постачальник']);
-  addBtn.onclick = function () { openSupplierForm(); };
-  c.appendChild(el('div', { style: 'margin-bottom:10px;' }, [addBtn]));
+  if (canDo_('materials', 'create')) {
+    var addBtn = el('button', { class: 'btn small primary' }, ['+ Постачальник']);
+    addBtn.onclick = function () { openSupplierForm(); };
+    c.appendChild(el('div', { style: 'margin-bottom:10px;' }, [addBtn]));
+  }
   STATE.db.suppliers.forEach(function (s) {
     var delB = el('button', { class: 'btn small danger' }, ['✕']);
     delB.onclick = function () { apiCall('deleteSupplier', { id: s.id }).then(function () { STATE.db.suppliers = STATE.db.suppliers.filter(function (x) { return x.id !== s.id; }); Storage.saveCache(); renderRoute(); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
@@ -2839,9 +2855,11 @@ function openSupplierForm() {
 }
 
 function renderPackagesSubtab(c) {
-  var addBtn = el('button', { class: 'btn small primary' }, ['+ Пакет']);
-  addBtn.onclick = function () { openPackageForm(); };
-  c.appendChild(el('div', { style: 'margin-bottom:10px;' }, [addBtn]));
+  if (canDo_('materials', 'create')) {
+    var addBtn = el('button', { class: 'btn small primary' }, ['+ Пакет']);
+    addBtn.onclick = function () { openPackageForm(); };
+    c.appendChild(el('div', { style: 'margin-bottom:10px;' }, [addBtn]));
+  }
   c.appendChild(el('p', { class: 'page-sub' }, ['Формула кількості використовує змінну qty — базову кількість, яку вкажеш при застосуванні пакета до кошторису (наприклад "qty*1.05" додає 5% запасу).']));
   STATE.db.packages.forEach(function (p) {
     var items = STATE.db.packageItems.filter(function (x) { return x.package_id === p.id; });
@@ -3218,6 +3236,19 @@ function renderSettings(main) {
   var sheetsCard = block('Google Sheets', [
     ['Apps Script Web App URL', '<input id="s_api_url" value="' + esc(CONFIG.API_URL) + '">']
   ]);
+  // Запрошення: одне посилання, яке підключає нову людину до бази без
+  // жодного введення адреси. Містить лише адресу бекенду (не токен і не пароль).
+  var inviteUrl = location.origin + location.pathname + '#/join?a=' + encodeURIComponent(CONFIG.API_URL);
+  var inviteWrap = el('div', { style: 'margin-top:12px;padding-top:12px;border-top:1px solid var(--border);' }, [
+    el('b', {}, ['Запросити людину']),
+    el('div', { class: 'page-sub' }, ['Надішли їй це посилання — воно саме підключить браузер до бази, і далі лишиться лише ввести логін та пароль, які ти їй створив у «Користувачі та ролі».'])
+  ]);
+  var inviteInp = el('input', { class: 'v9-in', style: 'width:100%;margin-top:6px;', readonly: 'true', value: inviteUrl });
+  inviteInp.onclick = function () { inviteInp.select(); };
+  var inviteCopy = el('button', { class: 'btn small primary', style: 'margin-top:8px;' }, ['Скопіювати посилання-запрошення']);
+  inviteCopy.onclick = function () { copyText_(inviteUrl); };
+  inviteWrap.appendChild(inviteInp); inviteWrap.appendChild(inviteCopy);
+  inviteWrap.appendChild(el('div', { class: 'page-sub', style: 'margin-top:8px;' }, ['Хочеш, щоб взагалі ніхто ніколи не бачив запит адреси? Впиши її один раз у рядок DEFAULT_API_URL на початку index.html.']));
   var interfaceCard = block('Інтерфейс', [
     ['Тема', '<select id="s_theme"><option value="dark"' + (STATE.ui.theme==='dark'?' selected':'') + '>Темна</option><option value="light"' + (STATE.ui.theme==='light'?' selected':'') + '>Світла</option></select>']
   ]);
@@ -3226,6 +3257,7 @@ function renderSettings(main) {
     ['API-ключ', '<input type="password" id="s_ai_api_key" value="' + esc(s.ai_api_key || '') + '" placeholder="залиш пустим, якщо без AI">']
   ]);
 
+  sheetsCard.appendChild(inviteWrap);
   main.appendChild(companyCard); main.appendChild(pricingCard); main.appendChild(logisticsCard); main.appendChild(sheetsCard); main.appendChild(aiCard); main.appendChild(interfaceCard);
 
   var saveBtn = el('button', { class: 'btn primary' }, ['Зберегти налаштування']);
@@ -3341,10 +3373,37 @@ function openUserForm(existing) {
       if (existing) { var i = STATE.db.users.findIndex(function (x) { return x.id === existing.id; }); if (i !== -1) STATE.db.users[i] = res; }
       else STATE.db.users.push(res);
       Storage.saveCache(); closeModal(); renderRoute(); toast(existing ? 'Збережено' : 'Акаунт створено', 'success');
+      if (!existing) openInviteMessage_(username, pass, res.role || role);
     }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
   };
   actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
   openModal(existing ? 'Редагувати акаунт' : 'Новий акаунт', body);
+}
+// Готове повідомлення для нової людини: посилання + логін + пароль. Пароль
+// відомий лише зараз (на сервері він зберігається хешем), тому показуємо його
+// саме тут — потім його вже не побачити, лише скинути.
+function openInviteMessage_(username, password, role) {
+  var link = location.origin + location.pathname + '#/join?a=' + encodeURIComponent(CONFIG.API_URL);
+  var msg = 'Запрошення в BUDNEX\n1) Відкрий: ' + link + '\n2) Логін: ' + username + '\n3) Пароль: ' + password + '\nРоль: ' + role + '. Пароль можна змінити після входу (клік на своє імʼя вгорі).';
+  var body = el('div');
+  body.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, ['Акаунт створено. Надішли людині це повідомлення — адресу бази вводити не потрібно, посилання підключить усе саме. Пароль більше ніде не буде видно.']));
+  var ta = el('textarea', { class: 'v9-in', rows: '6', style: 'width:100%;', readonly: 'true' }); ta.value = msg;
+  body.appendChild(ta);
+  var actions = el('div', { class: 'form-actions' });
+  var close = el('button', { class: 'btn' }, ['Закрити']); close.onclick = closeModal;
+  var copy = el('button', { class: 'btn primary' }, ['Скопіювати повідомлення']); copy.onclick = function () { copyText_(msg); };
+  actions.appendChild(close); actions.appendChild(copy); body.appendChild(actions);
+  openModal('Запросити ' + username, body);
+}
+function copyText_(text) {
+  var done = function () { toast('Скопійовано', 'success'); };
+  var fallback = function () {
+    var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { toast('Не вдалося скопіювати — виділи й скопіюй вручну', 'error'); }
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback); else fallback();
 }
 function downloadText_(filename, text, mime) {
   var blob = new Blob([text], { type: mime || 'text/plain' });
@@ -4390,7 +4449,7 @@ V9.showCheck = function (estimateId, check, opts) {
       }
       if (is.code === 'NO_MATERIALS') actions.appendChild(btn_('↻ Матеріали', 'small', function () { V9.recalcMaterials(estimateId, recheck); }));
       if (is.code === 'NO_LOGISTICS') actions.appendChild(btn_('🚚 Порахувати', 'small', function () { V9.openLogistics(estimateId, recheck); }));
-      if (/^MARGIN/.test(is.code)) actions.appendChild(btn_('Порада', 'small', function () {
+      if (/^MARGIN/.test(is.code) && canSeeCost_()) actions.appendChild(btn_('Порада', 'small', function () {
         apiCall('aiMarginAdvice', { estimate_id: estimateId }).then(function (r) { toast(r.message, r.ok ? 'success' : 'error'); }).catch(errToast_);
       }));
       body.appendChild(el('div', { class: 'v9-issue ' + is.level }, [el('span', {}, [LEVEL_ICON[is.level] || '•']), el('div', {}, [is.message]), actions]));
@@ -5579,9 +5638,30 @@ function renderPublicView_(data, token) {
   pv.appendChild(actions);
 }
 
+// Посилання-запрошення: #/join?a=<адреса бекенду>. Людина відкриває його
+// раз — адреса запамʼятовується в браузері, і далі вона бачить лише екран
+// входу (логін/пароль), без жодних технічних налаштувань.
+function parseJoinRoute_() {
+  var m = /^#\/join\?a=(.+)$/.exec(location.hash || '');
+  if (!m) return null;
+  var url = '';
+  try { url = decodeURIComponent(m[1]); } catch (e) { return null; }
+  return /^https:\/\/script\.google\.com\//.test(url) || /^https?:\/\//.test(url) ? url : null;
+}
+function applyJoinRoute_() {
+  var url = parseJoinRoute_();
+  if (!url) return false;
+  if (CONFIG.API_URL && CONFIG.API_URL !== url) Auth.clearSession(); // інший сервер — стара сесія тут недійсна
+  CONFIG.API_URL = url;
+  localStorage.setItem('budnex_api_url', url);
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
+  return true;
+}
+
 function boot() {
   var pubRoute = parsePublicRoute_();
   if (pubRoute) { bootPublicView_(pubRoute); return; }
+  applyJoinRoute_();
   if (!CONFIG.API_URL) {
     document.getElementById('setupScreen').style.display = 'flex';
     document.getElementById('setupConnectBtn').addEventListener('click', function () {
