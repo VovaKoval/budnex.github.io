@@ -1282,6 +1282,24 @@ function openRequestForm(existing) {
     }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
   };
   actions.appendChild(cancel);
+  // один клік: заявка → обʼєкт (без дубля) → майстер автокошторису з уже внесеним описом
+  if (existing && canDo_('objects', 'create') && canDo_('requests', 'edit') && typeof V9 !== 'undefined' && V9.newWiz) {
+    var conv = el('button', { class: 'btn' }, ['⚡ Обʼєкт і кошторис']);
+    conv.title = 'Створити обʼєкт із заявки та відкрити автокошторис';
+    conv.onclick = function () {
+      conv.disabled = true;
+      apiCall('convertRequest', { id: existing.id }).then(function (res) {
+        if (res.created && res.object) STATE.db.objects.push(res.object);
+        var i = STATE.db.requests.findIndex(function (x) { return x.id === existing.id; });
+        if (i !== -1 && res.request) STATE.db.requests[i] = res.request;
+        Storage.saveCache(); closeModal();
+        toast(res.created ? 'Обʼєкт створено, відкриваю автокошторис' : 'Обʼєкт уже існує, відкриваю автокошторис', 'success');
+        V9.newWiz(res.object.id, existing.description || '', !!String(existing.description || '').trim());   // є опис — одразу запускаємо розрахунок
+        location.hash = '#/auto/' + res.object.id;
+      }).catch(function (e) { conv.disabled = false; toast('Помилка: ' + (e && e.message || e), 'error'); });
+    };
+    actions.appendChild(conv);
+  }
   if (existing ? canDo_('requests', 'edit') : canDo_('requests', 'create')) actions.appendChild(save);
   body.appendChild(actions);
   openModal(existing ? 'Заявка ' + existing.id : 'Нова заявка', body);
