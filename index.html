@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -61,6 +61,10 @@ input,select,textarea{font-family:inherit;font-size:14px;}
    заважає, бо прокручувати нема чого */
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .table-scroll>table{margin:0;}
+.bulk-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;margin-bottom:8px;background:var(--panel2);border:1px solid var(--gold,#F2C200);border-radius:8px;position:sticky;top:0;z-index:5;}
+.bulk-info{font-weight:700;margin-right:auto;}
+tr.bulk-sel td{background:rgba(242,194,0,.12);}
+table.dt input[type=checkbox]{width:18px;height:18px;cursor:pointer;}
 
 /* ---------- generic components ---------- */
 .page-title{font-size:20px;font-weight:800;margin:0 0 4px;}
@@ -642,6 +646,152 @@ function confirmAction(msg, onYes) {
   openModal('Підтвердження', body);
 }
 
+/* ============================== BULK (масові дії) ========================== */
+// Один спільний модуль для всіх таблиць: стовпець чекбоксів + «вибрати все» +
+// панель дій. Існуючі функції рендеру лише передають готову таблицю та масив
+// даних у тому ж порядку, що й рядки — самі вони не змінюються. Права беруться
+// з canDo_ (а сервер перевіряє їх ще раз), тож роль без права змінювати/видаляти
+// не побачить жодного чекбокса.
+var Bulk = (function () {
+  var selection = {}; // entity -> {id:true}; живе, поки відкрита сторінка
+  function sel(entity) { return selection[entity] || (selection[entity] = {}); }
+  function count(entity) { return Object.keys(sel(entity)).length; }
+
+  function apply_(cfg, res, patchRows) {
+    var failed = (res && res.failed) || [];
+    if (failed.length) toast('Виконано: ' + res.done + ', не вдалося: ' + failed.length + ' (' + failed[0].error + ')', 'error');
+    else toast(cfg.op === 'delete' ? 'Видалено: ' + res.done : 'Змінено: ' + res.done, 'success');
+    selection[cfg.entity] = {};
+    // сервер перераховує кошториси/каскади — найнадійніше підтягнути свіжі дані
+    return syncAll().catch(function () {}).then(function () { renderRoute(); });
+  }
+
+  function run_(cfg, op, extra) {
+    var ids = Object.keys(sel(cfg.entity));
+    var data = { entity: cfg.entity, op: op, ids: ids };
+    for (var k in extra) data[k] = extra[k];
+    return apiCall('bulkAction', data).then(function (res) { return apply_({ entity: cfg.entity, op: op }, res); })
+      .catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
+  }
+
+  function openEdit_(cfg) {
+    var fields = (cfg.fields || []).filter(function (f) { return !f.costOnly || canSeeCost_(); });
+    if (!fields.length) return;
+    var n = count(cfg.entity);
+    var body = el('div');
+    body.appendChild(el('p', { class: 'page-sub' }, ['Вибрано рядків: ' + n + '. Зміна застосується до всіх.']));
+    var fsel = el('select', { id: 'bk_field' });
+    fields.forEach(function (f, i) { fsel.appendChild(el('option', { value: String(i) }, [f.label])); });
+    body.appendChild(formField('Що змінити', ''));
+    body.lastChild.appendChild(fsel);
+    var valWrap = el('div');
+    body.appendChild(valWrap);
+    var input;
+    function drawInput() {
+      var f = fields[Number(fsel.value)];
+      valWrap.innerHTML = '';
+      if (f.options) {
+        input = el('select', { id: 'bk_val' });
+        f.options.forEach(function (o) { var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; input.appendChild(el('option', { value: v }, [l])); });
+      } else {
+        input = el('input', { id: 'bk_val', type: f.type === 'number' ? 'number' : 'text', step: 'any', placeholder: f.hint || '' });
+      }
+      var wrap = formField(f.type === 'percent' ? 'Відсоток (напр. 10 або -5)' : 'Нове значення', '');
+      wrap.appendChild(input); valWrap.appendChild(wrap);
+    }
+    fsel.onchange = drawInput; drawInput();
+    var actions = el('div', { class: 'form-actions' });
+    var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+    var ok = el('button', { class: 'btn primary' }, ['Застосувати']);
+    ok.onclick = function () {
+      var f = fields[Number(fsel.value)], v = input.value;
+      if (f.type === 'percent' || f.type === 'number') {
+        if (v === '' || isNaN(Number(v))) { toast('Вкажи число', 'error'); return; }
+      }
+      closeModal();
+      if (f.type === 'percent') {
+        var pct = Number(v);
+        var rows = Object.keys(sel(cfg.entity)).map(function (id) {
+          var row = cfg.items.filter(function (x) { return String(x.id) === id; })[0];
+          if (!row) return null;
+          var o = { id: id }; o[f.key] = Math.max(0, Math.round((Number(row[f.key]) || 0) * (1 + pct / 100) * 100) / 100);
+          return o;
+        }).filter(Boolean);
+        run_(cfg, 'update', { rows: rows });
+      } else {
+        var patch = {}; patch[f.key] = f.type === 'number' ? Number(v) : v;
+        run_(cfg, 'update', { patch: patch });
+      }
+    };
+    actions.appendChild(cancel); actions.appendChild(ok); body.appendChild(actions);
+    openModal('Масова зміна', body);
+  }
+
+  // table — готова <table class="dt">; items — масив даних у порядку рядків tbody
+  // cfg: {entity, resource, items, fields:[{key,label,type,options,costOnly}], label}
+  function wrap(table, items, cfg) {
+    cfg.items = items;
+    var canEdit = canDo_(cfg.resource, 'edit') && (cfg.fields || []).some(function (f) { return !f.costOnly || canSeeCost_(); });
+    var canDel = canDo_(cfg.resource, 'delete') && !cfg.noDelete;
+    if (!canEdit && !canDel) return table;
+    if (isForeman_()) return table; // сервер теж забороняє — не показуємо марних елементів
+    var s = sel(cfg.entity);
+    var box = el('div', { class: 'bulk-box' });
+    var bar = el('div', { class: 'bulk-bar' });
+    var info = el('span', { class: 'bulk-info' });
+    bar.appendChild(info);
+    if (canEdit) { var eb = el('button', { class: 'btn small' }, ['✎ Змінити']); eb.onclick = function () { openEdit_(cfg); }; bar.appendChild(eb); }
+    if (canDel) {
+      var db = el('button', { class: 'btn small danger' }, ['✕ Видалити']);
+      db.onclick = function () {
+        var n = count(cfg.entity);
+        confirmAction('Видалити вибране (' + n + ')? Цю дію не можна скасувати.', function () { run_(cfg, 'delete', {}); });
+      };
+      bar.appendChild(db);
+    }
+    var clr = el('button', { class: 'btn small' }, ['Зняти вибір']);
+    bar.appendChild(clr);
+    box.appendChild(bar);
+
+    var all = el('input', { type: 'checkbox', title: 'Вибрати все' });
+    var boxes = [];
+    function refresh() {
+      var n = count(cfg.entity);
+      bar.style.display = n ? '' : 'none';
+      info.textContent = 'Вибрано: ' + n + ' з ' + items.length;
+      var shown = boxes.filter(function (b) { return b.id; });
+      var allOn = shown.length && shown.every(function (b) { return s[b.id]; });
+      all.checked = !!allOn;
+      all.indeterminate = !allOn && shown.some(function (b) { return s[b.id]; });
+      boxes.forEach(function (b) { b.tr.classList.toggle('bulk-sel', !!s[b.id]); });
+    }
+    clr.onclick = function () { Object.keys(s).forEach(function (k) { delete s[k]; }); boxes.forEach(function (b) { b.cb.checked = false; }); refresh(); };
+    all.onchange = function () {
+      boxes.forEach(function (b) { if (!b.id) return; b.cb.checked = all.checked; if (all.checked) s[b.id] = true; else delete s[b.id]; });
+      refresh();
+    };
+    var thr = table.tHead && table.tHead.rows[0];
+    if (thr) { var th = el('th', { style: 'width:34px;' }); th.appendChild(all); thr.insertBefore(th, thr.firstChild); }
+    var rows = table.tBodies[0] ? Array.prototype.slice.call(table.tBodies[0].rows) : [];
+    rows.forEach(function (tr, i) {
+      var it = items[i], td = el('td', { style: 'width:34px;' });
+      var cb = el('input', { type: 'checkbox' });
+      var id = it && it.id != null ? String(it.id) : '';
+      cb.checked = !!(id && s[id]);
+      cb.onclick = function (e) { e.stopPropagation(); };
+      cb.onchange = function () { if (cb.checked) s[id] = true; else delete s[id]; refresh(); };
+      td.onclick = function (e) { e.stopPropagation(); };
+      td.appendChild(cb); tr.insertBefore(td, tr.firstChild);
+      boxes.push({ id: id, cb: cb, tr: tr });
+    });
+    if (table.tFoot) Array.prototype.forEach.call(table.tFoot.rows, function (r) { r.insertBefore(el('td'), r.firstChild); });
+    box.appendChild(table);
+    refresh();
+    return box;
+  }
+  return { wrap: wrap, clear: function () { selection = {}; } };
+})();
+
 /* ============================== ROUTER =================================== */
 function renderRoute() {
   closeSidebar_(); // будь-яка навігація одразу закриває мобільну шухляду меню
@@ -937,7 +1087,8 @@ function renderClients(main, clientId) {
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    tableWrap.appendChild(table);
+    tableWrap.appendChild(Bulk.wrap(table, list, { entity: 'clients', resource: 'clients', fields: [
+      { key: 'status', label: 'Статус', options: ['active', 'inactive'] }, { key: 'city', label: 'Місто' }, { key: 'source', label: 'Джерело' }] }));
   }
   draw('');
   search.oninput = function () { draw(search.value); };
@@ -1143,7 +1294,8 @@ function renderObjects(main, objectId) {
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-  main.appendChild(table);
+  main.appendChild(Bulk.wrap(table, STATE.db.objects, { entity: 'objects', resource: 'objects', fields: [
+    { key: 'status', label: 'Статус', options: OBJECT_STATUSES }, { key: 'manager', label: 'Менеджер' }] }));
 }
 
 function openObjectForm(existing) {
@@ -1336,7 +1488,8 @@ function renderEstimateEditor(container, estimate) {
     footCells.push(el('td', {}, [fmtMoney(sumClient)]), el('td', {}, ['']));
     table.appendChild(el('tfoot', {}, [el('tr', { style: 'font-weight:700;border-top:2px solid var(--border);' }, footCells)]));
   }
-  container.appendChild(table);
+  container.appendChild(Bulk.wrap(table, items, { entity: 'estimateItems', resource: 'estimates', fields: [
+    { key: 'markup_value', label: 'Мій дохід (значення націнки)', type: 'number', costOnly: true }] }));
 
   var totals = showCost ? el('div', { class: 'grid cols-4', style: 'margin-top:16px;' }, [
     kpiCard('Собівартість (виконавцю)', fmtMoney(estimate.contractor_total)),
@@ -2610,7 +2763,9 @@ function renderWorks(main) {
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    tableWrap.appendChild(table);
+    tableWrap.appendChild(internal ? Bulk.wrap(table, list.slice(0, CAP), { entity: 'works', resource: 'price_list', fields: [
+      { key: 'contractor_price', label: 'Ціна виконавця: змінити на %', type: 'percent', costOnly: true },
+      { key: 'category', label: 'Категорія' }, { key: 'unit', label: 'Одиниця' }] }) : table);
     if (list.length > CAP) tableWrap.appendChild(el('div', { class: 'page-sub' }, ['Показано перші ' + CAP + ' з ' + list.length + '. Уточни пошук або категорію.']));
     else tableWrap.appendChild(el('div', { class: 'page-sub' }, ['Показано ' + list.length + ' з ' + STATE.db.works.length + ' позицій.']));
   }
@@ -2734,7 +2889,7 @@ function renderEstimatesList(main) {
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-  main.appendChild(table);
+  main.appendChild(Bulk.wrap(table, STATE.db.estimates, { entity: 'estimates', resource: 'estimates', fields: [] }));
 }
 
 /* ============================== PARTNERS / TEAMS ============================ */
@@ -2764,7 +2919,8 @@ function renderPartners(main) {
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-  main.appendChild(table);
+  main.appendChild(Bulk.wrap(table, STATE.db.partners, { entity: 'partners', resource: 'partners', fields: [
+    { key: 'status', label: 'Статус', options: ['вільна', 'зайнята', 'заброньована', 'недоступна'] }, { key: 'city', label: 'Місто' }, { key: 'specialization', label: 'Спеціалізація' }] }));
 }
 
 function openPartnerForm(existing) {
@@ -2858,7 +3014,9 @@ function renderMaterialsSubtab(c) {
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-  c.appendChild(table);
+  c.appendChild(canEdit && showCost ? Bulk.wrap(table, STATE.db.materials, { entity: 'materials', resource: 'materials', fields: [
+    { key: 'price', label: 'Ціна: змінити на %', type: 'percent', costOnly: true },
+    { key: 'category', label: 'Категорія' }, { key: 'unit', label: 'Одиниця' }] }) : table);
   if (!STATE.db.materials.length) c.appendChild(el('div', { class: 'page-sub' }, ['Ще немає матеріалів. Матеріали з назвою категорії, що збігається зі словом у BOQ-позиції, автоматично рахуються в "Порахувати матеріали" на вкладці планування обʼєкта.']));
 }
 function openMaterialForm(existing) {
@@ -3321,11 +3479,30 @@ function renderSettings(main) {
   ]);
   var aiCard = block('AI (необовʼязково)', [
     ['Провайдер', '<select id="s_ai_provider"><option value="none"' + (s.ai_provider==='none'||!s.ai_provider?' selected':'') + '>Немає (лише вбудовані алгоритми)</option><option value="anthropic"' + (s.ai_provider==='anthropic'?' selected':'') + '>Anthropic</option><option value="openai"' + (s.ai_provider==='openai'?' selected':'') + '>OpenAI</option></select>'],
-    ['API-ключ', '<input type="password" id="s_ai_api_key" value="' + esc(s.ai_api_key || '') + '" placeholder="залиш пустим, якщо без AI">']
+    ['API-ключ', '<input type="password" id="s_ai_api_key" value="' + esc(s.ai_api_key || '') + '" placeholder="залиш пустим, якщо без AI">'],
+    ['Workspace ID (лише якщо ключ прив\'язаний до workspace)', '<input id="s_ai_workspace_id" value="' + esc(s.ai_workspace_id || '') + '" placeholder="wrkspc_... — з console.anthropic.com">']
   ]);
 
   sheetsCard.appendChild(inviteWrap);
-  main.appendChild(companyCard); main.appendChild(pricingCard); main.appendChild(logisticsCard); main.appendChild(sheetsCard); main.appendChild(aiCard); main.appendChild(interfaceCard);
+  // Щоденний автобекап (лише ADMIN; бекенд-дії доступні тільки йому)
+  var backupCard = null;
+  if (currentRole_() === 'ADMIN') {
+    backupCard = el('div', { class: 'card', style: 'margin-bottom:16px;' });
+    backupCard.appendChild(el('h4', { style: 'margin-top:0;' }, ['Резервне копіювання']));
+    var bkInfo = el('div', { class: 'page-sub' }, ['Перевіряю стан...']);
+    var bkBtn = el('button', { class: 'btn small primary', style: 'margin-top:8px;' }, ['...']);
+    bkBtn.disabled = true;
+    var bkState = false;
+    function bkPaint() { bkInfo.textContent = bkState ? 'Щоденний автобекап увімкнено: щоночі копія бази зберігається на Google Диску (папка «BUDNEX бекапи», останні 30).' : 'Автобекап вимкнено.'; bkBtn.textContent = bkState ? 'Вимкнути автобекап' : 'Увімкнути щоденний автобекап'; bkBtn.disabled = false; }
+    apiCall('getBackupScheduleStatus', {}).then(function (r) { bkState = !!(r && r.enabled); bkPaint(); }).catch(function () { bkInfo.textContent = 'Не вдалося перевірити стан автобекапу.'; });
+    bkBtn.onclick = function () {
+      bkBtn.disabled = true;
+      apiCall('setBackupSchedule', { enabled: !bkState }).then(function (r) { bkState = !!(r && r.enabled); bkPaint(); toast(bkState ? 'Автобекап увімкнено' : 'Автобекап вимкнено', 'success'); })
+        .catch(function (e) { bkPaint(); toast('Помилка: ' + (e && e.message || e), 'error'); });
+    };
+    backupCard.appendChild(bkInfo); backupCard.appendChild(bkBtn);
+  }
+  main.appendChild(companyCard); main.appendChild(pricingCard); main.appendChild(logisticsCard); main.appendChild(sheetsCard); if (backupCard) main.appendChild(backupCard); main.appendChild(aiCard); main.appendChild(interfaceCard);
 
   var saveBtn = el('button', { class: 'btn primary' }, ['Зберегти налаштування']);
   saveBtn.onclick = function () {
@@ -3340,7 +3517,8 @@ function renderSettings(main) {
       ['amortization_rate', document.getElementById('s_amortization_rate').value],
       ['logistics_coefficient', document.getElementById('s_logistics_coefficient').value],
       ['ai_provider', document.getElementById('s_ai_provider').value],
-      ['ai_api_key', document.getElementById('s_ai_api_key').value]
+      ['ai_api_key', document.getElementById('s_ai_api_key').value],
+      ['ai_workspace_id', document.getElementById('s_ai_workspace_id').value.trim()]
     ];
     var newApiUrl = document.getElementById('s_api_url').value.trim();
     var newTheme = document.getElementById('s_theme').value;
