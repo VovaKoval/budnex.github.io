@@ -482,20 +482,33 @@ var MUTATIONS = ['createClient','updateClient','deleteClient','createRequest','u
   'addEstimateLine','addLineToCatalog'];
 
 /* ================================ API ==================================== */
+// Дії лише для читання безпечно повторити; запис — ні (щоб не створити дублікат).
+var RETRYABLE_READS_ = /^(bootstrap|v9Bootstrap|ping|get[A-Z]\w*|validateEstimate|calcLogistics|findTeams)$/;
 function apiCall(action, data) {
   if (!CONFIG.API_URL) return Promise.reject(new Error('API_URL не налаштований'));
-  return fetch(CONFIG.API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight against Apps Script
-    body: JSON.stringify({ action: action, data: data || {} })
-  }).then(function (res) { return res.json(); })
-    .then(function (json) {
-      setOnline_(true);
-      if (!json.success) { var se = new Error(json.error || 'Невідома помилка сервера'); se.serverError = true; throw se; }
-      return json.data;
-    }).catch(function (err) {
+  var canRetry = RETRYABLE_READS_.test(action);
+  function attempt(n) {
+    return fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight against Apps Script
+      body: JSON.stringify({ action: action, data: data || {} })
+    }).then(function (res) { return res.json(); })
+      .then(function (json) {
+        if (!json.success) { var se = new Error(json.error || 'Невідома помилка сервера'); se.serverError = true; throw se; }
+        return json.data;
+      }).catch(function (err) {
+        // Apps Script інколи відповідає повільно/помилкою-заглушкою (холодний старт,
+        // квоти, мережа) — для читання пробуємо ще двічі, перш ніж вважати базу недоступною.
+        if (!err.serverError && canRetry && n < 2) {
+          return new Promise(function (r) { setTimeout(r, n === 0 ? 1200 : 2800); }).then(function () { return attempt(n + 1); });
+        }
+        throw err;
+      });
+  }
+  return attempt(0).then(function (d) { setOnline_(true); return d; })
+    .catch(function (err) {
       // сервер відповів помилкою (напр. «Вкажи клієнта») — база онлайн, повторювати немає сенсу
-      if (err.serverError) throw err;
+      if (err.serverError) { setOnline_(true); throw err; }
       setOnline_(false);
       if (MUTATIONS.indexOf(action) !== -1) {
         Storage.queue.push(action, data);
@@ -531,7 +544,9 @@ function flushQueue() {
   chain.then(function () { syncAll(); });
 }
 
-function syncAll() {
+var syncFailStreak_ = 0;
+function syncAll(ev) {
+  var manual = !!(ev && ev.type === 'click');
   document.getElementById('syncBtn').textContent = '🔄 Синхронізація...';
   return apiCall('bootstrap', {}).then(function (data) {
     STATE.db = {
@@ -554,6 +569,7 @@ function syncAll() {
     // логіну й ніколи більше не оновлювалось, тому зміна ролі адміном не
     // застосовувалась, поки людина сама не перелогінювалась).
     if (STATE.db.me) { STATE.currentUser = STATE.db.me; Auth.setSession(Auth.getToken(), STATE.db.me); updateUserChip_(); buildSidebar(); }
+    syncFailStreak_ = 0;
     STATE.lastSync = new Date();
     Storage.saveCache();
     document.getElementById('syncBtn').textContent = '🔄 Синхронізувати';
@@ -561,7 +577,10 @@ function syncAll() {
     updateBellDot();
   }).catch(function (err) {
     document.getElementById('syncBtn').textContent = '🔄 Синхронізувати';
-    document.getElementById('connBanner').classList.add('show');
+    // разовий збій фонового оновлення не варто показувати як "немає зв'язку з базою":
+    // банер — лише після двох поспіль невдач або якщо людина сама натиснула кнопку
+    syncFailStreak_++;
+    if (manual || syncFailStreak_ >= 2) document.getElementById('connBanner').classList.add('show');
     console.error(err);
   });
 }
@@ -3479,10 +3498,27 @@ function renderSettings(main) {
   ]);
   var aiCard = block('AI (необовʼязково)', [
     ['Провайдер', '<select id="s_ai_provider"><option value="none"' + (s.ai_provider==='none'||!s.ai_provider?' selected':'') + '>Немає (лише вбудовані алгоритми)</option><option value="anthropic"' + (s.ai_provider==='anthropic'?' selected':'') + '>Anthropic</option><option value="openai"' + (s.ai_provider==='openai'?' selected':'') + '>OpenAI</option></select>'],
-    ['API-ключ', '<input type="password" id="s_ai_api_key" value="' + esc(s.ai_api_key || '') + '" placeholder="залиш пустим, якщо без AI">'],
-    ['Workspace ID (лише якщо ключ прив\'язаний до workspace)', '<input id="s_ai_workspace_id" value="' + esc(s.ai_workspace_id || '') + '" placeholder="wrkspc_... — з console.anthropic.com">']
+    ['API-ключ', '<input type="password" id="s_ai_api_key" name="anthropic_api_key" autocomplete="new-password" value="' + esc(s.ai_api_key || '') + '" placeholder="sk-ant-... (залиш пустим, якщо без AI)">'],
+    ['Workspace ID (лише якщо ключ прив\'язаний до workspace)', '<input id="s_ai_workspace_id" name="anthropic_workspace_id" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(s.ai_workspace_id || '') + '" placeholder="wrkspc_... — з console.anthropic.com">']
   ]);
 
+  // Окреме збереження Workspace ID з перевіркою відповіді сервера
+  var wsRow = el('div', { style: 'margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;' });
+  var wsBtn = el('button', { class: 'btn small primary' }, ['💾 Зберегти Workspace ID']);
+  var wsInfo = el('span', { class: 'page-sub', style: 'margin:0;' }, [s.ai_workspace_id ? 'Збережено: ' + s.ai_workspace_id : 'Не задано']);
+  wsBtn.onclick = function () {
+    var v = document.getElementById('s_ai_workspace_id').value.trim();
+    wsBtn.disabled = true;
+    apiCall('saveSetting', { key: 'ai_workspace_id', value: v }).then(function (map) {
+      wsBtn.disabled = false;
+      if (map && typeof map === 'object') { STATE.db.settings = map; Storage.saveCache(); }
+      var saved = map && map.ai_workspace_id != null ? String(map.ai_workspace_id) : '';
+      if (saved === v) { wsInfo.textContent = v ? 'Збережено на сервері: ' + v : 'Очищено'; toast('Workspace ID збережено', 'success'); }
+      else { wsInfo.textContent = 'Сервер не підтвердив збереження'; toast('Сервер не зберіг значення — онови Code.gs і зроби нове розгортання', 'error'); }
+    }).catch(function (e) { wsBtn.disabled = false; toast('Помилка: ' + (e && e.message || e), 'error'); });
+  };
+  wsRow.appendChild(wsBtn); wsRow.appendChild(wsInfo);
+  aiCard.appendChild(wsRow);
   sheetsCard.appendChild(inviteWrap);
   // Щоденний автобекап (лише ADMIN; бекенд-дії доступні тільки йому)
   var backupCard = null;
@@ -4107,7 +4143,7 @@ V9.renderAutoPage = function (main, param) {
   }
 };
 
-function itemKey_(it) { return it.work_id + '|' + (it.stage || ''); }
+function itemKey_(it) { return it._key || (it._key = (it.work_id || ('n:' + it.name)) + '|' + (it.stage || '')); }
 function effective_(w, it) {
   var ov = w.overrides[itemKey_(it)] || {};
   return { checked: ov.checked != null ? ov.checked : it.checked, quantity: ov.quantity != null ? ov.quantity : it.quantity };
@@ -4190,50 +4226,81 @@ function drawProposal_(wrap, w, rerun) {
     totalsEl.innerHTML = '';
     [['Роботи (клієнту)', fmtMoney(labor)], ['Матеріали (орієнтовно)', w.include_materials ? fmtMoney(mat) : 'не включено'],
      ['Логістика', p.vars && p.vars.distance_km ? 'авто, ' + fmtNum(p.vars.distance_km) + ' км' : 'вкажи відстань'],
-     ['Разом без логістики', fmtMoney(labor + (w.include_materials ? mat : 0))], ['Маржа на роботах', labor ? ((labor - cost) / labor * 100).toFixed(1) + '%' : '—']]
+     ['Разом без логістики', fmtMoney(labor + (w.include_materials ? mat : 0))]].concat(canSeeCost_() ? [['Маржа на роботах', labor ? ((labor - cost) / labor * 100).toFixed(1) + '%' : '—']] : [])
       .forEach(function (x) { totalsEl.appendChild(el('div', {}, [el('span', {}, [x[0]]), el('b', {}, [x[1]])])); });
   }
   if (!items.length && !w.extras.length) wCard.appendChild(el('div', { class: 'page-sub' }, ['Роботи ще не визначено — дай відповідь на питання вище або уточни опис.']));
   else {
+    var showCost = canSeeCost_();
+    var heads = showCost ? ['', 'Робота', 'К-сть', 'Од.', 'Собівартість', 'Мій дохід', 'Ціна клієнту', 'Сума'] : ['', 'Робота', 'К-сть', 'Од.', 'Ціна клієнту', 'Сума'];
+    var NC = String(heads.length);
     var t = el('table', { class: 'v9t' });
-    t.appendChild(el('thead', {}, [el('tr', {}, ['', 'Робота', 'К-сть', 'Од.', 'Ціна клієнту', 'Сума'].map(function (h) { return el('th', {}, [h]); }))]));
+    t.appendChild(el('thead', {}, [el('tr', {}, heads.map(function (h) { return el('th', {}, [h]); }))]));
     var tb = el('tbody'); var lastStage = null;
+    function r2(x) { return Math.round((Number(x) || 0) * 100) / 100; }
+    // собівартість + мій дохід = ціна клієнту: редагується будь-яка з трьох, решта підлаштовується
+    function priceCells(obj, store, qtyGet, sumCell) {
+      var cost = Number(obj.contractor_price) || 0, client = Number(obj.client_price) || 0;
+      var income = client - cost;
+      var pct = (obj.markup_type === 'percent' && cost > 0) ? (client - cost) / cost : null;
+      var ci = input_({ type: 'number', step: 'any', value: r2(cost), style: 'width:90px;' });
+      var ii = input_({ type: 'number', step: 'any', value: r2(income), style: 'width:90px;' });
+      var cl = input_({ type: 'number', step: 'any', value: r2(client), style: 'width:90px;' });
+      function commit(src) {
+        client = r2(client); cost = r2(cost); income = r2(income);
+        obj.contractor_price = cost; obj.client_price = client;
+        store.price_edited = true; store.client_price = client; store.contractor_price = cost;
+        if (src !== 'c') ci.value = cost; if (src !== 'i') ii.value = income; if (src !== 'l') cl.value = client;
+        var q = qtyGet();
+        sumCell.textContent = q ? fmtMoney(client * q) : '—';
+        recalc();
+      }
+      ci.oninput = function () { cost = Number(ci.value) || 0; income = pct != null ? cost * pct : income; client = cost + income; commit('c'); };
+      ii.oninput = function () { income = Number(ii.value) || 0; pct = null; client = cost + income; commit('i'); };
+      cl.oninput = function () { client = Number(cl.value) || 0; income = client - cost; pct = null; commit('l'); };
+      if (!showCost) {
+        // без права бачити собівартість — лише ціна клієнту; собівартість лишається з прайсу на сервері
+        cl.oninput = function () { client = Number(cl.value) || 0; obj.client_price = r2(client); store.price_edited = true; store.client_price = r2(client);
+          var q = qtyGet(); sumCell.textContent = q ? fmtMoney(client * q) : '—'; recalc(); };
+        return [el('td', {}, [cl])];
+      }
+      return [el('td', {}, [ci]), el('td', {}, [ii]), el('td', {}, [cl])];
+    }
+    function nameUnit(obj, store, extraEls) {
+      var ni = input_({ value: obj.name, style: 'width:100%;min-width:170px;' });
+      ni.oninput = function () { obj.name = ni.value; store.name = ni.value; };
+      var ui = input_({ value: obj.unit || '', style: 'width:58px;' });
+      ui.oninput = function () { obj.unit = ui.value; store.unit = ui.value; };
+      return { nameCell: el('td', {}, [ni].concat(extraEls || [])), unitCell: el('td', {}, [ui]) };
+    }
     items.forEach(function (it) {
-      if (it.stage !== lastStage) { lastStage = it.stage; tb.appendChild(el('tr', { class: 'v9-stage' }, [el('td', { colspan: '6' }, [it.stage || 'Роботи'])])); }
+      var ovInit = w.overrides[itemKey_(it)];
+      if (ovInit) {
+        if (ovInit.name) it.name = ovInit.name;
+        if (ovInit.unit) it.unit = ovInit.unit;
+        if (ovInit.price_edited) { it.client_price = ovInit.client_price; if (ovInit.contractor_price != null) it.contractor_price = ovInit.contractor_price; }
+      }
+      if (it.stage !== lastStage) { lastStage = it.stage; tb.appendChild(el('tr', { class: 'v9-stage' }, [el('td', { colspan: NC }, [it.stage || 'Роботи'])])); }
       var e = effective_(w, it);
       var cb = el('input', { type: 'checkbox' }); cb.checked = !!e.checked;
       var q = input_({ type: 'number', step: 'any', value: e.quantity == null ? '' : e.quantity, placeholder: '?', style: 'width:90px;' });
       var sum = el('td', { class: 'num' }, [e.quantity ? fmtMoney(it.client_price * e.quantity) : '—']);
-      var nameCell = el('td', {}, [el('div', {}, [it.name,
-        it.is_new ? el('span', { class: 'badge blue', style: 'margin-left:6px;' }, ['нова позиція']) : null,
-        it.doubtful && !it.is_new ? el('span', { class: 'badge gold', style: 'margin-left:6px;' }, ['⚠ сумнівно — підтверди']) : null,
-        it.source === 'ai' ? el('span', { class: 'badge gray', style: 'margin-left:6px;' }, ['AI']) : null])]);
-      if (it.note) nameCell.appendChild(el('div', { class: 'v9-reason', style: 'color:var(--gold);' }, ['⚠ ' + it.note]));
-      if (it.reason) nameCell.appendChild(el('div', { class: 'v9-reason' }, [it.reason]));
-      if (it.missing && it.missing.length && e.quantity == null) nameCell.appendChild(el('div', { class: 'v9-reason', style: 'color:var(--v9-red);' }, ['потрібно: ' + it.missing.map(varLabel_).join(', ')]));
-      if (it.quantity_formula && isNaN(Number(it.quantity_formula))) nameCell.appendChild(el('div', { class: 'v9-reason' }, ['формула: ' + it.quantity_formula]));
-      var priceCell;
-      if (it.is_new) {
-        // нової позиції немає в прайсі — ціну виконавця можна виправити прямо тут
-        var pi = input_({ type: 'number', step: 'any', value: it.contractor_price, style: 'width:90px;' });
-        pi.title = 'Ціна виконавця, грн — клієнтська порахується з націнкою';
-        pi.oninput = function () {
-          var ov = w.overrides[itemKey_(it)] || (w.overrides[itemKey_(it)] = {});
-          ov.contractor_price = Number(pi.value) || 0;
-          it.contractor_price = ov.contractor_price;
-          it.client_price = it.markup_type === 'fixed' ? it.contractor_price + (it.markup_value || 0)
-            : it.contractor_price * (1 + (it.markup_value || 0) / 100);
-          var ee2 = effective_(w, it);
-          sum.textContent = ee2.quantity ? fmtMoney(it.client_price * ee2.quantity) : '—';
-          recalc();
-        };
-        priceCell = el('td', {}, [pi, el('div', { class: 'v9-reason' }, ['виконавцю; клієнту ≈ ' + fmtMoney(it.client_price)])]);
-      } else priceCell = el('td', { class: 'num' }, [fmtMoney(it.client_price)]);
-      var tr = el('tr', { class: e.checked ? '' : 'v9-off' }, [el('td', {}, [cb]), nameCell, el('td', {}, [q]), el('td', {}, [it.unit]), priceCell, sum]);
+      var info = [el('div', {}, [
+        it.is_new ? el('span', { class: 'badge blue', style: 'margin-right:6px;' }, ['нова позиція']) : null,
+        it.doubtful && !it.is_new ? el('span', { class: 'badge gold', style: 'margin-right:6px;' }, ['⚠ сумнівно — підтверди']) : null,
+        it.source === 'ai' ? el('span', { class: 'badge gray' }, ['AI']) : null])];
+      if (it.note) info.push(el('div', { class: 'v9-reason', style: 'color:var(--gold);' }, ['⚠ ' + it.note]));
+      if (it.reason) info.push(el('div', { class: 'v9-reason' }, [it.reason]));
+      if (it.missing && it.missing.length && e.quantity == null) info.push(el('div', { class: 'v9-reason', style: 'color:var(--v9-red);' }, ['потрібно: ' + it.missing.map(varLabel_).join(', ')]));
+      if (it.quantity_formula && isNaN(Number(it.quantity_formula))) info.push(el('div', { class: 'v9-reason' }, ['формула: ' + it.quantity_formula]));
+      var store = w.overrides[itemKey_(it)] || (w.overrides[itemKey_(it)] = {});
+      var nu = nameUnit(it, store, info);
+      var pcs = priceCells(it, store, function () { return Number(effective_(w, it).quantity) || 0; }, sum);
+      var tr = el('tr', { class: e.checked ? '' : 'v9-off' }, [el('td', {}, [cb]), nu.nameCell, el('td', {}, [q]), nu.unitCell].concat(pcs).concat([sum]));
       function save() {
         var ov = w.overrides[itemKey_(it)] || (w.overrides[itemKey_(it)] = {});
         ov.checked = cb.checked;
-        if (q.value !== '' && Number(q.value) !== it.quantity) ov.quantity = Number(q.value); else if (q.value === '' ) delete ov.quantity; else delete ov.quantity;
+        if (q.value !== '' && Number(q.value) !== it.quantity) ov.quantity = Number(q.value); else delete ov.quantity;
         var ee = effective_(w, it);
         tr.className = ee.checked ? '' : 'v9-off';
         sum.textContent = ee.quantity ? fmtMoney(it.client_price * ee.quantity) : '—';
@@ -4243,19 +4310,46 @@ function drawProposal_(wrap, w, rerun) {
       tb.appendChild(tr);
     });
     if (w.extras.length) {
-      tb.appendChild(el('tr', { class: 'v9-stage' }, [el('td', { colspan: '6' }, ['Додано вручну'])]));
+      tb.appendChild(el('tr', { class: 'v9-stage' }, [el('td', { colspan: NC }, ['Додано вручну'])]));
       w.extras.forEach(function (x, i) {
         var q = input_({ type: 'number', step: 'any', value: x.quantity, style: 'width:90px;' });
         var sum = el('td', { class: 'num' }, [fmtMoney(x.client_price * x.quantity)]);
         q.oninput = function () { x.quantity = Number(q.value) || 0; sum.textContent = fmtMoney(x.client_price * x.quantity); recalc(); };
         var del = btn_('✕', 'small danger', function () { w.extras.splice(i, 1); wrap.innerHTML = ''; drawProposal_(wrap, w, rerun); });
-        tb.appendChild(el('tr', {}, [el('td', {}, [del]), el('td', {}, [x.name]), el('td', {}, [q]), el('td', {}, [x.unit]), el('td', { class: 'num' }, [fmtMoney(x.client_price)]), sum]));
+        var nu2 = nameUnit(x, x, []);
+        var pcs2 = priceCells(x, x, function () { return Number(x.quantity) || 0; }, sum);
+        tb.appendChild(el('tr', {}, [el('td', {}, [del]), nu2.nameCell, el('td', {}, [q]), nu2.unitCell].concat(pcs2).concat([sum])));
       });
     }
     t.appendChild(tb);
     wCard.appendChild(el('div', { style: 'overflow-x:auto;' }, [t]));
   }
-  wCard.appendChild(el('div', { style: 'margin-top:10px;' }, [btn_('+ Додати роботу з прайсу', 'small', function () {
+  wCard.appendChild(el('div', { class: 'v9-row', style: 'margin-top:10px;' }, [btn_('+ Додати вручну (не з прайсу)', 'small', function () {
+    var mb = el('div');
+    var dmk = num_(settings_().default_markup_value, 25);
+    mb.appendChild(formField('Назва роботи *', '<input id="mw_name">'));
+    mb.appendChild(formField('Одиниця', '<input id="mw_unit" value="м²">'));
+    mb.appendChild(formField('Кількість *', '<input id="mw_qty" type="number" step="any" value="1">'));
+    if (canSeeCost_()) {
+      mb.appendChild(formField('Собівартість (виконавцю), грн за од.', '<input id="mw_cost" type="number" step="any" value="0">'));
+      mb.appendChild(formField('Націнка, %', '<input id="mw_mk" type="number" step="any" value="' + dmk + '">'));
+    } else mb.appendChild(formField('Ціна клієнту, грн за од.', '<input id="mw_cl" type="number" step="any" value="0">'));
+    var ac = el('div', { class: 'form-actions' });
+    var cn = el('button', { class: 'btn' }, ['Скасувати']); cn.onclick = closeModal;
+    var okb = el('button', { class: 'btn primary' }, ['Додати']);
+    okb.onclick = function () {
+      var nm = document.getElementById('mw_name').value.trim(), qn = Number(document.getElementById('mw_qty').value) || 0;
+      if (!nm || !(qn > 0)) { toast('Вкажи назву та кількість', 'error'); return; }
+      var cp = 0, cl2 = 0;
+      if (canSeeCost_()) { cp = Number(document.getElementById('mw_cost').value) || 0; cl2 = cp * (1 + (Number(document.getElementById('mw_mk').value) || 0) / 100); }
+      else cl2 = Number(document.getElementById('mw_cl').value) || 0;
+      w.extras.push({ work_id: null, name: nm, unit: document.getElementById('mw_unit').value.trim() || 'шт', quantity: qn,
+        contractor_price: cp, client_price: Math.round(cl2 * 100) / 100, price_edited: true, markup_type: 'percent' });
+      closeModal(); wrap.innerHTML = ''; drawProposal_(wrap, w, rerun);
+    };
+    ac.appendChild(cn); ac.appendChild(okb); mb.appendChild(ac);
+    openModal('Робота вручну', mb);
+  }), btn_('+ Додати роботу з прайсу', 'small', function () {
     V9.pickWork(function (wk, qty) {
       var mt = wk.default_markup_type || 'percent', mv = Number(wk.default_markup) || 0, cp = Number(wk.contractor_price) || 0;
       w.extras.push({ work_id: wk.id, name: wk.name, unit: wk.unit, quantity: qty, contractor_price: cp, client_price: mt === 'percent' ? cp * (1 + mv / 100) : cp + mv });
@@ -4275,43 +4369,50 @@ function drawProposal_(wrap, w, rerun) {
     p.materials_source === 'ai' ? 'Матеріали, визначені за технологією (AI) — включити в кошторис' : 'Матеріали за нормами витрат — включити в кошторис']));
   function matList_() { return (p.materials || []).concat(w.extraMats); }
   function matEff_(m) { var ov = w.matOverrides[m.key] || {}; return { checked: ov.checked != null ? ov.checked : m.checked !== false,
-    quantity: ov.quantity != null ? ov.quantity : m.quantity, price: ov.price != null ? ov.price : m.price }; }
+    quantity: ov.quantity != null ? ov.quantity : m.quantity, price: ov.price != null ? ov.price : m.price,
+    name: ov.name != null ? ov.name : m.name, unit: ov.unit != null ? ov.unit : m.unit, client_price: ov.client_price }; }
   function drawMats() {
     matBody.innerHTML = '';
     var list = matList_();
     if (!list.length) matBody.appendChild(el('div', { class: 'page-sub' }, ['Матеріалів не запропоновано. Додай вручну або задай норми витрат у «Шаблони і норми».']));
     else {
       var mt = el('table', { class: 'v9t' });
-      mt.appendChild(el('thead', {}, [el('tr', {}, ['', 'Матеріал', 'К-сть', 'Од.', 'Ціна закупівлі', 'Клієнту', 'Сума'].map(function (h) { return el('th', {}, [h]); }))]));
+      mt.appendChild(el('thead', {}, [el('tr', {}, ['', 'Матеріал', 'К-сть', 'Од.', 'Ціна закупівлі', 'Ціна клієнту', 'Сума'].map(function (h) { return el('th', {}, [h]); }))]));
       var mb = el('tbody');
       list.forEach(function (m) {
         var e2 = matEff_(m);
         var cb2 = el('input', { type: 'checkbox' }); cb2.checked = !!e2.checked;
         var qi = input_({ type: 'number', step: 'any', value: e2.quantity == null ? '' : e2.quantity, placeholder: '?', style: 'width:85px;' });
         var pi2 = input_({ type: 'number', step: 'any', value: e2.price == null ? '' : e2.price, style: 'width:90px;' });
-        var clientCell = el('td', { class: 'num' }, []);
+        var cli = input_({ type: 'number', step: 'any', value: '', style: 'width:90px;' });
+        var clientCell = el('td', {}, [cli]);
         var sumCell = el('td', { class: 'num' }, []);
-        var nameCell2 = el('td', {}, [el('div', {}, [m.name,
-          m.is_new ? el('span', { class: 'badge blue', style: 'margin-left:6px;' }, ['нова']) : null])]);
+        var ni2 = input_({ value: e2.name, style: 'width:100%;min-width:170px;' });
+        var ui2 = input_({ value: e2.unit || '', style: 'width:58px;' });
+        var nameCell2 = el('td', {}, [ni2, el('div', {}, [m.is_new ? el('span', { class: 'badge blue' }, ['нова']) : null])]);
         if (m.reason) nameCell2.appendChild(el('div', { class: 'v9-reason' }, [m.reason]));
         if (m.note) nameCell2.appendChild(el('div', { class: 'v9-reason', style: 'color:var(--gold);' }, ['⚠ ' + m.note]));
         if ((m.for_works || []).length) nameCell2.appendChild(el('div', { class: 'v9-reason' }, ['для: ' + m.for_works.join(', ')]));
         if (m.missing && m.missing.length && e2.quantity == null) nameCell2.appendChild(el('div', { class: 'v9-reason', style: 'color:var(--red);' }, ['потрібно: ' + m.missing.map(varLabel_).join(', ')]));
-        var tr2 = el('tr', { class: e2.checked ? '' : 'v9-off' }, [el('td', {}, [cb2]), nameCell2, el('td', {}, [qi]), el('td', {}, [m.unit]), el('td', {}, [pi2]), clientCell, sumCell]);
-        function upd2() {
+        var tr2 = el('tr', { class: e2.checked ? '' : 'v9-off' }, [el('td', {}, [cb2]), nameCell2, el('td', {}, [qi]), el('td', {}, [ui2]), el('td', {}, [pi2]), clientCell, sumCell]);
+        function upd2(ev) {
           var ov = w.matOverrides[m.key] || (w.matOverrides[m.key] = {});
           ov.checked = cb2.checked;
           ov.quantity = qi.value === '' ? null : Number(qi.value);
           ov.price = pi2.value === '' ? 0 : Number(pi2.value);
+          ov.name = ni2.value; ov.unit = ui2.value;
           var mk = m.markup_value != null ? m.markup_value : num_(settings_().material_markup_pct, 10);
-          var client = ov.price * (1 + mk / 100);
+          var client;
+          if (ev && ev.target === cli) { client = Number(cli.value) || 0; ov.client_price = Math.round(client * 100) / 100; }
+          else if (ov.client_price != null && !(ev && ev.target === pi2)) client = ov.client_price;   // ціну клієнту вже виправили вручну
+          else { client = ov.price * (1 + mk / 100); if (ev && ev.target === pi2) delete ov.client_price; }
           m.client_price = Math.round(client * 100) / 100;
-          clientCell.textContent = fmtMoney(client);
+          if (!(ev && ev.target === cli)) cli.value = m.client_price;
           sumCell.textContent = ov.quantity ? fmtMoney(client * ov.quantity) : '—';
           tr2.className = ov.checked ? '' : 'v9-off';
           recalc();
         }
-        cb2.onchange = qi.oninput = pi2.oninput = upd2;
+        cb2.onchange = qi.oninput = pi2.oninput = cli.oninput = ni2.oninput = ui2.oninput = upd2;
         upd2();
         mb.appendChild(tr2);
       });
@@ -4335,7 +4436,7 @@ function drawProposal_(wrap, w, rerun) {
   V9._matLines = function () {
     return matList_().map(function (m) {
       var e3 = matEff_(m);
-      return { material_id: m.material_id || '', name: m.name, unit: m.unit, quantity: e3.quantity, price: e3.price,
+      return { material_id: m.material_id || '', name: e3.name || m.name, unit: e3.unit || m.unit, quantity: e3.quantity, price: e3.price,
                markup_value: m.markup_value, client_price: m.client_price, checked: e3.checked, is_new: !!m.is_new,
                reason: m.reason || '', for_works: m.for_works || [] };
     }).filter(function (m) { return m.checked && Number(m.quantity) > 0; });
@@ -4366,11 +4467,14 @@ function applyScope_(w, button) {
       reason: it.reason, note: it.note, source: it.source, checked: true,
       // власна позиція (немає в прайсі) — передаємо назву, одиницю і ціну
       name: it.name, unit: it.unit, is_new: !!it.is_new,
+      name_override: ov.name || undefined, unit_override: ov.unit || undefined,
+      client_price_override: ov.price_edited ? ov.client_price : undefined,
       contractor_price: ov.contractor_price != null ? ov.contractor_price : it.contractor_price,
       markup_type: it.markup_type, markup_value: it.markup_value });
   });
   // a doubtful line the person explicitly ticked counts as confirmed; unticked are skipped
-  w.extras.forEach(function (x) { if (x.quantity > 0) lines.push({ work_id: x.work_id, quantity: x.quantity, stage: 'Додатково', reason: 'додано вручну', source: 'manual', checked: true, name: x.name, unit: x.unit, contractor_price: x.contractor_price }); });
+  w.extras.forEach(function (x) { if (x.quantity > 0) lines.push({ work_id: x.work_id, quantity: x.quantity, stage: 'Додатково', reason: 'додано вручну', source: 'manual', checked: true, name: x.name, unit: x.unit, name_override: x.name, unit_override: x.unit,
+    contractor_price: x.contractor_price, client_price_override: (x.price_edited || !x.work_id) ? x.client_price : undefined }); });
   if (bad.length) { toast('Немає кількості для: ' + bad.slice(0, 3).join(', ') + (bad.length > 3 ? '…' : '') + '. Дай відповідь на питання або вкажи вручну / зніми позицію.', 'error'); return; }
   if (!lines.length) { toast('Не вибрано жодної роботи', 'error'); return; }
   var req = (p.questions || []).filter(function (q) { return q.required && q.key !== 'scope_text' && (w.answers[q.key] == null || w.answers[q.key] === ''); });
@@ -5559,7 +5663,7 @@ var SETTING_GROUPS = [
   ['AI: модель, інструкції, веб-пошук', /^ai_(model|max_tokens|use_for_scope|web_search|extra_instructions)$/]
 ];
 var SETTINGS_IN_BASE_UI = ['company_name', 'company_slogan', 'default_markup_value', 'min_margin', 'target_margin', 'fuel_price', 'fuel_consumption',
-  'amortization_rate', 'logistics_coefficient', 'ai_provider', 'ai_api_key'];
+  'amortization_rate', 'logistics_coefficient', 'ai_provider', 'ai_api_key', 'ai_workspace_id'];
 var LONG_SETTINGS = ['doc_intro', 'doc_terms', 'ai_extra_instructions', 'company_legal', 'doc_footer'];
 
 function logoToDataUrl_(file) {
@@ -5767,20 +5871,31 @@ var Sync = (function () {
   try { if (typeof BroadcastChannel !== 'undefined') bc = new BroadcastChannel('budnex_sync_v1'); } catch (e) { bc = null; }
   var pending = null;
   function modalOpen_() { var m = document.getElementById('modalOverlay'); return m && m.classList.contains('open'); }
+  // Фонове оновлення перемальовує сторінку й стирає те, що людина зараз
+  // друкує (поле пошуку, налаштування, будь-яка форма не в модалці). Тому
+  // поки курсор у полі введення або щойно була клавіша — відкладаємо.
+  var lastTyped = 0;
+  ['keydown', 'input', 'paste'].forEach(function (ev) { document.addEventListener(ev, function () { lastTyped = Date.now(); }, true); });
+  function typingBusy_() {
+    var a = document.activeElement;
+    var inField = a && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable ||
+      (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|file|color)$/i.test(a.type || 'text')));
+    return !!inField || (Date.now() - lastTyped < 10000);
+  }
   function refresh(delay) {
     clearTimeout(pending);
     pending = setTimeout(function () {
       if (!Auth.getToken()) return;
-      if (modalOpen_()) { refresh(3000); return; } // не рвати людину посеред заповнення форми — спробувати трохи пізніше
+      if (modalOpen_() || typingBusy_()) { refresh(3000); return; } // не рвати людину посеред заповнення форми — спробувати трохи пізніше
       syncAll();
     }, delay || 400);
   }
   if (bc) bc.onmessage = function (e) { if (e && e.data && e.data.type === 'changed') refresh(250); };
   function announce(action) { if (bc) { try { bc.postMessage({ type: 'changed', action: action, at: Date.now() }); } catch (e) {} } }
   setInterval(function () {
-    if (document.visibilityState !== 'visible' || !Auth.getToken() || modalOpen_()) return;
+    if (document.visibilityState !== 'visible' || !Auth.getToken() || modalOpen_() || typingBusy_()) return;
     syncAll();
-  }, 25000);
+  }, 40000);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && Auth.getToken()) refresh(150);
   });
