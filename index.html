@@ -1,8 +1,16 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0c0c0c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BUDNEX">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
 <title>BUDNEX</title>
 <style>
 :root{
@@ -256,6 +264,48 @@ tr.v9-off td{opacity:.45;}
   .icon-btn{padding:7px 8px;font-size:13px;}
   .btn{padding:8px 12px;font-size:12.5px;}
 }
+
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;border-radius:10px;font-size:10.5px;font-weight:800;padding:1px 7px;}
+.tk-row:hover{background:var(--panel2);}
+
+/* ===== ЕТАП 22: мобільна версія ===== */
+#mSearchBtn,#tabbar{display:none;}
+body{padding-bottom:0;}
+@media(max-width:800px){
+  html,body{overscroll-behavior-y:none;}
+  #topbar{padding-top:env(safe-area-inset-top);height:calc(56px + env(safe-area-inset-top));}
+  #mSearchBtn{display:inline-flex;}
+  #syncBtn{font-size:0!important;min-width:40px;max-width:none!important;}#syncBtn::before{content:'🔄';font-size:17px;}
+  #userChipBtn{font-size:0!important;min-width:40px;}#userChipBtn::before{content:'👤';font-size:17px;}
+  #searchbox.m-open{display:block!important;position:fixed;top:calc(56px + env(safe-area-inset-top));left:0;right:0;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--border);z-index:170;}
+  #searchbox.m-open input{width:100%;font-size:16px;}
+  #searchbox.m-open #searchResults{max-height:60vh;overflow:auto;}
+  #main{padding:12px 12px calc(84px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;}
+  input,select,textarea,.v9-in{font-size:16px!important;}
+  .btn{min-height:40px;}
+  .btn.small{min-height:34px;}
+  .toolbar{gap:8px;}
+  .toolbar input,.toolbar select{flex:1 1 100%;min-width:0!important;}
+  #modalOverlay.open{align-items:flex-end;}
+  .modal,.modal.wide{width:100%!important;max-width:100%;max-height:92vh;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));animation:sheetUp .22s ease-out;}
+  @keyframes sheetUp{from{transform:translateY(40px);opacity:.4;}to{transform:none;opacity:1;}}
+  .form-actions{position:sticky;bottom:-18px;background:var(--panel);padding:10px 0 4px;flex-wrap:wrap;}
+  .form-actions .btn{flex:1 1 auto;}
+  #sidebar{padding-bottom:calc(80px + env(safe-area-inset-bottom));overflow-y:auto;}
+  #sidebar .nav-item{padding:13px 16px;font-size:15px;}
+  #toastWrap{bottom:calc(76px + env(safe-area-inset-bottom));}
+  #tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:120;background:var(--panel);border-top:1px solid var(--border);padding:6px 4px calc(6px + env(safe-area-inset-bottom));justify-content:space-around;box-shadow:0 -4px 20px rgba(0,0,0,.35);}
+  #tabbar .tb{position:relative;flex:1;background:none;border:0;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;font:inherit;font-size:10.5px;padding:4px 0;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  #tabbar .tb .tb-ic{font-size:21px;line-height:1.1;}
+  #tabbar .tb.active{color:var(--gold);font-weight:700;}
+  #tabbar .tb-plus .tb-ic{background:var(--gold);color:#000;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;margin-top:-18px;box-shadow:0 4px 14px rgba(242,194,0,.45);}
+  #tabbar .tb-badge{position:absolute;top:0;left:calc(50% + 6px);margin:0;}
+  .tk-row{padding:12px 10px!important;}
+  table.dt td,table.dt th{padding:9px 8px;}
+  .page-title{margin-top:2px;}
+}
+@media(display-mode:standalone){#syncBtn{display:inline-flex;}}
+@media print{#tabbar,#sidebar,#topbar,.toolbar,.no-print,#connBanner,#sidebarBackdrop{display:none!important;}#main{margin:0!important;padding:0!important;}body{background:#fff!important;color:#000!important;}.card,.chart-wrap{break-inside:avoid;}}
 </style>
 </head>
 <body>
@@ -306,6 +356,7 @@ tr.v9-off td{opacity:.45;}
       <div id="searchResults"></div>
     </div>
     <div class="top-actions">
+      <button class="icon-btn" id="mSearchBtn" aria-label="Пошук" onclick="mobileSearchToggle_()">🔍</button>
       <button class="icon-btn" id="userChipBtn">👤 —</button>
       <button class="icon-btn" id="syncBtn">🔄 Синхронізувати</button>
       <button class="icon-btn" id="bellBtn">🔔<span id="bellDot"></span></button>
@@ -321,6 +372,7 @@ tr.v9-off td{opacity:.45;}
     <div id="sidebar"></div>
     <div id="main"></div>
   </div>
+  <nav id="tabbar" aria-label="Навігація"></nav>
 </div>
 
 <div id="modalOverlay"><div class="modal" id="modalBox"></div></div>
@@ -359,6 +411,7 @@ var STATE = {
 // roles — запасний варіант лише там, де розділ не зводиться до одного ресурсу
 // (дашборд/обʼєкти/завдання — завжди видимі; календар/налаштування — особливі).
 var NAV = [
+  { id:'today', label:'Мій день', icon:'🗓️', roles:null },
   { id:'dashboard', label:'Дашборд', icon:'📊', roles:null },
   { id:'auto', label:'Авто-кошторис', icon:'⚡', resource:'estimates' },
   { id:'clients', label:'Клієнти', icon:'👤', resource:'clients' },
@@ -374,6 +427,8 @@ var NAV = [
   { id:'calendar', label:'Календар', icon:'📅', resource:'requests' },
   { id:'tasks', label:'Завдання', icon:'✅', roles:null },
   { id:'analytics', label:'Аналітика', icon:'📈', resource:'estimates' },
+  { id:'reports', label:'Звіти', icon:'🗒️', resource:'estimates' },
+  { id:'data', label:'Керування даними', icon:'🗄️', roles:['ADMIN'] },
   { id:'settings', label:'Налаштування', icon:'⚙️', roles:['ADMIN'] }
 ];
 
@@ -453,11 +508,11 @@ var Storage = {
   }
 };
 
-var MUTATIONS = ['createClient','updateClient','deleteClient','createRequest','updateRequest','deleteRequest',
+var MUTATIONS = ['adminSave','adminDelete','setUserNotify','createClient','updateClient','deleteClient','createRequest','updateRequest','deleteRequest',
   'createObject','updateObject','deleteObject','createWork','updateWork','deleteWork','createEstimate','updateEstimate',
   'deleteEstimate','addEstimateItem','updateEstimateItem','deleteEstimateItem','createPartner','updatePartner','deletePartner',
   'createTeam','updateTeam','deleteTeam','createAssignment','updateAssignment','createPayment','createExpense','createTask',
-  'updatePayment','deletePayment','updateExpense','deleteExpense','deleteAssignment','completeAssignment','reopenAssignment',
+  'deleteTask','markPaymentPaid','applyTaskScenario','updatePayment','deletePayment','updateExpense','deleteExpense','deleteAssignment','completeAssignment','reopenAssignment',
   'updateTask','markNotificationRead','saveSetting',
   // ЕТАП 5-8 mutations (planner, BOQ, materials/suppliers/packages, photos, documents, users) —
   // these were missing here, so a failed call while offline silently dropped the change
@@ -546,15 +601,72 @@ function flushQueue() {
 }
 
 var syncFailStreak_ = 0;
+/* Збереження стану екрана при фоновому оновленні: пошук, фільтри, вибір у
+   списках, позиція прокрутки й курсор. Без цього кожне оновлення даних
+   перемальовувало сторінку «з нуля» і людина втрачала введене. */
+var syncSig_ = '';
+function bootSig_(data) {
+  try { return JSON.stringify(data, function (k, v) { return (k === 'serverTime' || k === 'generated_at') ? undefined : v; }); } catch (e) { return String(Math.random()); }
+}
+function uiSnapshot_() {
+  var main = document.getElementById('main'), snap = { hash: location.hash, wy: window.pageYOffset || 0, my: main ? main.scrollTop : 0, f: [] };
+  if (!main) return snap;
+  var seen = {}, act = document.activeElement;
+  main.querySelectorAll('input,select,textarea').forEach(function (n) {
+    var t = (n.type || n.tagName).toLowerCase();
+    if (/^(file|password|button|submit|hidden)$/.test(t)) return;
+    var key = n.tagName + '|' + t + '|' + (n.placeholder || '') + '|' + (n.id || '') + '|' + (n.name || '');
+    seen[key] = (seen[key] || 0) + 1;
+    var rec = { key: key, n: seen[key], v: n.value, c: n.checked, focus: n === act };
+    if (n === act) { try { rec.ss = n.selectionStart; rec.se = n.selectionEnd; } catch (e) {} }
+    snap.f.push(rec);
+  });
+  return snap;
+}
+function uiRestore_(snap) {
+  if (!snap || snap.hash !== location.hash) return;
+  var main = document.getElementById('main'); if (!main) return;
+  var seen = {}, byKey = {};
+  main.querySelectorAll('input,select,textarea').forEach(function (n) {
+    var t = (n.type || n.tagName).toLowerCase();
+    if (/^(file|password|button|submit|hidden)$/.test(t)) return;
+    var key = n.tagName + '|' + t + '|' + (n.placeholder || '') + '|' + (n.id || '') + '|' + (n.name || '');
+    seen[key] = (seen[key] || 0) + 1; byKey[key + '#' + seen[key]] = n;
+  });
+  snap.f.forEach(function (r) {
+    var n = byKey[r.key + '#' + r.n]; if (!n) return;
+    var t = (n.type || '').toLowerCase();
+    // відновлюємо лише поля пошуку/тексту: списки й галочки можуть зберігати зміну
+    // одразу на сервер, тож їх не чіпаємо, щоб не перезаписати чужі правки
+    if (n.tagName === 'SELECT' || t === 'checkbox' || t === 'radio') return;
+    if (n.value !== r.v) {
+      n.value = r.v;
+      try { n.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    }
+    if (r.focus) { try { n.focus(); if (r.ss != null && n.setSelectionRange) n.setSelectionRange(r.ss, r.se); } catch (e) {} }
+  });
+  if (main) main.scrollTop = snap.my;
+  try { window.scrollTo(0, snap.wy); } catch (e) {}
+}
 function syncAll(ev) {
   var manual = !!(ev && ev.type === 'click');
   document.getElementById('syncBtn').textContent = '🔄 Синхронізація...';
   return apiCall('bootstrap', {}).then(function (data) {
+    var sig = bootSig_(data), unchanged = !manual && sig === syncSig_ && !!STATE.db;
+    syncSig_ = sig;
+    if (unchanged) {
+      // нічого не змінилось — не чіпаємо екран взагалі
+      syncFailStreak_ = 0; STATE.lastSync = new Date();
+      document.getElementById('syncBtn').textContent = '🔄 Синхронізувати';
+      try { updateBellDot(); } catch (e) {}
+      return;
+    }
+    var snap = uiSnapshot_();
     STATE.db = {
       settings: data.settings || {}, clients: data.clients || [], requests: data.requests || [],
       objects: data.objects || [], works: data.works || [], categories: data.categories || [],
       estimates: data.estimates || [], estimateItems: data.estimateItems || [], partners: data.partners || [],
-      teams: data.teams || [], assignments: data.assignments || [], payments: data.payments || [],
+      teams: data.teams || [], assignments: data.assignments || [], payments: data.payments || [], plannedPayments: data.plannedPayments || [],
       expenses: data.expenses || [], tasks: data.tasks || [], notifications: data.notifications || [],
       projects: data.projects || [], projectRooms: data.projectRooms || [], projectWalls: data.projectWalls || [],
       projectOpenings: data.projectOpenings || [], projectElements: data.projectElements || [], boq: data.boq || [],
@@ -576,6 +688,7 @@ function syncAll(ev) {
     Storage.saveCache();
     document.getElementById('syncBtn').textContent = '🔄 Синхронізувати';
     renderRoute();
+    uiRestore_(snap);
     updateBellDot();
   }).catch(function (err) {
     document.getElementById('syncBtn').textContent = '🔄 Синхронізувати';
@@ -816,10 +929,10 @@ var Bulk = (function () {
 /* ============================== ROUTER =================================== */
 function renderRoute() {
   closeSidebar_(); // будь-яка навігація одразу закриває мобільну шухляду меню
-  var hash = location.hash || '#/dashboard';
+  var hash = location.hash || '#/today';
   STATE.route = hash;
   var parts = hash.replace('#/', '').split('/');
-  var page = parts[0] || 'dashboard';
+  var page = parts[0] || 'today';
   var param = parts[1];
 
   document.querySelectorAll('#sidebar .nav-item').forEach(function (n) {
@@ -829,6 +942,7 @@ function renderRoute() {
   var main = document.getElementById('main');
   main.innerHTML = '';
   var renderers = {
+    today: renderToday, reports: renderReports, data: function () { renderData(main); },
     dashboard: renderDashboard, clients: function () { renderClients(main, param); },
     requests: renderRequests, objects: function () { renderObjects(main, param); },
     works: renderWorks, estimates: function () { renderEstimatesList(main, param); },
@@ -859,6 +973,7 @@ function renderRoute() {
     ]));
   }
   wrapTablesForMobile_(main);
+  try { updateNavBadges_(); } catch (e) {}
 }
 window.addEventListener('hashchange', renderRoute);
 
@@ -872,6 +987,10 @@ function buildSidebar() {
     item.onclick = function () { location.hash = '#/' + n.id; };
     sb.appendChild(item);
   });
+  var inst = el('div', { class: 'nav-item', 'data-id': '_install' }, [el('span', { class: 'ic' }, ['📲']), el('span', {}, ['Додаток на телефон'])]);
+  inst.onclick = function () { closeSidebar_(); openInstallGuide_(); };
+  sb.appendChild(inst);
+  try { buildTabbar_(); } catch (e) {}
 }
 // На вузькому екрані меню — висувна шухляда (клас .open на #sidebar), з
 // затемненням позаду. На десктопі ці класи просто ніколи не додаються/не
@@ -956,7 +1075,7 @@ function renderDashboard(main) {
   if (showCost) chartList.push(chartCard('Надходження по місяцях', monthlySeries_(db.payments.filter(function(p){return p.direction==='in';}), 'date', 'amount')));
   main.appendChild(el('div', { class: 'grid cols-2' }, chartList));
 
-  var notifs = db.notifications.filter(function (n) { return n.status !== 'read'; }).slice(-5).reverse();
+  var notifs = visibleNotifs_().filter(function (n) { return n.status !== 'read'; }).slice(-5).reverse();
   if (notifs.length) {
     var nc = el('div', { class: 'card', style: 'margin-top:18px;' });
     nc.appendChild(el('div', { class: 'chart-title' }, ['Останні сповіщення']));
@@ -2171,43 +2290,6 @@ function openAddManualMaterial(estimate) {
 }
 
 
-function renderObjectTasksTab(container, o) {
-  var tasks = STATE.db.tasks.filter(function (t) { return t.object_id === o.id; });
-  var addBtn = el('button', { class: 'btn small primary' }, ['+ Завдання']);
-  addBtn.onclick = function () { openTaskForm(o); };
-  container.appendChild(el('div', { style: 'margin-bottom:12px;' }, [addBtn]));
-  if (!tasks.length) container.appendChild(el('div', { class: 'page-sub' }, ['Немає завдань.']));
-  tasks.forEach(function (t) {
-    var row = el('div', { class: 'card', style: 'margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;' }, [
-      el('div', {}, [el('b', {}, [t.title]), el('div', { class: 'page-sub' }, [t.responsible + ' · ' + (t.priority || '') + ' · ' + fmtDate(t.deadline)])])
-    ]);
-    var sel = el('select', {});
-    TASK_STATUSES.forEach(function (s) { var opt = el('option', { value: s }, [TASK_STATUS_LABELS[s]]); if (t.status === s) opt.selected = true; sel.appendChild(opt); });
-    sel.onchange = function () { apiCall('updateTask', { id: t.id, status: sel.value }).then(function (res) { var i = STATE.db.tasks.findIndex(function(x){return x.id===t.id;}); STATE.db.tasks[i]=res; Storage.saveCache(); toast('Оновлено','success'); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); };
-    row.appendChild(sel);
-    container.appendChild(row);
-  });
-}
-function openTaskForm(o) {
-  var body = el('div');
-  body.appendChild(formField('Назва *', '<input id="f_title">'));
-  body.appendChild(formField('Відповідальний', '<input id="f_resp" value="Богдана">'));
-  body.appendChild(formField('Пріоритет', '<select id="f_prio"><option>висока</option><option>середня</option><option>низька</option></select>'));
-  body.appendChild(formField('Дедлайн', '<input type="date" id="f_deadline">'));
-  var actions = el('div', { class: 'form-actions' });
-  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
-  var save = el('button', { class: 'btn primary' }, ['Додати']);
-  save.onclick = function () {
-    var title = document.getElementById('f_title').value.trim();
-    if (!title) { toast('Вкажи назву завдання', 'error'); return; }
-    var data = { object_id: o.id, title: title, responsible: document.getElementById('f_resp').value, priority: document.getElementById('f_prio').value,
-      status: 'TODO', deadline: document.getElementById('f_deadline').value };
-    apiCall('createTask', data).then(function (res) { STATE.db.tasks.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success'); }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
-  };
-  actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
-  openModal('Нове завдання', body);
-}
-
 /* ==================== ЕТАП 5/6: PLANNING TAB (SVG PLANNER + BOQ) =========== */
 function svgEl(tag, attrs, children) {
   var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -3074,73 +3156,7 @@ function openPackageItemForm(pkg) {
 
 /* ============================== FINANCE ==================================== */
 /* ============================== CALENDAR (ЕТАП 8) =========================== */
-function renderCalendar(main) {
-  main.appendChild(el('div', { class: 'page-title' }, ['Календар']));
-  var cursor = STATE.ui.calendarCursor ? new Date(STATE.ui.calendarCursor) : new Date();
-  cursor.setDate(1);
-
-  function eventsFor(dateStr) {
-    var evts = [];
-    STATE.db.tasks.forEach(function (t) { if (t.deadline && t.deadline.slice(0, 10) === dateStr) evts.push({ type: 'task', label: t.title, obj: t.object_id }); });
-    STATE.db.assignments.forEach(function (a) { if (a.start_date && a.start_date.slice(0, 10) === dateStr) evts.push({ type: 'assignment', label: 'Виїзд бригади', obj: a.object_id }); });
-    STATE.db.objects.forEach(function (o) { if (o.planned_end_date && o.planned_end_date.slice(0, 10) === dateStr) evts.push({ type: 'deadline', label: 'Плановий кінець: ' + o.name, obj: o.id }); });
-    return evts;
-  }
-
-  var nav = el('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:14px;' });
-  var prevBtn = el('button', { class: 'btn small' }, ['←']);
-  var label = el('b', {}, [cursor.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' })]);
-  var nextBtn = el('button', { class: 'btn small' }, ['→']);
-  prevBtn.onclick = function () { cursor.setMonth(cursor.getMonth() - 1); STATE.ui.calendarCursor = cursor.toISOString(); renderRoute(); };
-  nextBtn.onclick = function () { cursor.setMonth(cursor.getMonth() + 1); STATE.ui.calendarCursor = cursor.toISOString(); renderRoute(); };
-  nav.appendChild(prevBtn); nav.appendChild(label); nav.appendChild(nextBtn);
-  main.appendChild(nav);
-
-  var grid = el('div', { class: 'grid', style: 'grid-template-columns:repeat(7,1fr);gap:6px;' });
-  ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].forEach(function (d) { grid.appendChild(el('div', { class: 'page-sub', style: 'text-align:center;font-weight:600;' }, [d])); });
-  var firstDay = new Date(cursor);
-  var startOffset = (firstDay.getDay() + 6) % 7; // Monday-first
-  var daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
-  for (var i = 0; i < startOffset; i++) grid.appendChild(el('div', {}));
-  var today = new Date().toISOString().slice(0, 10);
-  for (var d = 1; d <= daysInMonth; d++) {
-    var dateObj = new Date(cursor.getFullYear(), cursor.getMonth(), d);
-    var dateStr = dateObj.toISOString().slice(0, 10);
-    var evts = eventsFor(dateStr);
-    var cell = el('div', { class: 'card', style: 'min-height:70px;padding:6px;' + (dateStr === today ? 'border-color:var(--accent);' : '') }, [
-      el('div', { style: 'font-size:11px;color:var(--muted);' }, [String(d)])
-    ]);
-    evts.forEach(function (e) {
-      var color = e.type === 'task' ? '#3B82F6' : (e.type === 'assignment' ? '#F2C200' : '#EF4444');
-      var tag = el('div', { style: 'font-size:10px;background:' + color + '22;border-left:2px solid ' + color + ';padding:2px 4px;margin-top:3px;border-radius:3px;cursor:pointer;' }, [e.label.slice(0, 24)]);
-      tag.onclick = function () { if (e.obj) location.hash = '#/objects/' + e.obj; };
-      cell.appendChild(tag);
-    });
-    grid.appendChild(cell);
-  }
-  main.appendChild(grid);
-}
-
 /* ============================== TASKS ======================================= */
-function renderTasks(main) {
-  main.appendChild(el('div', { class: 'page-title' }, ['Завдання']));
-  var board = el('div', { class: 'kanban' });
-  TASK_STATUSES.forEach(function (status) {
-    var items = STATE.db.tasks.filter(function (t) { return t.status === status; });
-    var col = el('div', { class: 'kanban-col' }, [el('h4', {}, [TASK_STATUS_LABELS[status], el('span', {}, [String(items.length)])])]);
-    items.forEach(function (t) {
-      var o = byId(STATE.db.objects, t.object_id);
-      col.appendChild(el('div', { class: 'kanban-card' }, [
-        el('div', { class: 'kc-title' }, [t.title]),
-        el('div', { class: 'kc-meta' }, [(o ? o.name : '') + ' · ' + t.responsible]),
-        el('div', { class: 'kc-meta' }, ['до ' + fmtDate(t.deadline)])
-      ]));
-    });
-    board.appendChild(col);
-  });
-  main.appendChild(board);
-}
-
 /* ============================== ANALYTICS (ЕТАП 8) ========================== */
 function renderAnalytics(main) {
   main.appendChild(el('div', { class: 'page-title' }, ['Аналітика']));
@@ -3667,19 +3683,19 @@ function setupGlobalSearch() {
 
 /* ============================== NOTIFICATIONS ================================ */
 function updateBellDot() {
-  var unread = STATE.db.notifications.filter(function (n) { return n.status !== 'read'; }).length;
+  var unread = visibleNotifs_().filter(function (n) { return n.status !== 'read'; }).length;
   document.getElementById('bellDot').style.display = unread ? 'block' : 'none';
 }
 document.getElementById('bellBtn').addEventListener('click', function () {
   var body = el('div');
-  var unread = STATE.db.notifications.slice().reverse();
+  var unread = visibleNotifs_().slice().reverse();
   if (!unread.length) body.appendChild(el('p', {}, ['Немає сповіщень.']));
   unread.forEach(function (n) {
     body.appendChild(el('div', { class: 'card', style: 'margin-bottom:8px;' + (n.status === 'read' ? 'opacity:.55;' : '') }, [
       el('b', {}, [n.title]), el('div', { class: 'page-sub' }, [n.description || ''])
     ]));
   });
-  STATE.db.notifications.forEach(function (n) { if (n.status !== 'read') apiCall('markNotificationRead', { id: n.id }).then(function (res) { n.status = 'read'; }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); });
+  visibleNotifs_().forEach(function (n) { if (n.status !== 'read') apiCall('markNotificationRead', { id: n.id }).then(function (res) { n.status = 'read'; }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); }); });
   updateBellDot();
   openModal('Сповіщення', body);
 });
@@ -3711,6 +3727,7 @@ function openAccountMenu_() {
     }).catch(function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); });
   };
   body.appendChild(el('div', { style: 'margin-bottom:14px;' }, [changeBtn]));
+  body.appendChild(fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;' }, [fnBtn_('🔔 Нагадування', '', function () { openNotifySettings_(); }), fnBtn_('📲 Встановити додаток', '', function () { openInstallGuide_(); })]));
   var actions = el('div', { class: 'form-actions' });
   var closeBtn = el('button', { class: 'btn' }, ['Закрити']); closeBtn.onclick = closeModal;
   var logoutBtn = el('button', { class: 'btn danger' }, ['Вийти']); logoutBtn.onclick = function () { closeModal(); Auth.logout(); };
@@ -5822,7 +5839,7 @@ var Auth = (function () {
         hideLogin_();
         document.getElementById('app').style.display = 'flex';
         initApp();
-        if (!location.hash) location.hash = '#/dashboard';
+        if (!location.hash) location.hash = '#/today';
       }).catch(function (e) {
         btn.disabled = false; btn.textContent = 'Увійти';
         errEl.textContent = e.message || 'Не вдалося увійти'; errEl.style.display = 'block';
@@ -5883,7 +5900,7 @@ var Sync = (function () {
 // або результат уже видно лише в поточній вкладці — прев'ю, перевірка тощо)
 var SYNC_READONLY_ACTIONS = { ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
-  getFinanceOverview: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
+  getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
 var _syncOrigApiCall_ = apiCall;
 apiCall = function (action, data) {
@@ -5981,7 +5998,7 @@ var Fin = {
   load: function (force) {
     if (!canDo_('finance', 'view')) return Promise.resolve(null);
     if (!force && Fin.data && Date.now() - Fin.at < 15000) return Promise.resolve(Fin.data);
-    return apiCall('getFinanceOverview', {}).then(function (d) {
+    return Promise.resolve().then(function () { return apiCall('getFinanceOverview', {}); }).then(function (d) {
       if (!d || !Array.isArray(d.objects)) throw new Error('Некоректна відповідь сервера (оновіть Code.gs і опублікуйте нову версію)');
       Fin.data = d; Fin.at = Date.now(); return d;
     });
@@ -6279,6 +6296,8 @@ function openPaymentForm(arg) {
   var date = fnIn_({ type: 'date', value: existing ? fnDay_(existing.date) : fnToday_() });
   var method = fnSel_(['переказ', 'готівка', 'картка'], existing ? existing.payment_method : 'переказ');
   var desc = fnIn_({ value: existing ? (existing.description || '') : '', style: 'width:100%;', placeholder: 'коментар (необовʼязково)' });
+  var plannedCb = fh_('input', { type: 'checkbox' }); plannedCb.checked = existing ? String(existing.status) === 'planned' : !!opts.planned;
+  var plannedRow = fh_('label', { style: 'display:flex;gap:8px;align-items:center;margin:2px 0 8px;font-size:13px;cursor:pointer;' }, [plannedCb, '📅 Запланований платіж (за графіком, ще не відбувся)']);
   var preview = fh_('div', { style: 'background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0;line-height:1.55;' });
   var fillBtn = fnBtn_('Весь залишок', 'small', function () {});
   var inBtn, outBtn;
@@ -6358,11 +6377,15 @@ function openPaymentForm(arg) {
   body.appendChild(partnerRow);
   body.appendChild(fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [
     fnRow_('Сума, грн', fh_('div', { style: 'display:flex;gap:6px;align-items:center;' }, [amount, fillBtn])), fnRow_('Тип', typeSel)]));
+  body.appendChild(plannedRow);
   body.appendChild(preview);
-  body.appendChild(fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Дата', date), fnRow_('Спосіб', method)]));
+  var dateRow = fnRow_('Дата', date);
+  body.appendChild(fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [dateRow, fnRow_('Спосіб', method)]));
   body.appendChild(fnRow_('Коментар', desc));
   objSel.onchange = function () { fillPartners(); update(); };
   partnerSel.onchange = update; amount.oninput = update;
+  function syncPlanned() { dateRow.querySelector('label').textContent = plannedCb.checked ? 'Очікувана дата' : 'Дата'; save.textContent = existing ? 'Зберегти' : (plannedCb.checked ? 'Додати в графік' : 'Додати платіж'); }
+  plannedCb.onchange = function () { syncPlanned(); };
   var save = fnBtn_(existing ? 'Зберегти' : 'Додати платіж', 'primary', function () {
     var a = fnNum_(amount.value);
     if (!objSel.value) { toast('Обери обʼєкт', 'error'); return; }
@@ -6370,11 +6393,14 @@ function openPaymentForm(arg) {
     if (dir === 'out' && !partnerSel.value) { toast('Обери бригаду', 'error'); return; }
     var o = byId(STATE.db.objects, objSel.value) || {};
     var data = { object_id: objSel.value, client_id: o.client_id || '', direction: dir, amount: a, type: typeSel.value, date: date.value || fnToday_(),
-      payment_method: method.value, description: desc.value.trim(), partner_id: dir === 'out' ? partnerSel.value : '' };
+      payment_method: method.value, description: desc.value.trim(), partner_id: dir === 'out' ? partnerSel.value : '', status: plannedCb.checked ? 'planned' : 'paid' };
     var done = fnBusy_(save);
     var call = existing ? apiCall('updatePayment', Object.assign({ id: existing.id }, data)) : apiCall('createPayment', data);
     call.then(function (row) {
-      fnUpsert_('payments', row); Storage.saveCache(); closeModal(); Fin.invalidate();
+      var isPlanned = String(row.status) === 'planned';
+      if (isPlanned) { fnRemove_('payments', row.id); fnUpsert_('plannedPayments', row); } else { fnRemove_('plannedPayments', row.id); fnUpsert_('payments', row); }
+      Storage.saveCache(); closeModal(); Fin.invalidate();
+      if (isPlanned) { toast('Додано в графік платежів', 'success'); return fnAfterChange_(); }
       toast(existing ? 'Платіж змінено' : (dir === 'in' ? 'Платіж від клієнта додано' : 'Виплату бригаді додано'), 'success');
       return Fin.load(true).catch(function () {}).then(function () {
         var s = Fin.obj(row.object_id), b = s && s.brigades.filter(function (x) { return x.partner_id === row.partner_id; })[0];
@@ -6391,12 +6417,13 @@ function openPaymentForm(arg) {
   var actions = fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]);
   if (existing && canDo_('finance', 'delete')) actions.insertBefore(fnBtn_('Видалити', 'danger', function () {
     confirmAction('Видалити цей платіж? Борги перерахуються.', function () {
-      apiCall('deletePayment', { id: existing.id }).then(function () { fnRemove_('payments', existing.id); toast('Платіж видалено', 'success'); return fnAfterChange_(); }).catch(fnErr_);
+      apiCall('deletePayment', { id: existing.id }).then(function () { fnRemove_('payments', existing.id); fnRemove_('plannedPayments', existing.id); toast('Платіж видалено', 'success'); return fnAfterChange_(); }).catch(fnErr_);
     });
   }), actions.firstChild);
   body.appendChild(actions);
   openModal(existing ? 'Платіж' : 'Новий платіж', body);
   setDir(dir);
+  syncPlanned();
   if (canDo_('finance', 'view')) Fin.load().then(function () { if (document.body.contains(preview)) { fillPartners(); update(); } }).catch(function () {});
 }
 
@@ -6442,6 +6469,63 @@ function openContractForm(o, s) {
   });
   body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]));
   openModal('Сума договору', body);
+}
+
+
+/* ---- Графік платежів (планові оплати) ---- */
+function fnPlannedList_(objectId) {
+  return (STATE.db.plannedPayments || []).filter(function (p) { return !objectId || p.object_id === objectId; })
+    .sort(function (a, b) { return String(fnDay_(a.date)).localeCompare(String(fnDay_(b.date))); });
+}
+function fnMarkPaid_(p) {
+  apiCall('markPaymentPaid', { id: p.id }).then(function (row) {
+    fnRemove_('plannedPayments', p.id); fnUpsert_('payments', row); Storage.saveCache();
+    toast(p.direction === 'out' ? 'Виплату проведено' : 'Платіж отримано ✓', 'success');
+    return fnAfterChange_();
+  }).catch(fnErr_);
+}
+function fnScheduleBlock_(objectId, withObject) {
+  var list = fnPlannedList_(objectId), today = fnToday_();
+  var card = fh_('div', { 'class': 'card', style: 'margin:12px 0;' }, [fh_('div', { 'class': 'chart-title' }, ['📅 Графік платежів' + (list.length ? ' (' + list.length + ')' : '')])]);
+  if (!list.length) { card.appendChild(fh_('div', { 'class': 'page-sub' }, ['Запланованих платежів немає. Додайте очікувані оплати — і система нагадає про прострочені.'])); return card; }
+  list.forEach(function (p) {
+    var d = fnDay_(p.date), late = d && d < today, soon = d && !late && d <= tkAddDays_(7);
+    var who = p.direction === 'out' ? '➡ ' + fnPartnerName_(p.partner_id) : '⬅ ' + ((byId(STATE.db.clients, p.client_id) || {}).name || 'клієнт');
+    var row = fh_('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border);' }, [
+      fh_('b', { style: 'min-width:86px;color:' + (late ? 'var(--red)' : (soon ? 'var(--gold)' : 'inherit')) + ';' }, [fmtDate(d)]),
+      fh_('div', { style: 'flex:1 1 180px;' }, [who + (withObject ? ' · ' + fnObjName_(p.object_id) : ''), fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, [[p.type, p.description].filter(Boolean).join(' · ')])]),
+      late ? fnBadge_('прострочено ' + (-tkDaysBetween_(today, d)) + ' дн.', 'red') : null,
+      fh_('b', {}, [fmtMoney(p.amount)])]);
+    if (canDo_('finance', 'edit')) {
+      row.appendChild(fnBtn_(p.direction === 'out' ? '✓ Виплачено' : '✓ Отримано', 'small primary', function () { fnMarkPaid_(p); }));
+      row.appendChild(fnBtn_('✎', 'small', function () { openPaymentForm({ payment: p }); }, 'Змінити'));
+    }
+    card.appendChild(row);
+  });
+  return card;
+}
+function openSplitSchedule_(o, s) {
+  var due = Math.round(s.client_due);
+  if (!(due > 0)) { toast('Клієнт уже розрахувався — ділити нічого', 'error'); return; }
+  var n = fnIn_({ type: 'number', min: '2', max: '12', value: '2' }), first = fnIn_({ type: 'date', value: tkAddDays_(7) }), step = fnIn_({ type: 'number', min: '1', max: '90', value: '14' });
+  var prev = fh_('div', { 'class': 'page-sub' });
+  function upd() { var k = Math.max(2, Math.min(12, Math.round(fnNum_(n.value)) || 2)); prev.textContent = 'Залишок ' + fmtMoney(due) + ' буде поділено на ' + k + ' платежі приблизно по ' + fmtMoney(due / k) + '.'; }
+  n.oninput = upd; upd();
+  var save = fnBtn_('Створити графік', 'primary', function () {
+    var k = Math.max(2, Math.min(12, Math.round(fnNum_(n.value)) || 2)), st = Math.max(1, Math.round(fnNum_(step.value)) || 14), each = Math.floor(due / k);
+    var base = new Date(first.value + 'T12:00:00'), done = fnBusy_(save), chain = Promise.resolve();
+    for (var i = 0; i < k; i++) (function (i) {
+      chain = chain.then(function () {
+        var d = new Date(base); d.setDate(d.getDate() + i * st);
+        var ds = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+        return apiCall('createPayment', { object_id: o.id, client_id: o.client_id || '', direction: 'in', amount: i === k - 1 ? due - each * (k - 1) : each, type: i === k - 1 ? 'остаточний розрахунок' : 'поетапна оплата', date: ds, status: 'planned', description: 'Етап ' + (i + 1) + ' з ' + k })
+          .then(function (row) { fnUpsert_('plannedPayments', row); });
+      });
+    })(i);
+    chain.then(function () { Storage.saveCache(); closeModal(); toast('Графік створено: ' + k + ' платежі', 'success'); return fnAfterChange_(); }).catch(function (e) { done(); fnErr_(e); });
+  });
+  openModal('Розбити залишок на етапи', fh_('div', {}, [fnRow_('Скільки платежів', n), fnRow_('Дата першого', first), fnRow_('Інтервал між платежами, днів', step), prev,
+    fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save])]));
 }
 
 function fnBar_(pct) {
@@ -6513,8 +6597,13 @@ function renderObjectFinanceTab(container, o) {
       if (cost) bar.appendChild(fnBtn_('➡ Виплата бригаді', 'small', function () { openPaymentForm({ object_id: o.id, direction: 'out' }); }));
       bar.appendChild(fnBtn_('+ Витрата', 'small', function () { openExpenseForm({ object_id: o.id }); }));
     }
+    if (canDo_('finance', 'create')) {
+      bar.appendChild(fnBtn_('📅 Запланувати платіж', 'small', function () { openPaymentForm({ object_id: o.id, direction: 'in', planned: true }); }));
+      if (s.client_due > 0.5) bar.appendChild(fnBtn_('Розбити залишок на етапи', 'small', function () { openSplitSchedule_(o, s); }));
+    }
     if (canDo_('objects', 'edit')) bar.appendChild(fnBtn_('✎ Сума договору', 'small', function () { openContractForm(o, s); }));
     box.appendChild(bar);
+    box.appendChild(fnScheduleBlock_(o.id, false));
 
     if (cost) {
       box.appendChild(fh_('div', { 'class': 'chart-title', style: 'margin-top:12px;' }, ['Розрахунки з бригадами']));
@@ -6565,7 +6654,7 @@ function renderFinance(main) {
   var tabsBox = fh_('div', { 'class': 'tabs' }), content = fh_('div');
   main.appendChild(tabsBox); main.appendChild(content);
   var cost = canSeeCost_();
-  var defs = [['debts', 'Розрахунки по обʼєктах'], cost ? ['brigades', 'Бригади'] : null, ['payments', 'Платежі'], cost ? ['expenses', 'Витрати'] : null].filter(Boolean);
+  var defs = [['debts', 'Розрахунки по обʼєктах'], ['planned', 'Графік платежів'], cost ? ['brigades', 'Бригади'] : null, ['payments', 'Платежі'], cost ? ['expenses', 'Витрати'] : null].filter(Boolean);
   if (!STATE.ui.finTab || !defs.some(function (d) { return d[0] === STATE.ui.finTab; })) STATE.ui.finTab = 'debts';
   var data = null;
 
@@ -6584,7 +6673,9 @@ function renderFinance(main) {
       tabsBox.appendChild(b);
     });
     content.innerHTML = '';
-    if (STATE.ui.finTab === 'payments') {
+    if (STATE.ui.finTab === 'planned') {
+      content.appendChild(fnScheduleBlock_('', true));
+    } else if (STATE.ui.finTab === 'payments') {
       var pays = (STATE.db.payments || []).slice().sort(fnByDateDesc_);
       if (!pays.length) content.appendChild(fh_('div', { 'class': 'empty-state' }, ['Платежів ще немає.']));
       else content.appendChild(Bulk.wrap(fnPayRows_(pays, true), pays, { entity: 'payments', resource: 'finance', fields: [{ key: 'type', label: 'Тип' }, { key: 'payment_method', label: 'Спосіб', options: ['переказ', 'готівка', 'картка'] }, { key: 'date', label: 'Дата (РРРР-ММ-ДД)' }] }));
@@ -6660,6 +6751,914 @@ function renderFinance(main) {
   }
 }
 
+
+/* =============================================================================
+   ЕТАП 21 (інтерфейс): «МІЙ ДЕНЬ», завдання з виконавцями, календар, ЗВІТИ
+   ============================================================================= */
+function tkMe_() { return STATE.currentUser || {}; }
+function tkUsers_() { return (STATE.db.users || []).filter(function (u) { return u.active !== false && String(u.active).toLowerCase() !== 'false'; }); }
+function tkUserName_(id) { var u = tkUsers_().filter(function (x) { return x.id === id; })[0]; return u ? u.name : ''; }
+function tkAddDays_(n) { var d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function tkOwnerId_(t) {
+  if (t.assignee_user_id) return t.assignee_user_id;
+  var r = String(t.responsible || '').trim().toLowerCase();
+  if (r) { var u = tkUsers_().filter(function (x) { return String(x.name || '').trim().toLowerCase() === r; })[0]; if (u) return u.id; }
+  return '';
+}
+function tkMine_(t) { var oid = tkOwnerId_(t); if (oid) return oid === tkMe_().id; return currentRole_() === 'ADMIN' || isForeman_(); }
+function tkPrio_(t) { var s = String(t.priority || '').toLowerCase(); return /^(high|висок)/.test(s) ? 3 : (/^(low|низьк)/.test(s) ? 1 : 2); }
+function tkOpen_(t) { return t.status !== 'DONE'; }
+function tkBucket_(t, today) {
+  var d = fnDay_(t.deadline);
+  if (!d) return 'nodate';
+  if (d < today) return 'overdue';
+  if (d === today) return 'today';
+  if (d === tkAddDays_(1)) return 'tomorrow';
+  if (d <= tkAddDays_(7)) return 'week';
+  return 'later';
+}
+function tkFilterWho_(tasks, who) {
+  if (who === 'all') return tasks;
+  if (who === 'me' || !who) return tasks.filter(tkMine_);
+  if (who === 'none') return tasks.filter(function (t) { return !tkOwnerId_(t); });
+  return tasks.filter(function (t) { return tkOwnerId_(t) === who; });
+}
+function tkSort_(a, b) { return (tkPrio_(b) - tkPrio_(a)) || String(fnDay_(a.deadline) || '9999').localeCompare(String(fnDay_(b.deadline) || '9999')); }
+function tkDaysBetween_(from, to) { return Math.round((new Date(to + 'T12:00:00') - new Date(from + 'T12:00:00')) / 86400000); }
+
+function tkSetStatus_(t, status) {
+  return apiCall('updateTask', { id: t.id, status: status }).then(function (r) {
+    fnUpsert_('tasks', r); Storage.saveCache();
+    toast(status === 'DONE' ? 'Виконано ✓' : 'Повернуто в роботу', 'success');
+    if (status === 'DONE' && t.repeat) return syncAll();
+    renderRoute();
+  }).catch(function (e) { fnErr_(e); renderRoute(); });
+}
+
+// Рядок завдання: галочка, назва, де/для кого, виконавець, термін
+function tkRow_(t, o) {
+  o = o || {};
+  var done = t.status === 'DONE', today = fnToday_(), due = fnDay_(t.deadline);
+  var cb = fh_('input', { type: 'checkbox', style: 'width:20px;height:20px;flex:0 0 auto;cursor:pointer;' });
+  cb.checked = done;
+  cb.onclick = function (e) { e.stopPropagation(); };
+  cb.onchange = function () { tkSetStatus_(t, cb.checked ? 'DONE' : 'TODO'); };
+  var obj = byId(STATE.db.objects, t.object_id), cl = byId(STATE.db.clients, t.client_id || (obj && obj.client_id));
+  var prio = tkPrio_(t), dot = fh_('span', { title: 'Пріоритет', style: 'width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:' + (prio === 3 ? 'var(--red)' : (prio === 1 ? 'var(--muted)' : 'var(--gold)')) + ';' });
+  var meta = [];
+  if (obj) meta.push('🏗 ' + obj.name);
+  if (cl) meta.push('👤 ' + cl.name);
+  var who = tkOwnerId_(t) ? tkUserName_(tkOwnerId_(t)) || t.responsible : (t.responsible || '');
+  if (!o.hideWho) meta.push(who ? '👷 ' + who : '⚠ без виконавця');
+  var chip = null;
+  if (due && !done) {
+    var diff = tkDaysBetween_(today, due);
+    chip = diff < 0 ? fnBadge_('прострочено ' + (-diff) + ' дн.', 'red') : (diff === 0 ? fnBadge_('сьогодні', 'gold') : (diff === 1 ? fnBadge_('завтра', 'blue') : fnBadge_(fmtDate(due), 'gray')));
+  } else if (due) chip = fnBadge_(fmtDate(due), 'gray');
+  var row = fh_('div', { 'class': 'tk-row' + (done ? ' tk-done' : ''), style: 'display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;' }, [
+    cb, dot,
+    fh_('div', { style: 'flex:1 1 auto;min-width:0;' }, [
+      fh_('div', { style: 'font-weight:700;' + (done ? 'text-decoration:line-through;opacity:.6;' : '') }, [t.title]),
+      meta.length ? fh_('div', { 'class': 'page-sub', style: 'margin:2px 0 0;font-size:11.5px;' }, [meta.join('  ·  ')]) : null]),
+    t.repeat ? fh_('span', { title: 'Повторюється', style: 'font-size:12px;' }, ['🔁']) : null,
+    t.auto ? fh_('span', { title: 'Створено автоматично', style: 'font-size:11px;color:var(--muted);' }, ['авто']) : null,
+    chip]);
+  row.onclick = function () { openTaskEditor(t); };
+  return row;
+}
+
+// Створення / редагування завдання
+function openTaskEditor(arg) {
+  var t = arg || {}, editing = !!t.id, me = tkMe_();
+  var title = fnIn_({ value: t.title || '', placeholder: 'Що потрібно зробити?', style: 'width:100%;font-size:15px;' });
+  var desc = fh_('textarea', { 'class': 'v9-in', rows: '3', style: 'width:100%;', placeholder: 'Деталі (необовʼязково)' }); desc.value = t.description || '';
+  var users = tkUsers_();
+  var curOwner = editing ? tkOwnerId_(t) : (t.assignee_user_id || me.id || '');
+  var assignee = fnSel_([['', '— без виконавця —']].concat(users.map(function (u) { return [u.id, u.name + (u.id === me.id ? ' (я)' : '')]; })), curOwner, { style: 'width:100%;' });
+  var dl = fnIn_({ type: 'date', value: fnDay_(t.deadline) || (editing ? '' : fnToday_()) });
+  var quick = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;' }, [['Сьогодні', 0], ['Завтра', 1], ['+3 дні', 3], ['+тиждень', 7]].map(function (q) {
+    return fnBtn_(q[0], 'small', function () { dl.value = tkAddDays_(q[1]); });
+  }).concat([fnBtn_('Без дати', 'small', function () { dl.value = ''; })]));
+  var prioVal = ({ 3: 'висока', 2: 'середня', 1: 'низька' })[tkPrio_(t)];
+  var prio = fnSel_(['висока', 'середня', 'низька'], prioVal);
+  var objSel = fnSel_([['', '— без обʼєкта —']].concat((STATE.db.objects || []).map(function (o) { return [o.id, o.name]; })), t.object_id || '', { style: 'width:100%;' });
+  var cliSel = fnSel_([['', '— без клієнта —']].concat((STATE.db.clients || []).map(function (c) { return [c.id, c.name]; })), t.client_id || '', { style: 'width:100%;' });
+  objSel.onchange = function () { var o = byId(STATE.db.objects, objSel.value); if (o && !cliSel.value) cliSel.value = o.client_id || ''; };
+  var repeat = fnSel_([['', 'не повторювати'], ['daily', 'щодня'], ['weekly', 'щотижня'], ['monthly', 'щомісяця']], t.repeat || '');
+  var status = fnSel_(TASK_STATUSES.map(function (s) { return [s, TASK_STATUS_LABELS[s]]; }), t.status || 'TODO');
+  var remind = fnIn_({ type: 'datetime-local', value: t.remind_at ? String(t.remind_at).slice(0, 16) : '', style: 'width:100%;' });
+  var body = fh_('div', {}, [
+    fnRow_('Назва *', title), fnRow_('Опис', desc),
+    fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Виконавець', assignee), fnRow_('Пріоритет', prio)]),
+    fnRow_('Термін', fh_('div', {}, [dl, quick])),
+    fnRow_('Нагадати о (на email / Telegram)', remind, 'Необовʼязково. Нагадування надійде виконавцю в обрані ним канали (🔔 Нагадування).'),
+    fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Обʼєкт', objSel), fnRow_('Клієнт', cliSel)]),
+    fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Повтор', repeat), editing ? fnRow_('Статус', status) : null])]);
+  var save = fnBtn_(editing ? 'Зберегти' : 'Додати завдання', 'primary', function () {
+    if (!title.value.trim()) { toast('Вкажи назву завдання', 'error'); title.focus(); return; }
+    var data = { title: title.value.trim(), description: desc.value.trim(), assignee_user_id: assignee.value, priority: prio.value, deadline: dl.value,
+      object_id: objSel.value, client_id: cliSel.value, repeat: repeat.value, remind_at: remind.value };
+    if (!assignee.value) data.responsible = '';
+    if (editing) data.status = status.value;
+    var done = fnBusy_(save);
+    (editing ? apiCall('updateTask', Object.assign({ id: t.id }, data)) : apiCall('createTask', data)).then(function (r) {
+      fnUpsert_('tasks', r); Storage.saveCache(); closeModal();
+      var other = assignee.value && assignee.value !== me.id ? tkUserName_(assignee.value) : '';
+      toast(other ? 'Завдання призначено: ' + other + ' (отримає сповіщення)' : 'Збережено', 'success');
+      renderRoute();
+    }).catch(function (e) { done(); fnErr_(e); });
+  });
+  var actions = fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]);
+  if (editing && canDo_('tasks', 'delete')) actions.insertBefore(fnBtn_('Видалити', 'danger', function () {
+    confirmAction('Видалити це завдання?', function () { apiCall('deleteTask', { id: t.id }).then(function () { fnRemove_('tasks', t.id); Storage.saveCache(); toast('Видалено', 'success'); renderRoute(); }).catch(fnErr_); });
+  }), actions.firstChild);
+  body.appendChild(actions);
+  openModal(editing ? 'Завдання' : 'Нове завдання', body, { wide: true });
+  setTimeout(function () { try { title.focus(); } catch (e) {} }, 50);
+}
+function openTaskForm(o) { openTaskEditor({ object_id: o.id, client_id: o.client_id || '' }); }
+
+function renderObjectTasksTab(container, o) {
+  var tasks = (STATE.db.tasks || []).filter(function (t) { return t.object_id === o.id; });
+  container.appendChild(fh_('div', { style: 'margin-bottom:12px;' }, [fnBtn_('+ Завдання', 'small primary', function () { openTaskForm(o); })]));
+  if (!tasks.length) { container.appendChild(fh_('div', { 'class': 'page-sub' }, ['Немає завдань. Додай — і воно зʼявиться у «Моєму дні» виконавця.'])); return; }
+  var open = tasks.filter(tkOpen_).sort(tkSort_), done = tasks.filter(function (t) { return !tkOpen_(t); });
+  var card = fh_('div', { 'class': 'card', style: 'padding:0;' }, open.concat(done).map(function (t) { return tkRow_(t); }));
+  container.appendChild(card);
+}
+
+/* ================================ МІЙ ДЕНЬ ================================== */
+function tkTile_(label, value, sub, onclick, tone) {
+  var t = fh_('div', { 'class': 'kpi', style: 'cursor:pointer;' + (tone === 'bad' ? 'border-color:var(--red);' : (tone === 'warn' ? 'border-color:var(--gold);' : '')) }, [
+    fh_('div', { 'class': 'kpi-label' }, [label]), fh_('div', { 'class': 'kpi-value' }, [String(value)]), sub ? fh_('div', { 'class': 'page-sub', style: 'margin:2px 0 0;font-size:11.5px;' }, [sub]) : null]);
+  t.onclick = onclick; return t;
+}
+var TK_SECTIONS = [['overdue', '⏰ Прострочено', 'var(--red)', true], ['today', '📅 Сьогодні', 'var(--gold)', true], ['tomorrow', 'Завтра', '', true],
+  ['week', 'Цього тижня', '', false], ['later', 'Пізніше', '', false], ['nodate', 'Без терміну', '', false]];
+
+function renderToday(main) {
+  var me = tkMe_(), today = fnToday_(), isAdmin = currentRole_() === 'ADMIN';
+  var hr = new Date().getHours(), hello = hr < 5 ? 'Доброї ночі' : (hr < 12 ? 'Доброго ранку' : (hr < 18 ? 'Доброго дня' : 'Доброго вечора'));
+  main.appendChild(el('div', { 'class': 'page-title' }, [hello + (me.name ? ', ' + String(me.name).split(' ')[0] : '') + '!']));
+  main.appendChild(el('div', { 'class': 'page-sub' }, [new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' })]));
+  var allTasks = STATE.db.tasks || [];
+  var who = STATE.ui.todayWho || (isForeman_() ? 'all' : 'me');
+
+  // --- плитки для власника
+  if (isAdmin) {
+    var db = STATE.db, overdueAll = allTasks.filter(function (t) { return tkOpen_(t) && tkBucket_(t, today) === 'overdue'; }).length;
+    var newReq = (db.requests || []).filter(function (r) { return r.status === 'NEW'; }).length;
+    var inWork = (db.objects || []).filter(function (o) { return o.status === 'у роботі'; }).length;
+    var late = (db.objects || []).filter(function (o) { return o.status !== 'завершено' && fnDay_(o.planned_end_date) && fnDay_(o.planned_end_date) < today; }).length;
+    var tiles = [
+      tkTile_('Прострочені завдання (усі)', overdueAll, overdueAll ? 'у команді — натисни, щоб побачити' : 'усе вчасно 👍', function () { STATE.ui.todayWho = 'all'; renderRoute(); }, overdueAll ? 'bad' : ''),
+      tkTile_('Нові заявки', newReq, newReq ? 'чекають на обробку' : 'нових немає', function () { location.hash = '#/requests'; }, newReq ? 'warn' : ''),
+      tkTile_("Об'єкти в роботі", inWork, late ? late + ' з простроченим планом' : 'за планом', function () { location.hash = '#/objects'; }, late ? 'warn' : '')];
+    var moneyTile = tkTile_('Клієнти ще винні', '…', 'рахую', function () { location.hash = '#/finance'; });
+    if (canDo_('finance', 'view') && canSeeCost_()) tiles.push(moneyTile);
+    main.appendChild(fh_('div', { 'class': 'grid cols-4', style: 'margin:12px 0 16px;' }, tiles));
+    if (tiles.indexOf(moneyTile) >= 0) Fin.load().then(function (d) {
+      if (!moneyTile.isConnected || !d) return;
+      moneyTile.querySelector('.kpi-value').textContent = fmtMoney(d.totals.client_due);
+      moneyTile.lastChild.textContent = 'бригадам ще виплатити ' + fmtMoney(d.totals.brigades_due);
+    }).catch(function () { moneyTile.querySelector('.kpi-value').textContent = '—'; moneyTile.lastChild.textContent = 'не вдалося порахувати'; });
+  }
+
+  // --- швидке додавання
+  var qTitle = fnIn_({ placeholder: '＋ Нове завдання: напиши і натисни Enter', style: 'flex:1 1 220px;min-width:180px;font-size:14px;padding:10px;' });
+  var qWho = fnSel_(tkUsers_().map(function (u) { return [u.id, u.id === me.id ? 'Мені' : u.name]; }), me.id || '');
+  var qDate = fnSel_([['0', 'Сьогодні'], ['1', 'Завтра'], ['3', 'Через 3 дні'], ['7', 'Через тиждень'], ['', 'Без терміну']], '0');
+  function quickAdd() {
+    var v = qTitle.value.trim(); if (!v) return;
+    qTitle.disabled = true;
+    apiCall('createTask', { title: v, assignee_user_id: qWho.value, deadline: qDate.value === '' ? '' : tkAddDays_(Number(qDate.value)), priority: 'середня' }).then(function (r) {
+      fnUpsert_('tasks', r); Storage.saveCache(); renderRoute();
+    }).catch(function (e) { qTitle.disabled = false; fnErr_(e); });
+  }
+  qTitle.onkeydown = function (e) { if (e.key === 'Enter') quickAdd(); };
+  var addRow = fh_('div', { 'class': 'card', style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px;margin-bottom:14px;' }, [
+    qTitle, qWho, qDate, fnBtn_('Додати', 'primary', quickAdd), fnBtn_('Детально…', '', function () { openTaskEditor({ title: qTitle.value, assignee_user_id: qWho.value }); })]);
+  if (canDo_('tasks', 'create')) main.appendChild(addRow);
+
+  // --- чий день дивимось
+  var chips = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;' });
+  [['me', 'Мої'], ['all', 'Усі']].forEach(function (c) { chips.appendChild(fnBtn_(c[1], 'small' + (who === c[0] ? ' primary' : ''), function () { STATE.ui.todayWho = c[0]; renderRoute(); })); });
+  var others = tkUsers_().filter(function (u) { return u.id !== me.id; });
+  if (others.length) {
+    var pick = fnSel_([['', 'Колега…']].concat(others.map(function (u) { return [u.id, u.name]; })).concat([['none', 'Без виконавця']]), (who !== 'me' && who !== 'all') ? who : '');
+    pick.onchange = function () { if (pick.value) { STATE.ui.todayWho = pick.value; renderRoute(); } };
+    chips.appendChild(pick);
+  }
+  chips.appendChild(fh_('div', { 'class': 'spacer', style: 'flex:1' }));
+  chips.appendChild(fnBtn_('Усі завдання →', 'small', function () { location.hash = '#/tasks'; }));
+  main.appendChild(chips);
+
+  var list = tkFilterWho_(allTasks, who);
+  var open = list.filter(tkOpen_);
+  var groups = {}; open.forEach(function (t) { var b = tkBucket_(t, today); (groups[b] = groups[b] || []).push(t); });
+  var counts = fh_('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:13px;' }, [
+    fh_('span', { style: 'color:' + ((groups.overdue || []).length ? 'var(--red)' : 'var(--muted)') + ';font-weight:700;' }, ['Прострочено: ' + (groups.overdue || []).length]),
+    fh_('span', { style: 'font-weight:700;' }, ['Сьогодні: ' + (groups.today || []).length]), fh_('span', { 'class': 'page-sub', style: 'margin:0;' }, ['Завтра: ' + (groups.tomorrow || []).length]),
+    fh_('span', { 'class': 'page-sub', style: 'margin:0;' }, ['Цього тижня: ' + (groups.week || []).length])]);
+  main.appendChild(counts);
+  STATE.ui.tkOpen = STATE.ui.tkOpen || {};
+  if (!open.length) main.appendChild(fh_('div', { 'class': 'empty-state' }, [fh_('div', { style: 'font-size:40px;' }, ['🎉']), fh_('h3', {}, [who === 'me' ? 'На сьогодні все!' : 'Відкритих завдань немає']), fh_('p', {}, ['Додай завдання вище — і воно зʼявиться тут.'])]));
+  TK_SECTIONS.forEach(function (sdef) {
+    var items = (groups[sdef[0]] || []).sort(tkSort_);
+    if (!items.length) return;
+    var expanded = STATE.ui.tkOpen[sdef[0]] !== undefined ? STATE.ui.tkOpen[sdef[0]] : (sdef[3] || items.length <= 6);
+    var head = fh_('div', { style: 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:8px 12px;font-weight:800;' + (sdef[2] ? 'color:' + sdef[2] + ';' : '') }, [
+      sdef[1] + ' · ' + items.length, fh_('span', { 'class': 'page-sub', style: 'margin:0;' }, [expanded ? 'сховати' : 'показати'])]);
+    head.onclick = function () { STATE.ui.tkOpen[sdef[0]] = !expanded; renderRoute(); };
+    var card = fh_('div', { 'class': 'card', style: 'padding:0;margin-bottom:12px;' + (sdef[0] === 'overdue' ? 'border-color:var(--red);' : '') }, [head]);
+    if (expanded) items.forEach(function (t) { card.appendChild(tkRow_(t, { hideWho: who !== 'all' && who !== 'none' })); });
+    main.appendChild(card);
+  });
+  var doneToday = list.filter(function (t) { return t.status === 'DONE' && fnDay_(t.completed_at) === today; });
+  if (doneToday.length) {
+    var dc = fh_('div', { 'class': 'card', style: 'padding:0;margin-bottom:12px;opacity:.85;' }, [fh_('div', { style: 'padding:8px 12px;font-weight:800;color:var(--green);' }, ['✓ Виконано сьогодні · ' + doneToday.length])]);
+    doneToday.slice(0, 10).forEach(function (t) { dc.appendChild(tkRow_(t, { hideWho: who !== 'all' })); });
+    main.appendChild(dc);
+  }
+
+  if (isForeman_()) return;
+  // --- команда (власник): хто що має і чи не відстає
+  if (isAdmin && tkUsers_().length > 1) {
+    var week = tkAddDays_(-7);
+    var rows = tkUsers_().map(function (u) { return { id: u.id, name: u.name, role: u.role }; }).concat([{ id: 'none', name: 'Без виконавця', role: '' }]);
+    var t = fh_('table', { 'class': 'dt' });
+    t.appendChild(fh_('thead', {}, [fh_('tr', {}, ['Співробітник', 'Відкрито', 'Прострочено', 'На сьогодні', 'Виконано за 7 дн.'].map(function (h) { return fh_('th', {}, [h]); }))]));
+    var tb = fh_('tbody');
+    rows.forEach(function (r) {
+      var mine = allTasks.filter(function (x) { return r.id === 'none' ? !tkOwnerId_(x) : tkOwnerId_(x) === r.id; });
+      var o = mine.filter(tkOpen_), od = o.filter(function (x) { return tkBucket_(x, today) === 'overdue'; }).length, td = o.filter(function (x) { return tkBucket_(x, today) === 'today'; }).length;
+      var dn = mine.filter(function (x) { return x.status === 'DONE' && fnDay_(x.completed_at) >= week; }).length;
+      if (r.id === 'none' && !o.length) return;
+      var tr = fh_('tr', { style: 'cursor:pointer;' }, [fh_('td', {}, [fh_('b', {}, [r.name]), r.role ? fh_('span', { 'class': 'page-sub', style: 'margin-left:6px;' }, [r.role]) : null]), fh_('td', {}, [String(o.length)]),
+        fh_('td', {}, [fh_('b', { style: 'color:' + (od ? 'var(--red)' : 'var(--green)') + ';' }, [String(od)])]), fh_('td', {}, [String(td)]), fh_('td', {}, [String(dn)])]);
+      tr.onclick = function () { STATE.ui.todayWho = r.id; renderRoute(); };
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    main.appendChild(fh_('div', { 'class': 'card', style: 'margin-bottom:14px;' }, [fh_('div', { 'class': 'chart-title' }, ['👥 Команда: хто що має']), t]));
+  }
+  // --- найближчі 7 днів у компанії
+  if (canDo_('partners', 'view') || isAdmin) {
+    var end = tkAddDays_(7), ev = [];
+    (STATE.db.assignments || []).forEach(function (a) {
+      var s = fnDay_(a.start_date); if (String(a.status).toLowerCase() === 'завершена' || String(a.status).toLowerCase() === 'скасована') return;
+      if (s && s >= today && s <= end) ev.push({ d: s, icon: '🔧', text: 'Старт бригади «' + fnPartnerName_(fnAsgPartner_(a)) + '» — ' + fnObjName_(a.object_id), go: '#/objects/' + a.object_id });
+    });
+    (STATE.db.objects || []).forEach(function (o) {
+      var e = fnDay_(o.planned_end_date); if (!e || o.status === 'завершено') return;
+      if (e < today) ev.push({ d: e, icon: '⚠', text: 'Прострочено за планом на ' + (-tkDaysBetween_(today, e)) + ' дн.: ' + o.name, go: '#/objects/' + o.id, bad: true });
+      else if (e <= end) ev.push({ d: e, icon: '🏁', text: 'Плановий кінець: ' + o.name, go: '#/objects/' + o.id });
+    });
+    (STATE.db.plannedPayments || []).forEach(function (p) {
+      var d = fnDay_(p.date); if (!d || d > end) return;
+      var late = d < today, who = p.direction === 'out' ? 'Виплатити «' + fnPartnerName_(p.partner_id) + '»' : 'Очікується від клієнта «' + ((byId(STATE.db.clients, p.client_id) || {}).name || '') + '»';
+      ev.push({ d: d, icon: '💳', text: who + ' ' + fmtMoney(p.amount) + ' — ' + fnObjName_(p.object_id) + (late ? ' (прострочено)' : ''), go: '#/objects/' + p.object_id, bad: late, tab: 'finance' });
+    });
+    ev.sort(function (a, b) { return a.d.localeCompare(b.d); });
+    if (ev.length) {
+      var ac = fh_('div', { 'class': 'card', style: 'margin-bottom:14px;' }, [fh_('div', { 'class': 'chart-title' }, ['🗓 Найближчі 7 днів у компанії'])]);
+      ev.slice(0, 10).forEach(function (e) {
+        var r = fh_('div', { style: 'padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;' + (e.bad ? 'color:var(--red);' : '') }, [fh_('b', {}, [fmtDate(e.d) + '  ']), e.icon + ' ' + e.text]);
+        r.onclick = function () { if (e.tab) STATE.ui.objectTab = e.tab; location.hash = e.go; };
+        ac.appendChild(r);
+      });
+      main.appendChild(ac);
+    }
+  }
+  if (isAdmin) renderAttentionCard_(main);
+}
+
+/* ================================ ЗАВДАННЯ ================================== */
+function renderTasks(main) {
+  var isAdmin = currentRole_() === 'ADMIN';
+  main.appendChild(el('div', { 'class': 'page-title' }, ['Завдання']));
+  var view = STATE.ui.tasksView || (window.innerWidth <= 800 ? 'list' : 'board'), who = STATE.ui.tasksWho || 'all', q = STATE.ui.tasksQ || '';
+  var bar = fh_('div', { 'class': 'toolbar' });
+  if (canDo_('tasks', 'create')) bar.appendChild(fnBtn_('+ Завдання', 'primary', function () { openTaskEditor({}); }));
+  bar.appendChild(fnBtn_('Дошка', 'small' + (view === 'board' ? ' primary' : ''), function () { STATE.ui.tasksView = 'board'; renderRoute(); }));
+  bar.appendChild(fnBtn_('Список', 'small' + (view === 'list' ? ' primary' : ''), function () { STATE.ui.tasksView = 'list'; renderRoute(); }));
+  var whoSel = fnSel_([['all', 'Усі виконавці'], ['me', 'Тільки мої'], ['none', 'Без виконавця']].concat(tkUsers_().map(function (u) { return [u.id, u.name]; })), who);
+  whoSel.onchange = function () { STATE.ui.tasksWho = whoSel.value; renderRoute(); };
+  bar.appendChild(whoSel);
+  var search = fnIn_({ type: 'search', placeholder: 'Пошук', value: q });
+  search.onchange = function () { STATE.ui.tasksQ = search.value; renderRoute(); };
+  bar.appendChild(search);
+  bar.appendChild(fh_('div', { 'class': 'spacer' }));
+  bar.appendChild(fnBtn_('🔔 Нагадування', 'small', openNotifySettings_));
+  if (isAdmin) bar.appendChild(fnBtn_('⚙ Автозавдання і нагадування', 'small', openTaskSettings_));
+  main.appendChild(bar);
+  var tasks = tkFilterWho_(STATE.db.tasks || [], who).filter(function (t) { return !q || (t.title + ' ' + (t.description || '')).toLowerCase().indexOf(q.toLowerCase()) !== -1; });
+  if (view === 'list') {
+    var open = tasks.filter(tkOpen_).sort(function (a, b) { return String(fnDay_(a.deadline) || '9999').localeCompare(String(fnDay_(b.deadline) || '9999')) || tkSort_(a, b); });
+    var done = tasks.filter(function (t) { return !tkOpen_(t); }).sort(function (a, b) { return String(b.completed_at || '').localeCompare(String(a.completed_at || '')); }).slice(0, 30);
+    if (!open.length && !done.length) main.appendChild(fh_('div', { 'class': 'empty-state' }, ['Завдань немає.']));
+    else main.appendChild(fh_('div', { 'class': 'card', style: 'padding:0;' }, open.concat(done).map(function (t) { return tkRow_(t); })));
+    return;
+  }
+  var board = el('div', { 'class': 'kanban' });
+  TASK_STATUSES.forEach(function (status) {
+    var items = tasks.filter(function (t) { return t.status === status; });
+    if (status === 'DONE') items = items.sort(function (a, b) { return String(b.completed_at || '').localeCompare(String(a.completed_at || '')); }).slice(0, 20);
+    else items.sort(tkSort_);
+    var col = fh_('div', { 'class': 'kanban-col' }, [fh_('h4', {}, [TASK_STATUS_LABELS[status], fh_('span', {}, [String(items.length)])])]);
+    col.ondragover = function (e) { e.preventDefault(); col.classList.add('dragover'); };
+    col.ondragleave = function () { col.classList.remove('dragover'); };
+    col.ondrop = function (e) {
+      e.preventDefault(); col.classList.remove('dragover');
+      var id = e.dataTransfer && e.dataTransfer.getData('text/plain'), t = byId(STATE.db.tasks, id);
+      if (t && t.status !== status) tkSetStatus_(t, status);
+    };
+    items.forEach(function (t) {
+      var o = byId(STATE.db.objects, t.object_id), due = fnDay_(t.deadline), od = due && tkOpen_(t) && due < fnToday_();
+      var card = fh_('div', { 'class': 'kanban-card', draggable: 'true' }, [
+        fh_('div', { 'class': 'kc-title' }, [t.title]),
+        fh_('div', { 'class': 'kc-meta' }, [[o ? o.name : '', tkOwnerId_(t) ? tkUserName_(tkOwnerId_(t)) : (t.responsible || 'без виконавця')].filter(Boolean).join(' · ')]),
+        due ? fh_('div', { 'class': 'kc-meta', style: od ? 'color:var(--red);font-weight:700;' : '' }, [(od ? '⏰ ' : '') + 'до ' + fmtDate(due)]) : null]);
+      card.ondragstart = function (e) { e.dataTransfer.setData('text/plain', t.id); };
+      card.onclick = function () { openTaskEditor(t); };
+      col.appendChild(card);
+    });
+    board.appendChild(col);
+  });
+  main.appendChild(board);
+}
+
+// Налаштування автозавдань і листів-нагадувань (власник)
+function openTaskSettings_() {
+  var s = STATE.db.settings || {};
+  var on = fh_('input', { type: 'checkbox' }); on.checked = !(s.auto_tasks_enabled === 'ні' || s.auto_tasks_enabled === false);
+  var who = fnSel_([['', 'Менеджер заявки, інакше — власник']].concat(tkUsers_().map(function (u) { return [u.id, u.name]; })), s.auto_task_assignee || '', { style: 'width:100%;' });
+  function num(k, d) { return fnIn_({ type: 'number', min: '0', max: '60', value: s[k] !== undefined && s[k] !== '' ? s[k] : d, style: 'width:80px;' }); }
+  var dContact = num('auto_task_contact_days', 0), dInspect = num('auto_task_inspect_days', 2), dEstimate = num('auto_task_estimate_days', 4), dSend = num('auto_task_send_days', 5);
+  var body = fh_('div');
+  body.appendChild(fh_('div', { 'class': 'chart-title' }, ['Автозавдання для нового клієнта / заявки']));
+  body.appendChild(fh_('div', { 'class': 'page-sub' }, ['Коли зʼявляється новий клієнт чи заявка, система сама ставить завдання, щоб ніхто нічого не забув. Через скільки днів — налаштуйте нижче.']));
+  body.appendChild(fh_('label', { style: 'display:flex;gap:8px;align-items:center;margin:8px 0;font-weight:700;' }, [on, 'Створювати завдання автоматично']));
+  body.appendChild(fnRow_('Кому ставити за замовчуванням', who));
+  body.appendChild(fh_('div', { style: 'display:grid;grid-template-columns:repeat(4,1fr);gap:8px;' }, [fnRow_('Звʼязатись, через дн.', dContact), fnRow_('Огляд, через дн.', dInspect), fnRow_('Кошторис, через дн.', dEstimate), fnRow_('Надіслати, через дн.', dSend)]));
+  body.appendChild(fh_('div', { 'class': 'chart-title', style: 'margin-top:14px;' }, ['Лист-зведення на пошту']));
+  var mailBox = fh_('div', {}, [fh_('div', { 'class': 'page-sub' }, ['⏳ Перевіряю…'])]);
+  body.appendChild(mailBox);
+  var hourSel = fnSel_([['6', '06:00'], ['7', '07:00'], ['8', '08:00'], ['9', '09:00']], '7');
+  var mailOn = fh_('input', { type: 'checkbox' });
+  apiCall('getDigestSchedule', {}).then(function (r) {
+    mailOn.checked = !!r.enabled; hourSel.value = String(r.hour || 7); mailBox.innerHTML = '';
+    mailBox.appendChild(fh_('div', { 'class': 'page-sub' }, ['Щоранку кожен співробітник отримує свої прострочені й сьогоднішні завдання (якщо вони є), а власник — ще й стан компанії; у понеділок — підсумок тижня. Потрібен email у профілі користувача.']));
+    mailBox.appendChild(fh_('label', { style: 'display:flex;gap:8px;align-items:center;margin:8px 0;font-weight:700;' }, [mailOn, 'Надсилати щоденні листи о ', hourSel]));
+    mailBox.appendChild(fnBtn_('✉ Надіслати тестовий лист мені', 'small', function (e) {
+      var b = e.currentTarget, done = fnBusy_(b);
+      apiCall('sendDigestNow', {}).then(function (r) { done(); toast('Лист надіслано на ' + r.to, 'success'); }).catch(function (er) { done(); toast(er && er.message || String(er), 'error'); });
+    }));
+  }).catch(function () { mailBox.innerHTML = ''; mailBox.appendChild(fh_('div', { 'class': 'page-sub' }, ['Лист-зведення недоступний: оновіть Code.gs і опублікуйте нову версію.'])); });
+  var save = fnBtn_('Зберегти', 'primary', function () {
+    var done = fnBusy_(save);
+    var pairs = [['auto_tasks_enabled', on.checked ? 'так' : 'ні'], ['auto_task_assignee', who.value], ['auto_task_contact_days', dContact.value], ['auto_task_inspect_days', dInspect.value],
+      ['auto_task_estimate_days', dEstimate.value], ['auto_task_send_days', dSend.value]];
+    var chain = Promise.resolve();
+    pairs.forEach(function (p) { chain = chain.then(function () { return apiCall('saveSetting', { key: p[0], value: String(p[1]) }).then(function (map) { if (map && typeof map === 'object') STATE.db.settings = map; }); }); });
+    chain.then(function () { return mailBox.querySelector('input') ? apiCall('setDigestSchedule', { enabled: mailOn.checked, hour: Number(hourSel.value) }) : null; })
+      .then(function () { Storage.saveCache(); closeModal(); toast('Збережено', 'success'); })
+      .catch(function (e) { done(); fnErr_(e); });
+  });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]));
+  openModal('Автозавдання і нагадування', body, { wide: true });
+}
+
+/* ================================ КАЛЕНДАР ================================== */
+function renderCalendar(main) {
+  main.appendChild(el('div', { 'class': 'page-title' }, ['Календар']));
+  var cursor = STATE.ui.calendarCursor ? new Date(STATE.ui.calendarCursor) : new Date();
+  cursor.setDate(1);
+  var calWho = STATE.ui.calWho || 'all';
+  function ds(y, m, d) { return y + '-' + ('0' + (m + 1)).slice(-2) + '-' + ('0' + d).slice(-2); }
+  var tasks = tkFilterWho_(STATE.db.tasks || [], calWho).filter(tkOpen_);
+  function eventsFor(dateStr) {
+    var evts = [];
+    tasks.forEach(function (t) { if (fnDay_(t.deadline) === dateStr) evts.push({ type: 'task', label: t.title, obj: t.object_id, task: t }); });
+    (STATE.db.assignments || []).forEach(function (a) { if (fnDay_(a.start_date) === dateStr && String(a.status).toLowerCase() !== 'завершена') evts.push({ type: 'assignment', label: 'Виїзд: ' + fnPartnerName_(fnAsgPartner_(a)), obj: a.object_id }); });
+    (STATE.db.objects || []).forEach(function (o) { if (fnDay_(o.planned_end_date) === dateStr && o.status !== 'завершено') evts.push({ type: 'deadline', label: 'Плановий кінець: ' + o.name, obj: o.id }); });
+    return evts;
+  }
+  var nav = fh_('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;' });
+  nav.appendChild(fnBtn_('←', 'small', function () { cursor.setMonth(cursor.getMonth() - 1); STATE.ui.calendarCursor = cursor.toISOString(); renderRoute(); }));
+  nav.appendChild(fh_('b', {}, [cursor.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' })]));
+  nav.appendChild(fnBtn_('→', 'small', function () { cursor.setMonth(cursor.getMonth() + 1); STATE.ui.calendarCursor = cursor.toISOString(); renderRoute(); }));
+  nav.appendChild(fnBtn_('Сьогодні', 'small', function () { STATE.ui.calendarCursor = null; renderRoute(); }));
+  nav.appendChild(fh_('div', { 'class': 'spacer', style: 'flex:1' }));
+  nav.appendChild(fnBtn_('Усі завдання', 'small' + (calWho === 'all' ? ' primary' : ''), function () { STATE.ui.calWho = 'all'; renderRoute(); }));
+  nav.appendChild(fnBtn_('Тільки мої', 'small' + (calWho === 'me' ? ' primary' : ''), function () { STATE.ui.calWho = 'me'; renderRoute(); }));
+  main.appendChild(nav);
+  main.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:-6px 0 10px;' }, ['Натисни «+» на потрібному дні, щоб поставити завдання — воно зʼявиться у «Моєму дні» виконавця.']));
+  var grid = fh_('div', { 'class': 'grid', style: 'grid-template-columns:repeat(7,1fr);gap:6px;' });
+  ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].forEach(function (d) { grid.appendChild(fh_('div', { 'class': 'page-sub', style: 'text-align:center;font-weight:600;' }, [d])); });
+  var startOffset = (new Date(cursor.getFullYear(), cursor.getMonth(), 1).getDay() + 6) % 7;
+  var daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+  for (var i = 0; i < startOffset; i++) grid.appendChild(fh_('div', {}));
+  var today = fnToday_();
+  for (var d = 1; d <= daysInMonth; d++) {
+    (function (d) {
+      var dateStr = ds(cursor.getFullYear(), cursor.getMonth(), d), evts = eventsFor(dateStr);
+      var plus = fh_('span', { title: 'Поставити завдання на цей день', style: 'cursor:pointer;color:var(--gold);font-weight:800;padding:0 4px;' }, ['+']);
+      plus.onclick = function (e) { e.stopPropagation(); openTaskEditor({ deadline: dateStr, assignee_user_id: calWho === 'me' ? tkMe_().id : '' }); };
+      var cell = fh_('div', { 'class': 'card', style: 'min-height:78px;padding:6px;' + (dateStr === today ? 'border-color:var(--gold);' : '') }, [
+        fh_('div', { style: 'display:flex;justify-content:space-between;font-size:11px;color:var(--muted);' }, [String(d), canDo_('tasks', 'create') ? plus : null])]);
+      evts.forEach(function (e) {
+        var overdue = e.type === 'task' && dateStr < today;
+        var color = e.type === 'task' ? (overdue ? '#EF4444' : '#3B82F6') : (e.type === 'assignment' ? '#F2C200' : '#EF4444');
+        var tag = fh_('div', { style: 'font-size:10px;background:' + color + '22;border-left:2px solid ' + color + ';padding:2px 4px;margin-top:3px;border-radius:3px;cursor:pointer;' }, [e.label.slice(0, 26)]);
+        tag.onclick = function () { if (e.task) openTaskEditor(e.task); else if (e.obj) location.hash = '#/objects/' + e.obj; };
+        cell.appendChild(tag);
+      });
+      grid.appendChild(cell);
+    })(d);
+  }
+  main.appendChild(grid);
+}
+
+/* ================================= ЗВІТИ ==================================== */
+function rpRange_(key, cf, ct) {
+  var t = new Date(), y = t.getFullYear(), m = t.getMonth();
+  function f(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  if (key === 'today') return { from: fnToday_(), to: fnToday_(), label: 'Сьогодні' };
+  if (key === 'week') return { from: tkAddDays_(-6), to: fnToday_(), label: 'Останні 7 днів' };
+  if (key === 'prevmonth') return { from: f(new Date(y, m - 1, 1)), to: f(new Date(y, m, 0)), label: 'Минулий місяць' };
+  if (key === 'quarter') return { from: tkAddDays_(-89), to: fnToday_(), label: 'Останні 90 днів' };
+  if (key === 'year') return { from: y + '-01-01', to: fnToday_(), label: y + ' рік' };
+  if (key === 'custom' && cf && ct) return { from: cf, to: ct, label: fmtDate(cf) + ' – ' + fmtDate(ct) };
+  return { from: f(new Date(y, m, 1)), to: fnToday_(), label: 'Цей місяць' };
+}
+function rpIn_(v, r) { var d = fnDay_(v); return !!d && d >= r.from && d <= r.to; }
+var RP_WON = ['APPROVED', 'PREPARATION', 'IN PROGRESS', 'ACCEPTANCE', 'COMPLETED'];
+
+function renderReports(main) {
+  var db = STATE.db, cost = canSeeCost_() && canDo_('finance', 'view');
+  var key = STATE.ui.rpKey || 'month', r = rpRange_(key, STATE.ui.rpFrom, STATE.ui.rpTo), csv = [['Розділ', 'Показник', 'Значення']];
+  main.appendChild(el('div', { 'class': 'page-title' }, ['Звіти']));
+  var bar = fh_('div', { 'class': 'toolbar no-print' });
+  [['today', 'Сьогодні'], ['week', '7 днів'], ['month', 'Цей місяць'], ['prevmonth', 'Минулий'], ['quarter', '90 днів'], ['year', 'Рік']].forEach(function (p) {
+    bar.appendChild(fnBtn_(p[1], 'small' + (key === p[0] ? ' primary' : ''), function () { STATE.ui.rpKey = p[0]; renderRoute(); }));
+  });
+  var cf = fnIn_({ type: 'date', value: STATE.ui.rpFrom || '' }), ct = fnIn_({ type: 'date', value: STATE.ui.rpTo || '' });
+  bar.appendChild(cf); bar.appendChild(ct);
+  bar.appendChild(fnBtn_('Показати', 'small' + (key === 'custom' ? ' primary' : ''), function () { if (!cf.value || !ct.value) { toast('Вкажи обидві дати', 'error'); return; } STATE.ui.rpFrom = cf.value; STATE.ui.rpTo = ct.value; STATE.ui.rpKey = 'custom'; renderRoute(); }));
+  bar.appendChild(fh_('div', { 'class': 'spacer' }));
+  bar.appendChild(fnBtn_('⬇ CSV', 'small', function () { downloadText_('BUDNEX_звіт_' + r.from + '_' + r.to + '.csv', arrayToCsv_(csv.slice(1).map(function (x) { return { 'Розділ': x[0], 'Показник': x[1], 'Значення': x[2] }; })), 'text/csv;charset=utf-8'); }));
+  bar.appendChild(fnBtn_('🖨 Друк / PDF', 'small', function () { window.print(); }));
+  main.appendChild(bar);
+  main.appendChild(fh_('div', { 'class': 'page-sub' }, ['Період: ' + r.label + (key === 'custom' ? '' : ' (' + fmtDate(r.from) + ' – ' + fmtDate(r.to) + ')')]));
+
+  function section(title, rows, extra) {
+    var tbl = fh_('table', { 'class': 'dt' }, [fh_('tbody', {}, rows.map(function (x) {
+      csv.push([title, x[0], x[1]]);
+      return fh_('tr', {}, [fh_('td', {}, [x[0]]), fh_('td', { style: 'text-align:right;font-weight:700;' }, [String(x[1])])]);
+    }))]);
+    var card = fh_('div', { 'class': 'card', style: 'margin-bottom:14px;' }, [fh_('div', { 'class': 'chart-title' }, [title]), tbl]);
+    if (extra) card.appendChild(extra);
+    return card;
+  }
+  // 1. продажі
+  var reqs = (db.requests || []).filter(function (x) { return rpIn_(x.date || x.created_at, r); });
+  var won = reqs.filter(function (x) { return RP_WON.indexOf(x.status) !== -1; }).length, lost = reqs.filter(function (x) { return x.status === 'REJECTED'; }).length;
+  var finals = (db.estimates || []).filter(function (e) { return e.status === 'final' && rpIn_(e.final_at || e.updated_at, r); });
+  var fSum = sum_(finals, 'client_total');
+  var src = {}; reqs.forEach(function (x) { var k = x.source || 'не вказано'; src[k] = (src[k] || 0) + 1; });
+  var srcTxt = Object.keys(src).sort(function (a, b) { return src[b] - src[a]; }).map(function (k) { return k + ': ' + src[k]; }).join(' · ');
+  var grid = fh_('div', { 'class': 'grid cols-2' });
+  grid.appendChild(section('📥 Продажі і заявки', [['Нових заявок', reqs.length], ['Погоджено клієнтами', won], ['Відмов', lost], ['Конверсія в погоджені', reqs.length ? Math.round(won / reqs.length * 100) + '%' : '—'],
+    ['Затверджено кошторисів', finals.length], ['На суму', fmtMoney(fSum)], ['Середній чек', finals.length ? fmtMoney(fSum / finals.length) : '—']],
+    srcTxt ? fh_('div', { 'class': 'page-sub', style: 'margin-top:8px;' }, ['Звідки заявки: ' + srcTxt]) : null));
+  if (srcTxt) csv.push(['📥 Продажі і заявки', 'Звідки заявки', srcTxt]);
+
+  // 2. обʼєкти
+  var objs = db.objects || [], today = fnToday_();
+  var doneObj = objs.filter(function (o) { return o.status === 'завершено' && rpIn_(o.actual_end_date || o.updated_at, r); }).length;
+  var lateObj = objs.filter(function (o) { return o.status !== 'завершено' && fnDay_(o.planned_end_date) && fnDay_(o.planned_end_date) < today; });
+  var byStatus = {}; objs.forEach(function (o) { byStatus[o.status || '—'] = (byStatus[o.status || '—'] || 0) + 1; });
+  var objRows = [['Завершено за період', doneObj], ['Зараз у роботі', byStatus['у роботі'] || 0], ['На погодженні / підготовці', (byStatus['погодження'] || 0) + (byStatus['підготовка'] || 0)], ['Прострочено за планом', lateObj.length]];
+  grid.appendChild(section('🏗 Обʼєкти', objRows, lateObj.length ? fh_('div', { 'class': 'page-sub', style: 'margin-top:8px;color:var(--red);' }, ['Відстають: ' + lateObj.slice(0, 5).map(function (o) { return o.name + ' (' + (-tkDaysBetween_(today, fnDay_(o.planned_end_date))) + ' дн.)'; }).join(', ')]) : null));
+
+  // 3. гроші
+  if (cost) {
+    var pays = (db.payments || []).filter(function (p) { return rpIn_(p.date, r) && String(p.status || 'paid') !== 'cancelled'; });
+    var inS = sum_(pays.filter(function (p) { return p.direction !== 'out'; }), 'amount'), outS = sum_(pays.filter(function (p) { return p.direction === 'out'; }), 'amount');
+    var exS = sum_((db.expenses || []).filter(function (e) { return rpIn_(e.date, r); }), 'amount');
+    var debtBox = fh_('div', { 'class': 'page-sub', style: 'margin-top:8px;' }, ['Рахую борги…']);
+    grid.appendChild(section('💰 Гроші за період', [['Отримано від клієнтів', fmtMoney(inS)], ['Виплачено бригадам', fmtMoney(outS)], ['Витрати', fmtMoney(exS)], ['Результат', fmtMoney(inS - outS - exS)]], debtBox));
+    Fin.load().then(function (d) { if (!debtBox.isConnected || !d) return; debtBox.textContent = 'Зараз: клієнти ще винні ' + fmtMoney(d.totals.client_due) + ' · бригадам ще виплатити ' + fmtMoney(d.totals.brigades_due); csv.push(['💰 Гроші за період', 'Клієнти ще винні (зараз)', d.totals.client_due], ['💰 Гроші за період', 'Бригадам ще виплатити (зараз)', d.totals.brigades_due]); })
+      .catch(function () { debtBox.textContent = ''; });
+  }
+
+  // 4. бригади
+  if (canDo_('partners', 'view')) {
+    var ps = db.partners || [], asgs = db.assignments || [];
+    var brRows = ps.map(function (p) {
+      var mine = asgs.filter(function (a) { return fnAsgPartner_(a) === p.id; });
+      var doneN = mine.filter(function (a) { return String(a.status).toLowerCase() === 'завершена' && rpIn_(a.done_at || a.end_date, r); }).length;
+      return [p.name + ' — ' + p.status, doneN + ' заверш.'];
+    });
+    var free = ps.filter(function (p) { return p.status === 'вільна'; }).length, busy = ps.filter(function (p) { return p.status === 'зайнята'; }).length;
+    grid.appendChild(section('👷 Бригади (вільних ' + free + ', зайнятих ' + busy + ')', brRows.length ? brRows : [['Бригад немає', '']]));
+  }
+
+  // 5. команда
+  var users = tkUsers_(), tasks = db.tasks || [];
+  var tRows = users.map(function (u) {
+    var mine = tasks.filter(function (t) { return tkOwnerId_(t) === u.id; });
+    var done = mine.filter(function (t) { return t.status === 'DONE' && rpIn_(t.completed_at, r); });
+    var ontime = done.filter(function (t) { return !fnDay_(t.deadline) || fnDay_(t.completed_at) <= fnDay_(t.deadline); }).length;
+    var od = mine.filter(function (t) { return tkOpen_(t) && tkBucket_(t, today) === 'overdue'; }).length;
+    return [u.name, 'виконано ' + done.length + (done.length ? ' (вчасно ' + Math.round(ontime / done.length * 100) + '%)' : '') + ' · відкрито ' + mine.filter(tkOpen_).length + ' · прострочено ' + od];
+  });
+  grid.appendChild(section('✅ Команда і завдання', tRows.length ? tRows : [['Немає користувачів', '']]));
+  main.appendChild(grid);
+  try { rpExtra_(main, r, cost, csv); } catch (e) { console.error(e); }
+}
+
+// Бейдж «скільки на сьогодні» біля «Мій день» і в заголовку вкладки
+function updateNavBadges_() {
+  var today = fnToday_(), n = (STATE.db.tasks || []).filter(function (t) { return tkOpen_(t) && tkMine_(t) && fnDay_(t.deadline) && fnDay_(t.deadline) <= today; }).length;
+  var item = document.querySelector('#sidebar .nav-item[data-id="today"]');
+  if (item) {
+    var b = item.querySelector('.nav-badge');
+    if (n) { if (!b) { b = document.createElement('span'); b.className = 'nav-badge'; item.appendChild(b); } b.textContent = String(n); } else if (b) b.remove();
+  }
+  document.title = (n ? '(' + n + ') ' : '') + 'BUDNEX';
+  try { tabbarSync_(); } catch (e) {}
+}
+// сповіщення адресовані конкретному користувачу показуємо лише йому
+function visibleNotifs_() { var me = tkMe_(); return (STATE.db.notifications || []).filter(function (n) { return !n.user_id || n.user_id === me.id; }); }
+
+
+/* =============================================================================
+   ЕТАП 22 (інтерфейс): розширені звіти і хронологія, «Керування даними» (власник),
+   канали нагадувань (email / Telegram / вебхук), мобільна навігація, PWA-установка.
+   ============================================================================= */
+var COL_UA = { name: 'Назва / імʼя', title: 'Назва', phone: 'Телефон', email: 'Email', city: 'Місто', address: 'Адреса', source: 'Джерело', status: 'Статус', notes: 'Нотатки',
+  description: 'Опис', date: 'Дата', amount: 'Сума', direction: 'Напрям (in/out)', type: 'Тип', client_id: 'Клієнт', object_id: 'Обʼєкт', partner_id: 'Бригада', team_id: 'Бригада',
+  estimate_id: 'Кошторис', request_id: 'Заявка', supplier_id: 'Постачальник', work_id: 'Робота', manager: 'Менеджер', start_date: 'Початок', end_date: 'Кінець',
+  planned_end_date: 'План. завершення', actual_end_date: 'Факт. завершення', deadline: 'Термін', priority: 'Пріоритет', responsible: 'Відповідальний', price: 'Ціна',
+  quantity: 'Кількість', unit: 'Од.', category: 'Категорія', created_at: 'Створено', updated_at: 'Змінено', client_total: 'Сума для клієнта', contractor_total: 'Сума бригаді',
+  budget: 'Бюджет', area: 'Площа', specialization: 'Спеціалізація', team_size: 'Людей', advance: 'Аванс', balance: 'Залишок', payment_method: 'Спосіб оплати', url: 'Посилання' };
+function colUa_(c) { return COL_UA[c] || c; }
+var COL_COLL = { client_id: 'clients', object_id: 'objects', partner_id: 'partners', team_id: 'partners', estimate_id: 'estimates', request_id: 'requests',
+  supplier_id: 'suppliers', work_id: 'works', assignee_user_id: 'users', user_id: 'users', project_id: 'projects', created_by: 'users' };
+function dmRef_(col, id) {
+  if (!id) return '';
+  var coll = COL_COLL[col]; if (!coll) return String(id);
+  var row = byId(STATE.db[coll] || [], id);
+  if (!row) return String(id);
+  return (row.name || row.title || row.description || id) + (coll === 'estimates' ? ' · ' + fmtMoney(row.client_total) : '');
+}
+function dmCell_(col, v) {
+  if (v === undefined || v === null || v === '') return '';
+  if (COL_COLL[col]) return dmRef_(col, v);
+  if (/_at$|date$|deadline$/.test(col)) return String(v).slice(0, 10);
+  var s = String(v); return s.length > 48 ? s.slice(0, 46) + '…' : s;
+}
+var DM = { sheet: 'CLIENTS', tables: null, cols: [], rows: [], total: 0, q: '', sel: {}, loaded: '' };
+
+function renderData(main) {
+  main.appendChild(el('div', { 'class': 'page-title' }, ['Керування даними']));
+  main.appendChild(fh_('div', { 'class': 'page-sub' }, ['Власник може додати, змінити чи видалити будь-який запис у будь-якій таблиці системи. Усі зміни потрапляють у журнал дій.']));
+  var chips = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;' });
+  var bar = fh_('div', { 'class': 'toolbar' }), box = fh_('div', {});
+  main.appendChild(chips); main.appendChild(bar); main.appendChild(box);
+
+  function drawChips() {
+    chips.innerHTML = '';
+    (DM.tables || []).forEach(function (t) {
+      chips.appendChild(fnBtn_(t.label + ' · ' + t.count, 'small' + (DM.sheet === t.sheet ? ' primary' : ''), function () { DM.sheet = t.sheet; DM.q = ''; DM.sel = {}; DM.rows = []; DM.cols = []; DM.loaded = ''; renderRoute(); }));
+    });
+  }
+  function filtered() {
+    var q = (DM.q || '').toLowerCase();
+    var list = DM.rows.slice().reverse();
+    if (!q) return list;
+    return list.filter(function (r) { return DM.cols.some(function (c) { return String(COL_COLL[c] ? dmRef_(c, r[c]) + ' ' + r[c] : r[c] == null ? '' : r[c]).toLowerCase().indexOf(q) !== -1; }); });
+  }
+  function drawBar() {
+    bar.innerHTML = '';
+    var s = fnIn_({ type: 'search', placeholder: 'Пошук у таблиці', value: DM.q, style: 'min-width:200px;flex:1;' });
+    s.oninput = function () { DM.q = s.value; drawRows(); };
+    bar.appendChild(s);
+    bar.appendChild(fnBtn_('+ Додати запис', 'primary', function () { openDmForm_(null); }));
+    bar.appendChild(fnBtn_('⬇ CSV', '', function () { downloadText_('BUDNEX_' + DM.sheet + '.csv', arrayToCsv_(filtered()), 'text/csv;charset=utf-8'); }));
+    var delSel = fnBtn_('🗑 Видалити вибрані', 'danger', function () {
+      var ids = Object.keys(DM.sel).filter(function (k) { return DM.sel[k]; });
+      if (!ids.length) { toast('Спершу познач рядки галочками', 'error'); return; }
+      confirmAction('Видалити вибрані записи (' + ids.length + ')? Це не можна скасувати.', function () {
+        var chain = Promise.resolve(), fails = 0;
+        ids.forEach(function (id) { chain = chain.then(function () { return apiCall('adminDelete', { sheet: DM.sheet, id: id }).catch(function () { fails++; }); }); });
+        chain.then(function () { DM.sel = {}; toast(fails ? 'Видалено, але ' + fails + ' не вдалося' : 'Видалено', fails ? 'error' : 'success'); return reloadAll_(); });
+      });
+    });
+    bar.appendChild(delSel);
+  }
+  function drawRows() {
+    box.innerHTML = '';
+    var list = filtered();
+    if (DM.loaded !== DM.sheet) { box.appendChild(fh_('div', { 'class': 'page-sub' }, ['⏳ Завантажую…'])); return; }
+    if (!list.length) { box.appendChild(fh_('div', { 'class': 'empty-state' }, [DM.q ? 'Нічого не знайдено.' : 'У цій таблиці ще немає записів.'])); return; }
+    var show = DM.cols.filter(function (c) { return c !== 'updated_at'; }).slice(0, 8);
+    var all = fh_('input', { type: 'checkbox', title: 'Вибрати все' });
+    all.onchange = function () { list.slice(0, 300).forEach(function (r) { DM.sel[r.id] = all.checked; }); drawRows(); };
+    var thead = fh_('thead', {}, [fh_('tr', {}, [fh_('th', {}, [all])].concat(show.map(function (c) { return fh_('th', {}, [colUa_(c)]); })).concat([fh_('th', {}, [''])]))]);
+    var tbody = fh_('tbody');
+    list.slice(0, 300).forEach(function (r) {
+      var cb = fh_('input', { type: 'checkbox' }); cb.checked = !!DM.sel[r.id];
+      cb.onchange = function () { DM.sel[r.id] = cb.checked; };
+      cb.onclick = function (e) { e.stopPropagation(); };
+      var tr = fh_('tr', { style: 'cursor:pointer;' }, [fh_('td', {}, [cb])].concat(show.map(function (c) { return fh_('td', {}, [dmCell_(c, r[c])]); })).concat([
+        fh_('td', { style: 'white-space:nowrap;' }, [fnBtn_('✎', 'small', function (e) { openDmForm_(r); }, 'Редагувати'), ' ', fnBtn_('🗑', 'small danger', function (e) { e.stopPropagation(); askDelete_(r); }, 'Видалити')])]));
+      tr.onclick = function () { openDmForm_(r); };
+      tbody.appendChild(tr);
+    });
+    box.appendChild(fh_('table', { 'class': 'dt' }, [thead, tbody]));
+    box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin-top:8px;' }, ['Показано ' + Math.min(list.length, 300) + ' із ' + list.length + (DM.total > DM.rows.length ? ' (завантажено останні ' + DM.rows.length + ' з ' + DM.total + ')' : '') + '. Новіші записи — зверху.']));
+    wrapTablesForMobile_(box);
+  }
+  function reloadAll_() {
+    return Promise.all([apiCall('adminTables', {}), apiCall('adminRows', { sheet: DM.sheet })]).then(function (res) {
+      DM.tables = res[0]; DM.cols = res[1].columns; DM.rows = res[1].rows; DM.total = res[1].total; DM.loaded = DM.sheet;
+      drawChips(); drawRows();
+      return syncAll();
+    }).catch(fnErr_);
+  }
+  function askDelete_(r) {
+    var needDeps = ['OBJECTS', 'ESTIMATES', 'CLIENTS'].indexOf(DM.sheet) !== -1;
+    (needDeps ? apiCall('adminDependents', { sheet: DM.sheet, id: r.id }) : Promise.resolve([])).then(function (deps) {
+      var cascade = fh_('input', { type: 'checkbox' });
+      var body = fh_('div', {}, [fh_('p', {}, ['Видалити «' + (r.name || r.title || r.description || r.id) + '»? Це не можна скасувати.'])]);
+      if (deps.length) {
+        body.appendChild(fh_('div', { 'class': 'page-sub', style: 'color:var(--gold);' }, ['Повʼязано: ' + deps.map(function (d) { return d.count + ' ' + d.label; }).join(', ') + '.']));
+        if (DM.sheet !== 'CLIENTS') body.appendChild(fh_('label', { style: 'display:flex;gap:8px;align-items:center;margin:10px 0;' }, [cascade, 'Видалити разом з усім повʼязаним']));
+        else body.appendChild(fh_('div', { 'class': 'page-sub' }, ['Обʼєкти й заявки клієнта залишаться в системі.']));
+      }
+      var go = fnBtn_('Видалити', 'danger', function () {
+        var done = fnBusy_(go);
+        apiCall('adminDelete', { sheet: DM.sheet, id: r.id, cascade: cascade.checked }).then(function () { closeModal(); toast('Видалено', 'success'); return reloadAll_(); }).catch(function (e) { done(); fnErr_(e); });
+      });
+      body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), go]));
+      openModal('Видалення запису', body);
+    }).catch(fnErr_);
+  }
+  function openDmForm_(row) {
+    var editing = !!row, fields = {}, body = fh_('div');
+    DM.cols.forEach(function (c) {
+      if (c === 'id' || c === 'created_at' || c === 'updated_at') return;
+      var v = row ? row[c] : '', inp;
+      if (COL_COLL[c] && (STATE.db[COL_COLL[c]] || []).length) {
+        var opts = [['', '—']].concat((STATE.db[COL_COLL[c]] || []).map(function (x) { return [x.id, dmRef_(c, x.id)]; }));
+        if (v && !byId(STATE.db[COL_COLL[c]], v)) opts.push([v, String(v)]);
+        inp = fnSel_(opts, v, { style: 'width:100%;' });
+      } else if (/(^|_)(description|notes|comment)$/.test(c)) { inp = fh_('textarea', { 'class': 'v9-in', rows: '3', style: 'width:100%;' }); inp.value = v == null ? '' : v; }
+      else if (/date$|deadline$/.test(c)) inp = fnIn_({ type: 'date', value: v ? String(v).slice(0, 10) : '', style: 'width:100%;' });
+      else inp = fnIn_({ value: v == null ? '' : v, style: 'width:100%;' });
+      fields[c] = inp; body.appendChild(fnRow_(colUa_(c) + (colUa_(c) !== c ? '  (' + c + ')' : ''), inp));
+    });
+    var save = fnBtn_(editing ? 'Зберегти' : 'Додати', 'primary', function () {
+      var data = {}; Object.keys(fields).forEach(function (c) { data[c] = fields[c].value; });
+      var done = fnBusy_(save);
+      apiCall('adminSave', { sheet: DM.sheet, id: editing ? row.id : '', data: data }).then(function () { closeModal(); toast('Збережено', 'success'); return reloadAll_(); }).catch(function (e) { done(); fnErr_(e); });
+    });
+    body.appendChild(fh_('div', { 'class': 'form-actions' }, [editing ? fnBtn_('Видалити', 'danger', function () { closeModal(); askDelete_(row); }) : null, fnBtn_('Скасувати', '', closeModal), save]));
+    openModal((editing ? 'Редагування · ' : 'Новий запис · ') + ((DM.tables || []).filter(function (t) { return t.sheet === DM.sheet; })[0] || {}).label, body, { wide: true });
+  }
+  drawChips(); drawBar(); drawRows();
+  if (!DM.tables || DM.loaded !== DM.sheet) {
+    Promise.all([apiCall('adminTables', {}), apiCall('adminRows', { sheet: DM.sheet })]).then(function (res) {
+      DM.tables = res[0]; DM.cols = res[1].columns; DM.rows = res[1].rows; DM.total = res[1].total; DM.loaded = DM.sheet;
+      if (!box.isConnected) return; drawChips(); drawRows();
+    }).catch(function (e) { box.innerHTML = ''; box.appendChild(fh_('div', { 'class': 'empty-state' }, ['Не вдалося завантажити: ' + (e && e.message || e)])); });
+  }
+}
+
+/* ---------------------------- розширені звіти ---------------------------- */
+function rpTimeline_(r, cost) {
+  var db = STATE.db, ev = [];
+  function add(d, icon, text, go) { d = fnDay_(d); if (d && rpIn_(d, r)) ev.push({ d: d, icon: icon, text: text, go: go }); }
+  (db.clients || []).forEach(function (c) { add(c.created_at, '👤', 'Новий клієнт: ' + c.name, '#/clients/' + c.id); });
+  (db.requests || []).forEach(function (q) { add(q.date || q.created_at, '📥', 'Нова заявка' + (q.client_id ? ' від ' + ((byId(db.clients, q.client_id) || {}).name || '') : '') + (q.description ? ' — ' + String(q.description).slice(0, 50) : ''), '#/requests'); });
+  (db.estimates || []).forEach(function (e) { if (e.status === 'final') add(e.final_at || e.updated_at, '🧾', 'Погоджено кошторис ' + fnObjName_(e.object_id) + (cost || canDo_('estimates', 'view') ? ' на ' + fmtMoney(e.client_total) : ''), '#/objects/' + e.object_id); });
+  (db.objects || []).forEach(function (o) {
+    add(o.created_at, '🏗', 'Взяли обʼєкт: ' + o.name, '#/objects/' + o.id);
+    if (o.status === 'завершено') add(o.actual_end_date || o.updated_at, '🏁', 'Завершено обʼєкт: ' + o.name, '#/objects/' + o.id);
+  });
+  (db.assignments || []).forEach(function (a) {
+    add(a.start_date, '👷', 'Бригада «' + fnPartnerName_(fnAsgPartner_(a)) + '» вийшла на ' + fnObjName_(a.object_id), '#/objects/' + a.object_id);
+    if (String(a.status).toLowerCase() === 'завершена') add(a.done_at || a.end_date, '✔', 'Бригада «' + fnPartnerName_(fnAsgPartner_(a)) + '» завершила роботу на ' + fnObjName_(a.object_id), '#/objects/' + a.object_id);
+  });
+  if (cost) (db.payments || []).forEach(function (p) { add(p.date, p.direction === 'out' ? '➡' : '💵', (p.direction === 'out' ? 'Виплачено ' : 'Отримано ') + fmtMoney(p.amount) + ' — ' + fnObjName_(p.object_id), '#/objects/' + p.object_id); });
+  (db.tasks || []).forEach(function (t) { if (t.status === 'DONE') add(t.completed_at, '✅', 'Виконано: ' + t.title + (t.responsible ? ' (' + t.responsible + ')' : ''), '#/tasks'); });
+  ev.sort(function (a, b) { return b.d.localeCompare(a.d); });
+  return ev;
+}
+function rpExtra_(main, r, cost, csv) {
+  var db = STATE.db, today = fnToday_();
+  // воронка заявок
+  var counts = {}; (db.requests || []).forEach(function (q) { counts[q.status] = (counts[q.status] || 0) + 1; });
+  var total = (db.requests || []).length || 1;
+  var funnel = fh_('div', { 'class': 'card', style: 'margin-bottom:14px;' }, [fh_('div', { 'class': 'chart-title' }, ['🔻 Воронка заявок (усі, на зараз)'])]);
+  REQUEST_STATUSES.forEach(function (s) {
+    if (!counts[s]) return;
+    csv.push(['Воронка', REQUEST_STATUS_LABELS[s] || s, counts[s]]);
+    funnel.appendChild(fh_('div', { style: 'display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12.5px;' }, [
+      fh_('div', { style: 'width:110px;flex:none;' }, [REQUEST_STATUS_LABELS[s] || s]),
+      fh_('div', { style: 'flex:1;background:var(--panel2);border-radius:6px;height:16px;overflow:hidden;' }, [fh_('div', { style: 'height:100%;background:' + (s === 'REJECTED' ? 'var(--red)' : 'var(--gold)') + ';width:' + Math.max(4, counts[s] / total * 100) + '%;' })]),
+      fh_('b', { style: 'width:28px;text-align:right;' }, [String(counts[s])])]));
+  });
+  if (!(db.requests || []).length) funnel.appendChild(fh_('div', { 'class': 'page-sub' }, ['Заявок ще немає.']));
+  main.appendChild(funnel);
+
+  // обʼєкти в роботі — хто що робить
+  var active = (db.objects || []).filter(function (o) { return o.status !== 'завершено'; });
+  var board = fh_('div', { 'class': 'card', style: 'margin-bottom:14px;' }, [fh_('div', { 'class': 'chart-title' }, ['🏗 Обʼєкти: на якому етапі, хто працює, що зроблено'])]);
+  if (!active.length) board.appendChild(fh_('div', { 'class': 'page-sub' }, ['Активних обʼєктів немає.']));
+  else {
+    var rows = active.map(function (o) {
+      var asg = (db.assignments || []).filter(function (a) { return a.object_id === o.id && String(a.status).toLowerCase() !== 'завершена'; });
+      var crews = asg.map(function (a) { return fnPartnerName_(fnAsgPartner_(a)); }).filter(Boolean);
+      var tasks = (db.tasks || []).filter(function (t) { return t.object_id === o.id; }), done = tasks.filter(function (t) { return t.status === 'DONE'; }).length;
+      var late = fnDay_(o.planned_end_date) && fnDay_(o.planned_end_date) < today;
+      csv.push(['Обʼєкти', o.name, (o.status || '') + '; бригади: ' + crews.join(', ') + '; завдань ' + done + '/' + tasks.length]);
+      var tr = fh_('tr', { style: 'cursor:pointer;' }, [
+        fh_('td', {}, [fh_('b', {}, [o.name]), fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, [(byId(db.clients, o.client_id) || {}).name || ''])]),
+        fh_('td', {}, [fnBadge_(o.status || '—', 'blue')]),
+        fh_('td', {}, [crews.length ? crews.join(', ') : fh_('span', { 'class': 'page-sub' }, ['ніхто'])]),
+        fh_('td', {}, [tasks.length ? done + ' з ' + tasks.length : '—']),
+        fh_('td', { style: late ? 'color:var(--red);font-weight:700;' : '' }, [o.planned_end_date ? fmtDate(o.planned_end_date) + (late ? ' ⚠' : '') : '—'])]);
+      tr.onclick = function () { location.hash = '#/objects/' + o.id; };
+      return tr;
+    });
+    board.appendChild(fh_('table', { 'class': 'dt' }, [fh_('thead', {}, [fh_('tr', {}, ['Обʼєкт', 'Статус', 'Хто працює', 'Завдань виконано', 'Кінець за планом'].map(function (h) { return fh_('th', {}, [h]); }))]), fh_('tbody', {}, rows)]));
+  }
+  main.appendChild(board);
+
+  // хронологія
+  var ev = rpTimeline_(r, cost), tl = fh_('div', { 'class': 'card', style: 'margin-bottom:14px;' }, [fh_('div', { 'class': 'chart-title' }, ['📜 Що відбулось за період (' + ev.length + ')'])]);
+  if (!ev.length) tl.appendChild(fh_('div', { 'class': 'page-sub' }, ['За цей період подій немає.']));
+  var lastDay = '';
+  ev.slice(0, 120).forEach(function (e) {
+    if (e.d !== lastDay) { lastDay = e.d; tl.appendChild(fh_('div', { style: 'font-weight:800;color:var(--gold);margin:12px 0 4px;font-size:12.5px;' }, [fmtDate(e.d)])); }
+    var row = fh_('div', { style: 'display:flex;gap:8px;padding:5px 0;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);' }, [fh_('span', {}, [e.icon]), fh_('span', { style: 'flex:1;' }, [e.text])]);
+    row.onclick = function () { location.hash = e.go; };
+    tl.appendChild(row);
+    csv.push(['Хронологія', e.d, e.text]);
+  });
+  main.appendChild(tl);
+
+  // журнал дій команди (лише власник)
+  if (currentRole_() === 'ADMIN') {
+    var log = fh_('div', { 'class': 'card', style: 'margin-bottom:14px;' }, [fh_('div', { 'class': 'chart-title' }, ['👤 Журнал дій команди — хто що змінював'])]);
+    var list = fh_('div', {}, [fh_('div', { 'class': 'page-sub' }, ['⏳ Завантажую…'])]);
+    var who = fnSel_([['', 'Усі']].concat(tkUsers_().map(function (u) { return [u.name, u.name]; })), STATE.ui.actWho || '');
+    var VERB = { create: 'додано', update: 'змінено', delete: 'видалено', create_batch: 'додано пакетом', delete_batch: 'видалено пакетом', duplicate: 'дубльовано' };
+    function draw(rows) {
+      list.innerHTML = '';
+      if (!rows.length) { list.appendChild(fh_('div', { 'class': 'page-sub' }, ['За цей період записів немає.'])); return; }
+      rows.slice(0, 100).forEach(function (a) {
+        list.appendChild(fh_('div', { style: 'padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;' }, [
+          fh_('b', {}, [a.user || '—']), ' · ' + (VERB[a.action] || a.action) + ' ' + a.what + (a.label ? ' «' + a.label + '»' : ''),
+          a.change ? fh_('div', { 'class': 'page-sub', style: 'margin:2px 0 0;font-size:11px;' }, [a.change]) : null,
+          fh_('div', { 'class': 'page-sub', style: 'margin:2px 0 0;font-size:11px;' }, [String(a.at || '').replace('T', ' ').slice(0, 16)])]));
+      });
+    }
+    function load() { apiCall('getActivity', { limit: 300, from: r.from, to: r.to, user: who.value }).then(draw).catch(function (e) { list.innerHTML = ''; list.appendChild(fh_('div', { 'class': 'page-sub' }, ['Не вдалося завантажити: ' + (e && e.message || e)])); }); }
+    who.onchange = function () { STATE.ui.actWho = who.value; load(); };
+    log.appendChild(fh_('div', { style: 'margin-bottom:8px;max-width:260px;' }, [who]));
+    log.appendChild(list); main.appendChild(log); load();
+  }
+}
+
+/* --------------------------- канали нагадувань --------------------------- */
+function openNotifySettings_() {
+  var me = tkMe_(), admin = currentRole_() === 'ADMIN';
+  var meRow = (STATE.db.users || []).filter(function (u) { return u.id === me.id; })[0] || me;
+  var body = fh_('div');
+  function chBox(label, val, on) { var c = fh_('input', { type: 'checkbox' }); c.checked = on; return { box: c, el: fh_('label', { style: 'display:flex;gap:8px;align-items:center;margin:6px 0;' }, [c, label]), val: val }; }
+  var cur = String(meRow.notify_channels || '').split(',');
+  var cEmail = chBox('📧 Email' + (meRow.email ? ' (' + meRow.email + ')' : ' — спершу вкажи email у профілі'), 'email', cur.indexOf('email') !== -1);
+  var cTg = chBox('✈️ Telegram', 'telegram', cur.indexOf('telegram') !== -1);
+  var cHook = chBox('🔗 Вебхук (Slack / Discord / ntfy тощо)', 'webhook', cur.indexOf('webhook') !== -1);
+  var chat = fnIn_({ value: meRow.telegram_chat_id || '', placeholder: 'Telegram chat id (число)', style: 'width:100%;' });
+  body.appendChild(fh_('div', { 'class': 'chart-title' }, ['Куди надсилати мені нагадування']));
+  body.appendChild(fh_('div', { 'class': 'page-sub' }, ['Кожне нове завдання, призначене тобі, і ранкове зведення прийдуть у вибрані канали. У «Моєму дні» та дзвіночку вони є завжди.']));
+  [cEmail, cTg, cHook].forEach(function (c) { body.appendChild(c.el); });
+  body.appendChild(fnRow_('Мій Telegram chat id', chat, 'Напиши боту /start і попроси власника зв’язати акаунт — або встав свій chat id сам.'));
+  function chans() { return [cEmail, cTg, cHook].filter(function (c) { return c.box.checked; }).map(function (c) { return c.val; }); }
+  function saveMine() {
+    return apiCall('setUserNotify', { notify_channels: chans(), telegram_chat_id: chat.value.trim() }).then(function (u) { fnUpsert_('users', u); if (STATE.currentUser && STATE.currentUser.id === u.id) { STATE.currentUser.notify_channels = u.notify_channels; STATE.currentUser.telegram_chat_id = u.telegram_chat_id; } Storage.saveCache(); return u; });
+  }
+  var save = fnBtn_('Зберегти', 'primary', function () { var done = fnBusy_(save); saveMine().then(function () { done(); toast('Збережено', 'success'); }).catch(function (e) { done(); fnErr_(e); }); });
+  var test = fnBtn_('Надіслати тест', '', function () {
+    var done = fnBusy_(test);
+    saveMine().then(function () { return apiCall('testNotify', {}); }).then(function (r) {
+      done(); toast((r.ok.length ? 'Надіслано: ' + r.ok.join(', ') : 'Нічого не надіслано') + (r.failed.length ? ' · помилки: ' + r.failed.map(function (f) { return f.ch + ' — ' + f.error; }).join('; ') : ''), r.failed.length ? 'error' : 'success');
+    }).catch(function (e) { done(); fnErr_(e); });
+  });
+  body.appendChild(fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;' }, [save, test]));
+
+  if (admin) {
+    var adm = fh_('div', { style: 'margin-top:18px;border-top:1px solid var(--border);padding-top:14px;' }, [fh_('div', { 'class': 'chart-title' }, ['Для власника: підключення каналів'])]);
+    var status = fh_('div', { 'class': 'page-sub' }, ['⏳']);
+    var tok = fnIn_({ placeholder: 'Токен Telegram-бота від @BotFather', style: 'width:100%;' }), hook = fnIn_({ placeholder: 'https://… (вебхук)', style: 'width:100%;' });
+    var hourly = fh_('input', { type: 'checkbox' });
+    adm.appendChild(status);
+    adm.appendChild(fh_('div', { 'class': 'page-sub' }, ['Telegram: створи бота в @BotFather → встав токен → кожен співробітник пише боту /start → натисни «Знайти чати» і привʼяжи людину. Нагадування безкоштовні й приходять миттєво.']));
+    adm.appendChild(fnRow_('Токен бота', tok)); adm.appendChild(fnRow_('Вебхук (необовʼязково)', hook));
+    adm.appendChild(fh_('label', { style: 'display:flex;gap:8px;align-items:center;margin:8px 0;' }, [hourly, '⏰ Надсилати нагадування на конкретний час (перевірка щогодини)']));
+    var found = fh_('div');
+    var saveCfg = fnBtn_('Зберегти підключення', 'primary', function () {
+      var data = { reminders_enabled: hourly.checked }; if (tok.value.trim()) data.tg_token = tok.value.trim(); if (hook.value.trim()) data.webhook_url = hook.value.trim();
+      var done = fnBusy_(saveCfg);
+      apiCall('setNotifyConfig', data).then(function (c) { done(); tok.value = ''; hook.value = ''; showCfg(c); toast('Підключення збережено', 'success'); }).catch(function (e) { done(); fnErr_(e); });
+    });
+    var findBtn = fnBtn_('Знайти чати', '', function () {
+      var done = fnBusy_(findBtn);
+      apiCall('tgFindChats', {}).then(function (chats) {
+        done(); found.innerHTML = '';
+        if (!chats.length) { found.appendChild(fh_('div', { 'class': 'page-sub' }, ['Поки ніхто не писав боту. Попроси людей надіслати йому /start.'])); return; }
+        chats.forEach(function (c) {
+          var sel = fnSel_([['', '— кому привʼязати —']].concat(tkUsers_().map(function (u) { return [u.id, u.name]; })), '');
+          var bind = fnBtn_('Привʼязати', 'small primary', function () {
+            if (!sel.value) { toast('Обери людину', 'error'); return; }
+            var u = (STATE.db.users || []).filter(function (x) { return x.id === sel.value; })[0] || {};
+            var chs = String(u.notify_channels || '').split(',').filter(Boolean); if (chs.indexOf('telegram') === -1) chs.push('telegram');
+            apiCall('setUserNotify', { user_id: sel.value, telegram_chat_id: c.chat_id, notify_channels: chs }).then(function (nu) { fnUpsert_('users', nu); toast('Привʼязано: ' + nu.name, 'success'); }).catch(fnErr_);
+          });
+          found.appendChild(fh_('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0;' }, [fh_('b', {}, [c.name || c.username || c.chat_id]), fh_('span', { 'class': 'page-sub', style: 'margin:0;' }, [c.username || ('id ' + c.chat_id)]), sel, bind]));
+        });
+      }).catch(function (e) { done(); fnErr_(e); });
+    });
+    adm.appendChild(fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;' }, [saveCfg, findBtn])); adm.appendChild(found);
+    function showCfg(c) { status.textContent = (c.telegram ? '✈️ Telegram підключено ' + (c.bot || '') : '✈️ Telegram не підключено') + ' · ' + (c.webhook ? '🔗 вебхук є' : '🔗 вебхука немає') + ' · ' + (c.reminders_enabled ? '⏰ нагадування на час увімкнено' : '⏰ нагадування на час вимкнено'); hourly.checked = !!c.reminders_enabled; }
+    apiCall('getNotifyConfig', {}).then(showCfg).catch(function () { status.textContent = 'Не вдалося прочитати стан підключень.'; });
+    body.appendChild(adm);
+  }
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Закрити', '', closeModal)]));
+  openModal('🔔 Нагадування', body, { wide: true });
+}
+
+/* ------------------------ установка як додатку (PWA) ---------------------- */
+var pwaPrompt_ = null;
+window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); pwaPrompt_ = e; });
+window.addEventListener('appinstalled', function () { pwaPrompt_ = null; toast('BUDNEX встановлено 🎉', 'success'); });
+function isStandalone_() { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; }
+function openInstallGuide_() {
+  var ua = navigator.userAgent || '', ios = /iPhone|iPad|iPod/i.test(ua) || (/Mac/i.test(ua) && navigator.maxTouchPoints > 1), android = /Android/i.test(ua);
+  var body = fh_('div');
+  if (isStandalone_()) { body.appendChild(fh_('p', {}, ['✅ Ти вже користуєшся встановленим додатком BUDNEX.'])); }
+  else {
+    if (pwaPrompt_) body.appendChild(fh_('div', { style: 'margin-bottom:14px;' }, [fnBtn_('📲 Встановити BUDNEX на цей пристрій', 'primary', function () { pwaPrompt_.prompt(); pwaPrompt_.userChoice.then(function () { pwaPrompt_ = null; closeModal(); }); })]));
+    var steps = function (title, list, hot) { return fh_('div', { 'class': 'card', style: 'margin-bottom:10px;' + (hot ? 'border-color:var(--gold);' : '') }, [fh_('div', { 'class': 'chart-title' }, [title]), fh_('ol', { style: 'margin:6px 0 0 18px;line-height:1.7;' }, list.map(function (s) { return fh_('li', {}, [s]); }))]); };
+    body.appendChild(steps('🍎 iPhone / iPad (Safari)', ['Відкрий систему в Safari (не в Chrome).', 'Натисни «Поділитися» ⬆️ внизу екрана.', 'Вибери «На екран “Додому”» → «Додати».', 'На робочому столі зʼявиться іконка BUDNEX — відкривається на весь екран, як звичайний додаток.'], ios));
+    body.appendChild(steps('🤖 Android (Chrome)', ['Відкрий систему в Chrome.', 'Натисни «⋮» вгорі справа → «Установити додаток» (або «Додати на головний екран»).', 'Підтверди — іконка зʼявиться серед додатків.'], android));
+    body.appendChild(steps('💻 Комп’ютер (Chrome / Edge)', ['У адресному рядку натисни значок «Установити» ⊕ справа.', 'Система відкриється в окремому вікні, як програма.']));
+  }
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Закрити', '', closeModal)]));
+  openModal('📲 Додаток BUDNEX', body);
+}
+
+/* ------------------------- мобільна навігація ---------------------------- */
+function quickAddSheet_() {
+  var body = fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' });
+  function big(icon, label, ok, fn) { if (!ok) return; var b = fh_('button', { 'class': 'btn', type: 'button', style: 'padding:18px 8px;font-size:15px;display:flex;flex-direction:column;gap:6px;align-items:center;' }, [fh_('span', { style: 'font-size:26px;' }, [icon]), label]); b.onclick = function () { closeModal(); fn(); }; body.appendChild(b); }
+  big('✅', 'Завдання', canDo_('tasks', 'create'), function () { openTaskEditor({}); });
+  big('👤', 'Клієнт', canDo_('clients', 'create'), function () { openClientForm(); });
+  big('📥', 'Заявка', canDo_('requests', 'create'), function () { openRequestForm(); });
+  big('🏗', 'Обʼєкт', canDo_('objects', 'create'), function () { openObjectForm(); });
+  big('💵', 'Платіж', canDo_('finance', 'create'), function () { openPaymentForm({}); });
+  big('🧾', 'Витрата', canDo_('finance', 'create'), function () { openExpenseForm({}); });
+  openModal('Швидко додати', body);
+}
+var TAB_DEFS = [['today', '🗓️', 'День'], ['tasks', '✅', 'Завдання'], ['+', '＋', ''], ['objects', '🏗️', 'Обʼєкти'], ['more', '☰', 'Ще']];
+function buildTabbar_() {
+  var bar = document.getElementById('tabbar'); if (!bar) return;
+  bar.innerHTML = '';
+  TAB_DEFS.forEach(function (t) {
+    var navItem = NAV.filter(function (n) { return n.id === t[0]; })[0];
+    if (navItem && !roleAllows_(navItem)) return;
+    if (t[0] === '+' && !(canDo_('tasks', 'create') || canDo_('clients', 'create'))) return;
+    var b = fh_('button', { 'class': 'tb' + (t[0] === '+' ? ' tb-plus' : ''), type: 'button', 'data-id': t[0] }, [fh_('span', { 'class': 'tb-ic' }, [t[1]]), t[2] ? fh_('span', { 'class': 'tb-lb' }, [t[2]]) : null]);
+    b.onclick = function () { if (t[0] === '+') quickAddSheet_(); else if (t[0] === 'more') toggleSidebar_(); else location.hash = '#/' + t[0]; };
+    bar.appendChild(b);
+  });
+}
+function tabbarSync_() {
+  var bar = document.getElementById('tabbar'); if (!bar) return;
+  if (!bar.children.length) buildTabbar_();
+  var page = (location.hash || '#/today').replace('#/', '').split('/')[0] || 'today';
+  [].forEach.call(bar.querySelectorAll('.tb'), function (b) { b.classList.toggle('active', b.getAttribute('data-id') === page); });
+  var n = (STATE.db.tasks || []).filter(function (t) { return tkOpen_(t) && tkMine_(t) && fnDay_(t.deadline) && fnDay_(t.deadline) <= fnToday_(); }).length;
+  var tb = bar.querySelector('.tb[data-id="today"]');
+  if (tb) { var bd = tb.querySelector('.nav-badge'); if (n) { if (!bd) { bd = document.createElement('span'); bd.className = 'nav-badge tb-badge'; tb.appendChild(bd); } bd.textContent = String(n); } else if (bd) bd.remove(); }
+}
+function mobileSearchToggle_() { var sb = document.getElementById('searchbox'); sb.classList.toggle('m-open'); if (sb.classList.contains('m-open')) setTimeout(function () { document.getElementById('globalSearch').focus(); }, 30); }
 
 function initApp() {
   applyTheme(STATE.ui.theme);
@@ -6803,10 +7802,11 @@ function boot() {
   if (!Auth.getToken()) { Auth.showLogin(); return; }
   document.getElementById('app').style.display = 'flex';
   initApp();
-  if (!location.hash) location.hash = '#/dashboard';
+  if (!location.hash) location.hash = '#/today';
 }
 
 boot();
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) { window.addEventListener('load', function () { try { navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) {} }); }
 </script>
 </body>
 </html>
