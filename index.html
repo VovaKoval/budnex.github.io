@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -5907,7 +5907,7 @@ var Sync = (function () {
 // або результат уже видно лише в поточній вкладці — прев'ю, перевірка тощо)
 var SYNC_READONLY_ACTIONS = { ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
-  getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
+  getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
 var _syncOrigApiCall_ = apiCall;
 apiCall = function (action, data) {
@@ -7675,12 +7675,43 @@ function openNotifySettings_() {
             var chs = String(u.notify_channels || '').split(',').filter(Boolean); if (chs.indexOf('telegram') === -1) chs.push('telegram');
             apiCall('setUserNotify', { user_id: sel.value, telegram_chat_id: c.chat_id, notify_channels: chs }).then(function (nu) { fnUpsert_('users', nu); toast('Привʼязано: ' + nu.name, 'success'); }).catch(fnErr_);
           });
-          found.appendChild(fh_('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0;' }, [fh_('b', {}, [c.name || c.username || c.chat_id]), fh_('span', { 'class': 'page-sub', style: 'margin:0;' }, [c.username || ('id ' + c.chat_id)]), sel, bind]));
+          var asGroup = c.is_group ? fnBtn_('👥 Зробити груповим чатом', 'small primary', function () { apiCall('setNotifyConfig', { group_chat: c.chat_id }).then(function (cc) { showCfg(cc); toast('Груповий чат підключено', 'success'); }).catch(fnErr_); }) : null;
+          found.appendChild(fh_('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0;' }, [fh_('b', {}, [(c.is_group ? '👥 ' : '') + (c.name || c.username || c.chat_id)]), asGroup, fh_('span', { 'class': 'page-sub', style: 'margin:0;' }, [c.username || ('id ' + c.chat_id)]), sel, bind]));
         });
       }).catch(function (e) { done(); fnErr_(e); });
     });
+    var grp = fh_('div', { 'class': 'card', style: 'margin:12px 0;padding:10px;' });
+    function drawGrp(c) {
+      grp.innerHTML = '';
+      grp.appendChild(fh_('b', {}, ['👥 Груповий чат команди']));
+      grp.appendChild(fh_('div', { 'class': 'page-sub' }, ['Спільні події (нова заявка, бригаду призначено, старт робіт, заявка без руху) додатково надходять у цю групу. Гроші й особисті завдання — лише приватно. Додай бота в групу, надішли там /start@імʼя_бота і натисни «Знайти чати».']));
+      if (c && c.group_chat) {
+        grp.appendChild(fh_('div', { style: 'margin:6px 0;font-weight:700;color:var(--green);' }, ['✅ Підключено: ' + (c.group_name || c.group_chat)]));
+        grp.appendChild(fnBtn_('Надіслати тест у групу', 'small', function (e) { var d = fnBusy_(e.currentTarget); apiCall('tgGroupTest', {}).then(function () { d(); toast('Тест надіслано в групу', 'success'); }).catch(function (er) { d(); fnErr_(er); }); }));
+        grp.appendChild(fnBtn_('Відключити групу', 'small danger', function () { apiCall('setNotifyConfig', { group_chat: '' }).then(function (cc) { showCfg(cc); toast('Групу відключено', 'success'); }).catch(fnErr_); }));
+      } else grp.appendChild(fh_('div', { 'class': 'page-sub' }, ['Група ще не підключена.']));
+      var gt = fh_('input', { type: 'checkbox' }); gt.checked = !c || c.group_tasks !== false;
+      var au = fnIn_({ value: (c && c.app_url) || (/^https:/.test(location.href) ? location.href.split('#')[0] : ''), placeholder: 'https://адреса-вашого-сайту/', style: 'width:100%;' });
+      grp.appendChild(fh_('label', { style: 'display:flex;gap:8px;align-items:center;margin:8px 0;' }, [gt, 'Показувати в групі нові й перепризначені завдання (кому призначено, обʼєкт, клієнт, термін)']));
+      grp.appendChild(fnRow_('Адреса сайту для кнопки «Відкрити обʼєкт»', au, 'Має починатися з https://. Підставляється автоматично, перевір її. Кнопка «📍 На карті» зʼявляється, якщо в обʼєкта є адреса.'));
+      grp.appendChild(fnBtn_('Зберегти', 'small primary', function (e) { var d = fnBusy_(e.currentTarget); apiCall('setNotifyConfig', { group_tasks: gt.checked, app_url: au.value.trim() }).then(function (cc) { d(); showCfg(cc); toast('Збережено', 'success'); }).catch(function (er) { d(); fnErr_(er); }); }));
+    }
+    adm.appendChild(grp);
+    var botCard = fh_('div', { 'class': 'card', style: 'margin:12px 0;padding:10px;' });
+    function drawBot(c) {
+      botCard.innerHTML = '';
+      botCard.appendChild(fh_('b', {}, ['🤖 Панель керування в боті']));
+      botCard.appendChild(fh_('div', { 'class': 'page-sub' }, ['Напиши боту /menu — зʼявляться кнопки: мої завдання, на сьогодні, нові заявки, обʼєкти, нове завдання, закупівлі, платежі (лише власнику, лише в особистому чаті). Під завданням є «✅ Виконано» і «⏰ На завтра». Права ті самі, що в системі. Працює для тих, хто підключив Telegram.']));
+      botCard.appendChild(fnBtn_('📋 Додати команди в меню бота', 'small', function (e) { var d = fnBusy_(e.currentTarget); apiCall('tgSetupPanel', {}).then(function () { d(); toast('Меню команд додано — у чаті з ботом зʼявиться кнопка «Меню»', 'success'); }).catch(function (er) { d(); fnErr_(er); }); }));
+      botCard.appendChild(fh_('div', { style: 'margin-top:8px;font-weight:700;' }, [c && c.instant ? '⚡ Миттєві відповіді увімкнено' : '🕔 Режим за розкладом: бот відповідає протягом 5 хвилин']));
+      botCard.appendChild(fh_('div', { 'class': 'page-sub' }, ['Миттєві відповіді (вебхук) — бот реагує за секунди. Потрібне розгортання вебзастосунку з доступом «Anyone». Якщо щось піде не так — просто вимкни, і повернеться режим за розкладом.']));
+      botCard.appendChild(c && c.instant
+        ? fnBtn_('Вимкнути миттєві відповіді', 'small', function () { apiCall('tgWebhookOff', {}).then(function (cc) { showCfg(cc); toast('Повернено режим за розкладом', 'success'); }).catch(fnErr_); })
+        : fnBtn_('⚡ Увімкнути миттєві відповіді', 'small primary', function (e) { var d = fnBusy_(e.currentTarget); apiCall('tgWebhookOn', {}).then(function (cc) { d(); showCfg(cc); toast('Увімкнено. Напиши боту /menu — має відповісти одразу', 'success'); }).catch(function (er) { d(); fnErr_(er); }); }));
+    }
+    adm.appendChild(botCard);
     adm.appendChild(fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;' }, [saveCfg, findBtn])); adm.appendChild(found);
-    function showCfg(c) { status.textContent = (c.telegram ? '✈️ Telegram підключено ' + (c.bot || '') : '✈️ Telegram не підключено') + ' · ' + (c.webhook ? '🔗 вебхук є' : '🔗 вебхука немає') + ' · ' + (c.reminders_enabled ? '⏰ нагадування на час увімкнено' : '⏰ нагадування на час вимкнено'); hourly.checked = !!c.reminders_enabled; }
+    function showCfg(c) { drawGrp(c); drawBot(c); status.textContent = (c.telegram ? '✈️ Telegram підключено ' + (c.bot || '') : '✈️ Telegram не підключено') + ' · ' + (c.webhook ? '🔗 вебхук є' : '🔗 вебхука немає') + ' · ' + (c.reminders_enabled ? '⏰ нагадування на час увімкнено' + (c.quick_reminders ? ' (точність 5 хв)' : ' — ⚠ натисни «Зберегти підключення», щоб вони йшли точно, кожні 5 хв') : '⏰ нагадування на час вимкнено'); hourly.checked = !!c.reminders_enabled; }
     apiCall('getNotifyConfig', {}).then(showCfg).catch(function () { status.textContent = 'Не вдалося прочитати стан підключень.'; });
     body.appendChild(adm);
   }
