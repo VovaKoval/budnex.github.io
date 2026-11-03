@@ -6765,6 +6765,8 @@ function renderFinance(main) {
    ============================================================================= */
 function tkMe_() { return STATE.currentUser || {}; }
 function tkUsers_() { return (STATE.db.users || []).filter(function (u) { return u.active !== false && String(u.active).toLowerCase() !== 'false'; }); }
+// власник може ставити завдання будь-кому, решта — лише собі
+function tkAssignable_() { var all = tkUsers_(), me = tkMe_(); if (currentRole_() === 'ADMIN') return all; var self = all.filter(function (u) { return u.id === me.id; }); return self.length ? self : (me && me.id ? [{ id: me.id, name: me.name || 'Я' }] : []); }
 function tkUserName_(id) { var u = tkUsers_().filter(function (x) { return x.id === id; })[0]; return u ? u.name : ''; }
 function tkAddDays_(n) { var d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 function tkOwnerId_(t) {
@@ -6840,9 +6842,9 @@ function openTaskEditor(arg) {
   var t = arg || {}, editing = !!t.id, me = tkMe_();
   var title = fnIn_({ value: t.title || '', placeholder: 'Що потрібно зробити?', style: 'width:100%;font-size:15px;' });
   var desc = fh_('textarea', { 'class': 'v9-in', rows: '3', style: 'width:100%;', placeholder: 'Деталі (необовʼязково)' }); desc.value = t.description || '';
-  var users = tkUsers_();
+  var users = tkAssignable_();
   var curOwner = editing ? tkOwnerId_(t) : (t.assignee_user_id || me.id || '');
-  var assignee = fnSel_([['', '— без виконавця —']].concat(users.map(function (u) { return [u.id, u.name + (u.id === me.id ? ' (я)' : '')]; })), curOwner, { style: 'width:100%;' });
+  var assignee = fnSel_((currentRole_() === 'ADMIN' ? [['', '— без виконавця —']] : []).concat(users.map(function (u) { return [u.id, u.name + (u.id === me.id ? ' (я)' : '')]; })), curOwner, { style: 'width:100%;' });
   var dl = fnIn_({ type: 'date', value: fnDay_(t.deadline) || (editing ? '' : fnToday_()) });
   var quick = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;' }, [['Сьогодні', 0], ['Завтра', 1], ['+3 дні', 3], ['+тиждень', 7]].map(function (q) {
     return fnBtn_(q[0], 'small', function () { dl.value = tkAddDays_(q[1]); });
@@ -6876,7 +6878,7 @@ function openTaskEditor(arg) {
   var remind = fnIn_({ type: 'datetime-local', value: t.remind_at ? String(t.remind_at).slice(0, 16) : '', style: 'width:100%;' });
   var body = fh_('div', {}, [
     fnRow_('Назва *', title), fnRow_('Опис', desc),
-    fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Виконавець', assignee), fnRow_('Пріоритет', prio)]),
+    fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Виконавець', assignee, currentRole_() === 'ADMIN' ? '' : 'Ви можете ставити завдання лише собі'), fnRow_('Пріоритет', prio)]),
     fnRow_('Термін', fh_('div', {}, [dl, quick])),
     fnRow_('Нагадати о (на email / Telegram)', remind, 'Необовʼязково. Нагадування надійде виконавцю в обрані ним канали (🔔 Нагадування).'),
     fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Клієнт', cliSel), fnRow_('Обʼєкт', objSel)]), newCliBox, newObjBox,
@@ -6967,7 +6969,7 @@ function renderToday(main) {
 
   // --- швидке додавання
   var qTitle = fnIn_({ placeholder: '＋ Нове завдання: напиши і натисни Enter', style: 'flex:1 1 220px;min-width:180px;font-size:14px;padding:10px;' });
-  var qWho = fnSel_(tkUsers_().map(function (u) { return [u.id, u.id === me.id ? 'Мені' : u.name]; }), me.id || '');
+  var qWho = fnSel_(tkAssignable_().map(function (u) { return [u.id, u.id === me.id ? 'Мені' : u.name]; }), me.id || '');
   var qDate = fnSel_([['0', 'Сьогодні'], ['1', 'Завтра'], ['3', 'Через 3 дні'], ['7', 'Через тиждень'], ['', 'Без терміну']], '0');
   function quickAdd() {
     var v = qTitle.value.trim(); if (!v) return;
@@ -7668,8 +7670,8 @@ function openNotifySettings_() {
         done(); found.innerHTML = '';
         if (!chats.length) { found.appendChild(fh_('div', { 'class': 'page-sub' }, ['Поки ніхто не писав боту. Попроси людей надіслати йому /start.'])); return; }
         chats.forEach(function (c) {
-          var sel = fnSel_([['', '— кому привʼязати —']].concat(tkUsers_().map(function (u) { return [u.id, u.name]; })), '');
-          var bind = fnBtn_('Привʼязати', 'small primary', function () {
+          var sel = c.is_group ? null : fnSel_([['', '— кому привʼязати —']].concat(tkUsers_().map(function (u) { return [u.id, u.name]; })), '');
+          var bind = c.is_group ? null : fnBtn_('Привʼязати', 'small primary', function () {
             if (!sel.value) { toast('Обери людину', 'error'); return; }
             var u = (STATE.db.users || []).filter(function (x) { return x.id === sel.value; })[0] || {};
             var chs = String(u.notify_channels || '').split(',').filter(Boolean); if (chs.indexOf('telegram') === -1) chs.push('telegram');
@@ -7709,6 +7711,7 @@ function openNotifySettings_() {
         apiCall('tgDiag', {}).then(function (r) {
           d(); var L = ['Бот: ' + (r.bot || '—'), 'Режим: ' + (r.mode === 'webhook' ? '⚡ миттєвий (вебхук)' : '🕔 за розкладом'), 'Таймер кожні 5 хв: ' + (r.quick_trigger ? 'є' : 'немає'), 'Група: ' + (r.group ? 'підключена' : 'ні')];
           if (r.mode === 'webhook') L.push('У черзі повідомлень: ' + (r.pending || 0));
+          (r.users || []).forEach(function (u) { L.push((u.kind === 'private' ? '✅ ' : u.kind === 'group' ? '⚠ ' : '▫️ ') + u.name + ': ' + (u.kind === 'private' ? 'особистий Telegram підключено' : u.kind === 'group' ? 'привʼязана ГРУПА' : 'не підключено')); });
           L.push(''); L = L.concat((r.tips && r.tips.length) ? r.tips.map(function (t) { return '⚠ ' + t; }) : ['✅ Проблем не знайдено.']); dg.textContent = L.join('\n');
         }).catch(function (er) { d(); fnErr_(er); });
       }));
