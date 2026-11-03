@@ -5907,7 +5907,7 @@ var Sync = (function () {
 // або результат уже видно лише в поточній вкладці — прев'ю, перевірка тощо)
 var SYNC_READONLY_ACTIONS = { ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
-  getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
+  getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgDiag: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
 var _syncOrigApiCall_ = apiCall;
 apiCall = function (action, data) {
@@ -7703,6 +7703,16 @@ function openNotifySettings_() {
       botCard.appendChild(fh_('b', {}, ['🤖 Панель керування в боті']));
       botCard.appendChild(fh_('div', { 'class': 'page-sub' }, ['Напиши боту /menu — зʼявляться кнопки: мої завдання, на сьогодні, нові заявки, обʼєкти, нове завдання, закупівлі, платежі (лише власнику, лише в особистому чаті). Під завданням є «✅ Виконано» і «⏰ На завтра». Права ті самі, що в системі. Працює для тих, хто підключив Telegram.']));
       botCard.appendChild(fnBtn_('📋 Додати команди в меню бота', 'small', function (e) { var d = fnBusy_(e.currentTarget); apiCall('tgSetupPanel', {}).then(function () { d(); toast('Меню команд додано — у чаті з ботом зʼявиться кнопка «Меню»', 'success'); }).catch(function (er) { d(); fnErr_(er); }); }));
+      var dg = fh_('div', { 'class': 'page-sub', style: 'white-space:pre-wrap;' });
+      botCard.appendChild(fnBtn_('🩺 Перевірити, чому бот мовчить', 'small', function (e) {
+        var d = fnBusy_(e.currentTarget);
+        apiCall('tgDiag', {}).then(function (r) {
+          d(); var L = ['Бот: ' + (r.bot || '—'), 'Режим: ' + (r.mode === 'webhook' ? '⚡ миттєвий (вебхук)' : '🕔 за розкладом'), 'Таймер кожні 5 хв: ' + (r.quick_trigger ? 'є' : 'немає'), 'Група: ' + (r.group ? 'підключена' : 'ні')];
+          if (r.mode === 'webhook') L.push('У черзі повідомлень: ' + (r.pending || 0));
+          L.push(''); L = L.concat((r.tips && r.tips.length) ? r.tips.map(function (t) { return '⚠ ' + t; }) : ['✅ Проблем не знайдено.']); dg.textContent = L.join('\n');
+        }).catch(function (er) { d(); fnErr_(er); });
+      }));
+      botCard.appendChild(dg);
       botCard.appendChild(fh_('div', { style: 'margin-top:8px;font-weight:700;' }, [c && c.instant ? '⚡ Миттєві відповіді увімкнено' : '🕔 Режим за розкладом: бот відповідає протягом 5 хвилин']));
       botCard.appendChild(fh_('div', { 'class': 'page-sub' }, ['Миттєві відповіді (вебхук) — бот реагує за секунди. Потрібне розгортання вебзастосунку з доступом «Anyone». Якщо щось піде не так — просто вимкни, і повернеться режим за розкладом.']));
       botCard.appendChild(c && c.instant
