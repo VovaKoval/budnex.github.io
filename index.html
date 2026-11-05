@@ -447,6 +447,8 @@ var NAV = [
   { id:'tasks', label:'Завдання', icon:'✅', roles:null },
   { id:'analytics', label:'Аналітика', icon:'📈', resource:'estimates' },
   { id:'reports', label:'Звіти', icon:'🗒️', resource:'estimates' },
+  { id:'insights', label:'Аналітика і прогноз', icon:'🧠', roles:['ADMIN'] },
+  { id:'robot', label:'Автоматизація', icon:'🤖', roles:['ADMIN'] },
   { id:'activity', label:'Журнал дій', icon:'📜', roles:['ADMIN'] },
   { id:'data', label:'Керування даними', icon:'🗄️', roles:['ADMIN'] },
   { id:'settings', label:'Налаштування', icon:'⚙️', roles:['ADMIN'] }
@@ -979,7 +981,7 @@ function renderRoute() {
   var main = document.getElementById('main');
   main.innerHTML = '';
   var renderers = {
-    today: renderToday, reports: renderReports, invoices: renderInvoices, purchases: renderPurchases, calc: renderCalc, calcrooms: renderCalcRooms, activity: renderActivity, data: function () { renderData(main); },
+    today: renderToday, reports: renderReports, invoices: renderInvoices, purchases: renderPurchases, calc: renderCalc, calcrooms: renderCalcRooms, activity: renderActivity, robot: renderRobot, insights: renderInsights, data: function () { renderData(main); },
     dashboard: renderDashboard, clients: function () { renderClients(main, param); },
     requests: renderRequests, objects: function () { renderObjects(main, param); },
     works: renderWorks, estimates: function () { renderEstimatesList(main, param); },
@@ -1023,7 +1025,7 @@ var NAV_GROUPS = [
   { id: 'g_mat', label: 'Матеріали і закупівлі', icon: '📦', items: ['materials', 'purchases', 'prices', 'catalogs'] },
   { id: 'g_money', label: 'Гроші і документи', icon: '💰', items: ['finance', 'invoices', 'analytics', 'reports', 'dashboard'] },
   { id: 'g_people', label: 'Бригади', icon: '👷', items: ['partners'] },
-  { id: 'g_sys', label: 'Система', icon: '⚙️', items: ['activity', 'data', 'settings'] }
+  { id: 'g_sys', label: 'Система', icon: '⚙️', items: ['insights', 'robot', 'activity', 'data', 'settings'] }
 ];
 function navOpenState_() { try { return JSON.parse(localStorage.getItem('budnex_nav_open') || '{}'); } catch (e) { return {}; } }
 function navSetOpen_(id, v) { var o = navOpenState_(); o[id] = v; try { localStorage.setItem('budnex_nav_open', JSON.stringify(o)); } catch (e) {} }
@@ -6166,7 +6168,7 @@ function renderCalc(main) {
   }
 }
 
-var SYNC_READONLY_ACTIONS = { getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
+var SYNC_READONLY_ACTIONS = { getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
   getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgDiag: 1, tgRelayInfo: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
@@ -7894,6 +7896,111 @@ function renderActivity(main) {
   main.appendChild(fh_('div', { 'class': 'page-sub' }, ['Хто, що і коли змінював у системі. Закриті й видалені завдання — з поясненням причини. Бачить лише власник.']));
   var d = new Date(); d.setDate(d.getDate() - 30);
   main.appendChild(actLogCard_(d.toISOString().slice(0, 10), '', true));
+}
+
+/* --------------------------- Автоматизація (ETAP 34) --------------------------- */
+function renderRobot(main) {
+  main.appendChild(el('div', { 'class': 'page-title' }, ['🤖 Автоматизація']));
+  main.appendChild(fh_('div', { 'class': 'page-sub' }, ['Система сама стежить за порядком і нагадує команді. Тут ви вмикаєте сценарії, обираєте, хто і як часто отримує нагадування, та налаштовуєте ранковий, вечірній і тижневий звіти в Telegram.']));
+  var box = fh_('div'); main.appendChild(box);
+  var DAYS = [[1, 'понеділок'], [2, 'вівторок'], [3, 'середа'], [4, 'четвер'], [5, 'пʼятниця'], [6, 'субота'], [0, 'неділя']];
+  var SEV = [['info', 'ℹ️ Інформація'], ['warning', '⚠️ Важливо'], ['critical', '🔴 Критично']];
+  function load() {
+    box.innerHTML = '<div class="page-sub">⏳ Завантаження…</div>';
+    apiCall('getAutomation', {}).then(draw).catch(function (e) { box.innerHTML = ''; fnErr_(e); });
+  }
+  function draw(d) {
+    box.innerHTML = '';
+    // --- звіти
+    var rep = fh_('div', { 'class': 'card' });
+    rep.appendChild(fh_('div', { 'class': 'chart-title' }, ['📰 Звіти в Telegram (власнику)']));
+    var inputs = {};
+    [['morning', '☀️ Ранковий — що сьогодні, що горить, що чекає'], ['evening', '🌙 Вечірній — що зроблено за день, що перенесено'], ['weekly', '📊 Тижневий — підсумок тижня, гроші, відхилення']].forEach(function (k) {
+      var c = d.reports[k[0]] || {}, on = fh_('input', { type: 'checkbox' }); on.checked = c.on !== false && String(c.on) !== 'false';
+      var tm = fh_('input', { type: 'time', 'class': 'v9-in', value: c.time || '08:00', style: 'width:110px;' });
+      var row = fh_('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0;' }, [fh_('label', { style: 'display:flex;gap:8px;align-items:center;flex:1 1 260px;' }, [on, k[1]])]);
+      var dy = null; if (k[0] === 'weekly') { dy = fnSel_(DAYS, c.day == null ? 1 : c.day, { style: 'width:140px;' }); row.appendChild(dy); }
+      row.appendChild(tm);
+      row.appendChild(fnBtn_('Надіслати зараз', 'small', function (ev) { var done = fnBusy_(ev.target); apiCall('sendReportNow', { kind: k[0] }).then(function () { done(); toast('Звіт надіслано в Telegram', 'success'); }).catch(function (e) { done(); fnErr_(e); }); }));
+      inputs[k[0]] = { on: on, tm: tm, dy: dy }; rep.appendChild(row);
+    });
+    var sev = fnSel_(SEV, d.min_sev || 'warning', { style: 'max-width:240px;' });
+    rep.appendChild(fnRow_('Що надсилати окремим повідомленням', sev, 'Усе, що нижче цієї важливості, не турбує окремо — воно лише потрапляє у звіт. Критичне надходить завжди.'));
+    rep.appendChild(fnBtn_('💾 Зберегти звіти', 'primary', function (ev) {
+      var done = fnBusy_(ev.target), p = { min_sev: sev.value };
+      Object.keys(inputs).forEach(function (k) { var i = inputs[k]; p[k] = { on: i.on.checked, time: i.tm.value }; if (i.dy) p[k].day = Number(i.dy.value); });
+      apiCall('saveReportConfig', p).then(function () { done(); toast('Збережено', 'success'); }).catch(function (e) { done(); fnErr_(e); });
+    }));
+    box.appendChild(rep);
+    // --- що зараз не так
+    var now = fh_('div', { 'class': 'card' });
+    now.appendChild(fh_('div', { 'class': 'chart-title' }, ['👀 Що система бачить зараз']));
+    if (!d.issues.length) now.appendChild(fh_('div', { style: 'color:var(--green);font-weight:700;' }, ['✅ Усе гаразд — відхилень немає.']));
+    d.issues.forEach(function (i) { now.appendChild(fh_('div', { style: 'padding:5px 0;border-bottom:1px solid var(--border);' }, [({ critical: '🔴 ', warning: '⚠️ ', info: 'ℹ️ ' })[i.sev] || '', i.text])); });
+    now.appendChild(fh_('div', { style: 'margin-top:10px;' }, [fnBtn_('🔄 Перевірити і нагадати зараз', '', function (ev) { var done = fnBusy_(ev.target); apiCall('runAutomationNow', {}).then(function (r) { done(); toast('Перевірено. Надіслано нагадувань: ' + (r.sent || 0), 'success'); load(); }).catch(function (e) { done(); fnErr_(e); }); })]));
+    box.appendChild(now);
+    // --- сценарії
+    box.appendChild(fh_('div', { 'class': 'chart-title', style: 'margin:18px 0 6px;' }, ['⚙️ Сценарії']));
+    d.rules.forEach(function (r) {
+      var card = fh_('div', { 'class': 'card' }), on = fh_('input', { type: 'checkbox' }); on.checked = String(r.enabled) !== 'false' && r.enabled !== false;
+      card.appendChild(fh_('div', { style: 'display:flex;gap:10px;align-items:center;' }, [on, fh_('b', {}, [r.name])]));
+      card.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:4px 0 8px;' }, [r.description]));
+      var wait = fnIn_({ type: 'number', min: 0, value: r.wait_hours, style: 'width:90px;' }), rmax = fnIn_({ type: 'number', min: 1, max: 10, value: r.repeat_max, style: 'width:90px;' }), rev = fnIn_({ type: 'number', min: 1, value: r.repeat_every_hours, style: 'width:90px;' }), esc = fnIn_({ type: 'number', min: 0, value: r.escalate_after_hours, style: 'width:90px;' });
+      var sv = fnSel_(SEV, r.severity, { style: 'width:170px;' }), pr = r.param !== '' && r.param != null ? fnIn_({ value: r.param, style: 'width:90px;' }) : null;
+      var who = {}, whoRow = fh_('div', { style: 'display:flex;gap:12px;flex-wrap:wrap;' });
+      [['owner', 'власнику'], ['manager', 'менеджеру/виконавцю']].forEach(function (w) { var c = fh_('input', { type: 'checkbox' }); c.checked = String(r.notify || '').indexOf(w[0]) !== -1 || (w[0] === 'manager' && String(r.notify || '').indexOf('assignee') !== -1); who[w[0]] = c; whoRow.appendChild(fh_('label', { style: 'display:flex;gap:6px;align-items:center;' }, [c, w[1]])); });
+      var g = fh_('div', { 'class': 'qc-grid' }, [fnRow_('Чекати (годин)', wait), fnRow_('Нагадати разів', rmax), fnRow_('Кожні (годин)', rev), fnRow_('Сказати власнику через (год, 0 — ні)', esc), fnRow_('Важливість', sv), pr ? fnRow_('Параметр', pr) : null]);
+      card.appendChild(g); card.appendChild(fnRow_('Кому надсилати', whoRow));
+      card.appendChild(fnBtn_('💾 Зберегти', 'small', function (ev) {
+        var done = fnBusy_(ev.target), notify = ['owner', 'manager'].filter(function (k) { return who[k].checked; }).join(',');
+        var p = { id: r.id, enabled: on.checked, wait_hours: wait.value, repeat_max: rmax.value, repeat_every_hours: rev.value, escalate_after_hours: esc.value, severity: sv.value, notify: notify }; if (pr) p.param = pr.value;
+        apiCall('saveAutomationRule', p).then(function () { done(); toast('Збережено', 'success'); }).catch(function (e) { done(); fnErr_(e); });
+      }));
+      box.appendChild(card);
+    });
+    // --- історія
+    var h = fh_('div', { 'class': 'card' });
+    h.appendChild(fh_('div', { 'class': 'chart-title' }, ['🕘 Останні нагадування']));
+    if (!d.runs.length) h.appendChild(fh_('div', { 'class': 'page-sub' }, ['Поки що нічого не надсилалось.']));
+    var names = {}; d.rules.forEach(function (r) { names[r.id] = r.name; });
+    d.runs.slice(0, 30).forEach(function (r) { h.appendChild(fh_('div', { style: 'padding:4px 0;border-bottom:1px solid var(--border);font-size:13px;' }, [fh_('span', { 'class': 'page-sub' }, [String(r.created_at || '').replace('T', ' ').slice(0, 16) + '  ']), (r.status === 'report' ? '📰 (у звіт) ' : r.status === 'escalated' ? '⬆️ власнику: ' : ''), r.text])); });
+    box.appendChild(h);
+  }
+  load();
+}
+
+/* --------------------------- Аналітика і прогноз (ETAP 36) --------------------------- */
+function renderInsights(main) {
+  main.appendChild(el('div', { 'class': 'page-title' }, ['🧠 Аналітика і прогноз']));
+  main.appendChild(fh_('div', { 'class': 'page-sub' }, ['Система сама рахує, де прибуток падає, які бригади запізнюються, кому з менеджерів потрібна допомога і скільки грошей буде через місяць. Факт і план показані окремо. Бачить лише власник.']));
+  var box = fh_('div'); main.appendChild(box);
+  box.innerHTML = '<div class="page-sub">⏳ Рахуємо…</div>';
+  apiCall('getInsights', {}).then(function (a) {
+    box.innerHTML = '';
+    var f = a.forecast, M = fmtMoney;
+    var ic = { critical: '🔴', warning: '⚠️', info: 'ℹ️' };
+    var rc = fh_('div', { 'class': 'card' }, [fh_('div', { 'class': 'chart-title' }, ['💡 Рекомендації'])]);
+    a.recommendations.forEach(function (r) { rc.appendChild(fh_('div', { style: 'padding:6px 0;border-bottom:1px solid var(--border);' }, [ic[r.level] + ' ' + r.text])); });
+    box.appendChild(rc);
+    function tile(label, val, sub, bad) { return fh_('div', { 'class': 'card', style: 'margin:0;' + (bad ? 'border-color:var(--red);' : '') }, [fh_('div', { 'class': 'page-sub', style: 'margin:0;' }, [label]), fh_('div', { style: 'font-size:20px;font-weight:800;' + (bad ? 'color:var(--red);' : '') }, [val]), sub ? fh_('div', { 'class': 'page-sub', style: 'margin:2px 0 0;font-size:11px;' }, [sub]) : null]); }
+    box.appendChild(fh_('div', { 'class': 'chart-title', style: 'margin:16px 0 6px;' }, ['💰 Гроші: факт і прогноз на 30 днів']));
+    box.appendChild(fh_('div', { 'class': 'qc-grid' }, [
+      tile('Зараз на руках (факт)', M(f.cash_now), 'отримано мінус виплати і витрати', f.cash_now < 0),
+      tile('Планово надійде', M(f.plan_in_30), 'за 30 днів'), tile('Планово піде', M(f.plan_out_30), 'за 30 днів'),
+      tile('Очікуваний залишок', M(f.expected_cash_30), 'через 30 днів (прогноз)', f.expected_cash_30 < 0),
+      tile('Прострочили клієнти', M(f.overdue_in), f.overdue_in_count + ' платежів', f.overdue_in > 0), tile('Винні бригадам', M(f.crew_due_total), ''),
+      tile('Відкриті заявки', f.pipeline_count + ' · ' + M(f.pipeline_budget), f.pipeline_expected !== null ? 'за конверсією ' + f.conversion_pct + '% ≈ ' + M(f.pipeline_expected) : 'мало даних для оцінки конверсії')]));
+    function table(title, head, rows) {
+      var c = fh_('div', { 'class': 'card' }, [fh_('div', { 'class': 'chart-title' }, [title])]);
+      if (!rows.length) { c.appendChild(fh_('div', { 'class': 'page-sub' }, ['Поки що даних немає.'])); box.appendChild(c); return; }
+      var t = fh_('table', { 'class': 'tbl' }, [fh_('thead', {}, [fh_('tr', {}, head.map(function (h) { return fh_('th', {}, [h]); }))]), fh_('tbody', {}, rows.map(function (r) { return fh_('tr', {}, r.map(function (x) { return fh_('td', {}, [String(x)]); })); }))]);
+      c.appendChild(fh_('div', { 'class': 'table-scroll' }, [t])); box.appendChild(c);
+    }
+    var pc = function (x) { return x === null || x === undefined ? '—' : x + '%'; };
+    table('👷 Ефективність бригад', ['Бригада', 'Робіт', 'Здано', 'Вчасно', 'Запізнення', 'Прострочено зараз', 'Винні їм'], a.crews.map(function (c) { return [c.name, c.total, c.finished, pc(c.on_time_pct), c.avg_delay_days ? c.avg_delay_days + ' дн.' : '—', c.overdue_now || '—', M(c.due)]; }));
+    table('🧑‍💼 Менеджери', ['Менеджер', 'Обʼєктів', 'Відстають', 'Сер. маржа', 'Завдань прострочено', 'Конверсія заявок'], a.managers.map(function (m) { return [m.name, m.objects, m.late || '—', pc(m.avg_margin_pct), m.tasks_overdue + ' з ' + m.tasks_open, pc(m.conversion_pct)]; }));
+    table('🏗 Обʼєкти за маржею (від найгіршої)', ['Обʼєкт', 'Статус', 'Договір', 'Собівартість (прогноз)', 'Маржа', 'Відставання'], a.objects.map(function (o) { return [o.name, o.status, M(o.contract), M(o.cost_forecast), o.margin_pct === null ? '—' : o.margin_pct + '% (' + M(o.margin_money) + ')', o.late ? o.late_days + ' дн.' : '—']; }));
+  }).catch(function (e) { box.innerHTML = ''; fnErr_(e); });
 }
 
 /* --------------------------- канали нагадувань --------------------------- */
