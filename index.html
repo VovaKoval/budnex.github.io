@@ -61,6 +61,11 @@ input,select,textarea{font-family:inherit;font-size:14px;}
 #sidebar .nav-item{display:flex;align-items:center;gap:10px;padding:10px 18px;color:var(--muted);cursor:pointer;font-size:13.5px;font-weight:600;border-left:3px solid transparent;}
 #sidebar .nav-item:hover{color:var(--text);background:var(--panel2);}
 #sidebar .nav-item.active{color:var(--gold);border-left-color:var(--gold);background:var(--panel2);}
+.nav-group-head{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-weight:700;border-radius:8px;color:var(--text);user-select:none;}
+.nav-group-head:hover{background:var(--hover,rgba(128,128,128,.12));}
+.nav-group-body{display:none;padding-left:10px;}
+.nav-group.open .nav-group-body{display:block;}
+.nav-caret{transition:transform .15s;opacity:.6;} .nav-group:not(.open) .nav-caret{transform:rotate(-90deg);}
 #sidebar .nav-item .ic{width:18px;text-align:center;}
 #main{flex:1;overflow-y:auto;padding:22px 26px;min-width:0;}
 #sidebarBackdrop{display:none;}
@@ -424,6 +429,7 @@ var NAV = [
   { id:'catalogs', label:'Шаблони і норми', icon:'🧩', resource:'catalogs' },
   { id:'prices', label:'Актуалізація цін', icon:'🔎', resource:'price_updates' },
   { id:'finance', label:'Фінанси', icon:'💰', resource:'finance' },
+  { id:'calc', label:'Калькулятор матеріалів', icon:'🧮', resource:'materials' },
   { id:'purchases', label:'Закупівлі', icon:'🛒', resource:'materials' },
   { id:'invoices', label:'Накладні', icon:'📑', resource:'invoices' },
   { id:'calendar', label:'Календар', icon:'📅', resource:'requests' },
@@ -510,7 +516,7 @@ var Storage = {
   }
 };
 
-var MUTATIONS = ['quickIntake','createPurchase','updatePurchase','deletePurchase','purchaseSetStatus','purchasesFromEstimate','createInvoice','updateInvoice','deleteInvoice','adminSave','adminDelete','setUserNotify','createClient','updateClient','deleteClient','createRequest','updateRequest','deleteRequest',
+var MUTATIONS = ['calcToPurchases','calcToEstimate','quickIntake','createPurchase','updatePurchase','deletePurchase','purchaseSetStatus','purchasesFromEstimate','createInvoice','updateInvoice','deleteInvoice','adminSave','adminDelete','setUserNotify','createClient','updateClient','deleteClient','createRequest','updateRequest','deleteRequest',
   'createObject','updateObject','deleteObject','createWork','updateWork','deleteWork','createEstimate','updateEstimate',
   'deleteEstimate','addEstimateItem','updateEstimateItem','deleteEstimateItem','createPartner','updatePartner','deletePartner',
   'createTeam','updateTeam','deleteTeam','createAssignment','updateAssignment','createPayment','createExpense','createTask',
@@ -944,12 +950,13 @@ function renderRoute() {
 
   document.querySelectorAll('#sidebar .nav-item').forEach(function (n) {
     n.classList.toggle('active', n.dataset.id === page);
+    if (n.dataset.id === page && n.parentNode && n.parentNode.parentNode && n.parentNode.parentNode.classList.contains('nav-group')) n.parentNode.parentNode.classList.add('open');
   });
 
   var main = document.getElementById('main');
   main.innerHTML = '';
   var renderers = {
-    today: renderToday, reports: renderReports, invoices: renderInvoices, purchases: renderPurchases, data: function () { renderData(main); },
+    today: renderToday, reports: renderReports, invoices: renderInvoices, purchases: renderPurchases, calc: renderCalc, data: function () { renderData(main); },
     dashboard: renderDashboard, clients: function () { renderClients(main, param); },
     requests: renderRequests, objects: function () { renderObjects(main, param); },
     works: renderWorks, estimates: function () { renderEstimatesList(main, param); },
@@ -984,16 +991,43 @@ function renderRoute() {
 }
 window.addEventListener('hashchange', renderRoute);
 
+// Меню згруповане: замість 22 вкладок — кілька розділів, що згортаються. Усі старі
+// адреси (#/estimates, #/purchases …) працюють як раніше.
+var NAV_GROUPS = [
+  { id: 'g_work', label: 'Робота', icon: '📌', items: ['today', 'tasks', 'calendar'] },
+  { id: 'g_sales', label: 'Клієнти і обʼєкти', icon: '👥', items: ['clients', 'requests', 'objects'] },
+  { id: 'g_est', label: 'Кошторис', icon: '🧾', items: ['calc', 'auto', 'estimates', 'works'] },
+  { id: 'g_mat', label: 'Матеріали і закупівлі', icon: '📦', items: ['materials', 'purchases', 'prices', 'catalogs'] },
+  { id: 'g_money', label: 'Гроші і документи', icon: '💰', items: ['finance', 'invoices', 'analytics', 'reports', 'dashboard'] },
+  { id: 'g_people', label: 'Бригади', icon: '👷', items: ['partners'] },
+  { id: 'g_sys', label: 'Система', icon: '⚙️', items: ['data', 'settings'] }
+];
+function navOpenState_() { try { return JSON.parse(localStorage.getItem('budnex_nav_open') || '{}'); } catch (e) { return {}; } }
+function navSetOpen_(id, v) { var o = navOpenState_(); o[id] = v; try { localStorage.setItem('budnex_nav_open', JSON.stringify(o)); } catch (e) {} }
 function buildSidebar() {
   var sb = document.getElementById('sidebar');
   sb.innerHTML = '';
-  NAV.filter(roleAllows_).forEach(function (n) {
-    var item = el('div', { class: 'nav-item', 'data-id': n.id }, [
-      el('span', { class: 'ic' }, [n.icon]), el('span', {}, [n.label])
-    ]);
-    item.onclick = function () { location.hash = '#/' + n.id; };
-    sb.appendChild(item);
+  var allowed = NAV.filter(roleAllows_), used = {}, cur = (location.hash || '#/today').replace('#/', '').split('/')[0] || 'today', st = navOpenState_();
+  function item(n) {
+    var it = el('div', { class: 'nav-item', 'data-id': n.id }, [el('span', { class: 'ic' }, [n.icon]), el('span', {}, [n.label])]);
+    it.onclick = function () { location.hash = '#/' + n.id; };
+    return it;
+  }
+  NAV_GROUPS.forEach(function (g) {
+    var list = g.items.map(function (id) { used[id] = 1; return allowed.filter(function (n) { return n.id === id; })[0]; }).filter(Boolean);
+    if (!list.length) return;
+    if (list.length === 1 && g.items.length === 1) { sb.appendChild(item(list[0])); return; }
+    var open = st[g.id] === undefined ? (g.id === 'g_work' || g.id === 'g_est') : st[g.id];
+    if (g.items.indexOf(cur) !== -1) open = true;
+    var wrap = el('div', { class: 'nav-group' + (open ? ' open' : ''), 'data-group': g.id });
+    var head = el('div', { class: 'nav-group-head' }, [el('span', { class: 'ic' }, [g.icon]), el('span', { style: 'flex:1;' }, [g.label]), el('span', { class: 'nav-caret' }, ['▾'])]);
+    head.onclick = function () { var o = wrap.classList.toggle('open'); navSetOpen_(g.id, o); };
+    wrap.appendChild(head);
+    var body = el('div', { class: 'nav-group-body' });
+    list.forEach(function (n) { body.appendChild(item(n)); });
+    wrap.appendChild(body); sb.appendChild(wrap);
   });
+  allowed.filter(function (n) { return !used[n.id]; }).forEach(function (n) { sb.appendChild(item(n)); });
   var inst = el('div', { class: 'nav-item', 'data-id': '_install' }, [el('span', { class: 'ic' }, ['📲']), el('span', {}, ['Додаток на телефон'])]);
   inst.onclick = function () { closeSidebar_(); openInstallGuide_(); };
   sb.appendChild(inst);
@@ -5905,7 +5939,121 @@ var Sync = (function () {
 })();
 // дії, після яких синхронізувати інші вкладки не потрібно (нічого не змінюють
 // або результат уже видно лише в поточній вкладці — прев'ю, перевірка тощо)
-var SYNC_READONLY_ACTIONS = { ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
+/* ===== ЕТАП 31: КАЛЬКУЛЯТОР МАТЕРІАЛІВ ===== */
+var CALC = { cfg: null, obj: '', est: '', rooms: [], height: 2.7, windows: 0, doors: 0, facade: '', roof: '', jobs: {}, qty: {}, result: null };
+function calcLoad_(objId) {
+  var d = null; try { d = JSON.parse(localStorage.getItem('budnex_calc_' + (objId || '_'))); } catch (e) {}
+  CALC.rooms = (d && d.rooms) || [{ name: 'Кімната 1', l: '', w: '', wet: false }]; CALC.height = (d && d.height) || 2.7;
+  CALC.windows = (d && d.windows) || 0; CALC.doors = (d && d.doors) || 0; CALC.facade = (d && d.facade) || ''; CALC.roof = (d && d.roof) || '';
+  CALC.jobs = (d && d.jobs) || {}; CALC.qty = (d && d.qty) || {}; CALC.result = null;
+}
+function calcSave_() { try { localStorage.setItem('budnex_calc_' + (CALC.obj || '_'), JSON.stringify({ rooms: CALC.rooms, height: CALC.height, windows: CALC.windows, doors: CALC.doors, facade: CALC.facade, roof: CALC.roof, jobs: CALC.jobs, qty: CALC.qty })); } catch (e) {} }
+// усі площі виводяться з кімнат один раз — далі їх підставляють самі роботи
+function calcVars_() {
+  var h = fnNum_(CALC.height) || 2.7, fl = 0, wetF = 0, per = 0, wetP = 0;
+  CALC.rooms.forEach(function (r) { var l = fnNum_(r.l), w = fnNum_(r.w); if (!(l > 0 && w > 0)) return; var a = l * w, p = 2 * (l + w); if (r.wet) { wetF += a; wetP += p; } else { per += p; } fl += a; });
+  var open = fnNum_(CALC.windows) * 1.5 + fnNum_(CALC.doors) * 1.9, dryW = Math.max(0, per * h - open), wetW = wetP * h;
+  var rd = function (x) { return Math.round(x * 100) / 100; };
+  return { floor_area: rd(fl), dry_floor_area: rd(fl - wetF), ceiling_area: rd(fl), wall_area: rd(dryW), room_perimeter: rd(per), dry_perimeter: rd(per), wet_floor_area: rd(wetF), wet_wall_area: rd(wetW),
+    slopes_lm: rd(fnNum_(CALC.windows) * 5.4 + fnNum_(CALC.doors) * 5.0), windows_count: fnNum_(CALC.windows), doors_count: fnNum_(CALC.doors), roof_area: fnNum_(CALC.roof), facade_area: fnNum_(CALC.facade), wall_height: h };
+}
+function calcDefaultQty_(job, v) { var map = { floor: 'floor_area', dry_floor: 'dry_floor_area', ceiling: 'ceiling_area', wall: 'wall_area', perimeter: 'room_perimeter', dry_perimeter: 'dry_perimeter', wet_floor: 'wet_floor_area', wet_wall: 'wet_wall_area', slopes: 'slopes_lm', roof: 'roof_area', facade: 'facade_area', windows: 'windows_count', doors: 'doors_count' }; return map[job.surface] ? (v[map[job.surface]] || 0) : 0; }
+function calcQty_(job, v) { var o = CALC.qty[job.name]; return (o !== undefined && o !== '') ? fnNum_(o) : calcDefaultQty_(job, v); }
+function renderCalc(main) {
+  main.appendChild(el('div', { 'class': 'page-title' }, ['Калькулятор матеріалів']));
+  main.appendChild(fh_('div', { 'class': 'page-sub' }, ['Впиши розміри кімнат один раз — система сама пораховує площі стін, підлоги, стелі та кількість усіх матеріалів «від А до Я» із запасом на відходи. Результат одним кліком іде в закупівлі або кошторис.']));
+  var box = fh_('div'); main.appendChild(box);
+  if (!CALC.cfg) { box.appendChild(fh_('div', { 'class': 'page-sub' }, ['⏳ Готую бібліотеку норм (перший раз 10–20 секунд)…'])); apiCall('getMaterialCalcConfig', {}).then(function (c) { CALC.cfg = c; calcLoad_(CALC.obj); draw(); if (c.installed && c.installed.added_materials) toast('Додано ' + c.installed.added_materials + ' матеріалів і ' + c.installed.added_norms + ' норм у довідники', 'success'); }).catch(function (e) { box.innerHTML = ''; box.appendChild(fh_('div', { 'class': 'empty-state' }, ['Не вдалося: ' + (e.message || e)])); }); return; }
+  draw();
+  function draw() {
+    box.innerHTML = ''; var cfg = CALC.cfg, v = calcVars_();
+    // 1. обʼєкт
+    var objSel = fnSel_([['', '— без обʼєкта (просто розрахунок) —']].concat((STATE.db.objects || []).map(function (o) { return [o.id, o.name]; })), CALC.obj);
+    objSel.onchange = function () { calcSave_(); CALC.obj = objSel.value; CALC.est = ''; var has = null; try { has = localStorage.getItem('budnex_calc_' + (CALC.obj || '_')); } catch (e) {} if (has) calcLoad_(CALC.obj); else calcSave_(); draw(); };
+    box.appendChild(fh_('div', { 'class': 'card' }, [fh_('div', { 'class': 'chart-title' }, ['1. Обʼєкт']), fnRow_('Для якого обʼєкта рахуємо', objSel, 'Дані кімнат запамʼятовуються для кожного обʼєкта окремо — наступного разу відкриєш і все на місці.')]));
+    // 2. кімнати
+    var rb = fh_('tbody');
+    CALC.rooms.forEach(function (r, i) {
+      var nm = fnIn_({ value: r.name, placeholder: 'Назва' }), l = fnIn_({ value: r.l, placeholder: 'довж. м', inputmode: 'decimal', style: 'width:80px;' }), w = fnIn_({ value: r.w, placeholder: 'шир. м', inputmode: 'decimal', style: 'width:80px;' });
+      var wet = fh_('input', { type: 'checkbox' }); wet.checked = !!r.wet;
+      var upd = function () { r.name = nm.value; r.l = l.value; r.w = w.value; r.wet = wet.checked; calcSave_(); CALC.result = null; };
+      nm.oninput = upd; l.onchange = function () { upd(); draw(); }; w.onchange = function () { upd(); draw(); }; wet.onchange = function () { upd(); draw(); };
+      var a = fnNum_(r.l) * fnNum_(r.w);
+      rb.appendChild(fh_('tr', {}, [fh_('td', {}, [nm]), fh_('td', {}, [l]), fh_('td', {}, [w]), fh_('td', {}, [wet]), fh_('td', { style: 'white-space:nowrap;' }, [a > 0 ? (Math.round(a * 100) / 100) + ' м²' : '—']),
+        fh_('td', {}, [CALC.rooms.length > 1 ? fnBtn_('🗑', 'small danger', function () { CALC.rooms.splice(i, 1); calcSave_(); CALC.result = null; draw(); }) : null])]));
+    });
+    var hIn = fnIn_({ value: CALC.height, inputmode: 'decimal', style: 'width:90px;' }), wIn = fnIn_({ value: CALC.windows, inputmode: 'numeric', style: 'width:90px;' }), dIn = fnIn_({ value: CALC.doors, inputmode: 'numeric', style: 'width:90px;' });
+    [[hIn, 'height'], [wIn, 'windows'], [dIn, 'doors']].forEach(function (p) { p[0].onchange = function () { CALC[p[1]] = p[0].value; calcSave_(); CALC.result = null; draw(); }; });
+    var fIn = fnIn_({ value: CALC.facade, inputmode: 'decimal', style: 'width:110px;', placeholder: 'м²' }), roIn = fnIn_({ value: CALC.roof, inputmode: 'decimal', style: 'width:110px;', placeholder: 'м²' });
+    fIn.onchange = function () { CALC.facade = fIn.value; calcSave_(); CALC.result = null; draw(); }; roIn.onchange = function () { CALC.roof = roIn.value; calcSave_(); CALC.result = null; draw(); };
+    box.appendChild(fh_('div', { 'class': 'card' }, [fh_('div', { 'class': 'chart-title' }, ['2. Розміри']),
+      fh_('table', { 'class': 'table' }, [fh_('thead', {}, [fh_('tr', {}, ['Кімната', 'Довжина', 'Ширина', 'Санвузол / мокра', 'Площа', ''].map(function (t) { return fh_('th', {}, [t]); }))]), rb]),
+      fnBtn_('+ Кімната', 'small', function () { CALC.rooms.push({ name: 'Кімната ' + (CALC.rooms.length + 1), l: '', w: '', wet: false }); calcSave_(); draw(); }),
+      fh_('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;' }, [fnRow_('Висота стелі, м', hIn), fnRow_('Вікон, шт.', wIn), fnRow_('Дверей, шт.', dIn), fnRow_('Фасад (за потреби), м²', fIn), fnRow_('Дах (за потреби), м²', roIn)]),
+      fh_('div', { 'class': 'page-sub' }, ['Підлога: ' + v.floor_area + ' м² (сухі ' + v.dry_floor_area + ', мокрі ' + v.wet_floor_area + ') · Стіни під оздоблення: ' + v.wall_area + ' м² · Стіни мокрих зон: ' + v.wet_wall_area + ' м² · Периметр: ' + v.room_perimeter + ' м.п.'])]));
+    // 3. роботи
+    var presets = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;' });
+    cfg.presets.forEach(function (p) { presets.appendChild(fnBtn_(p.icon + ' ' + p.name, 'small', function () { CALC.jobs = {}; p.jobs.forEach(function (j) { CALC.jobs[j] = true; }); calcSave_(); CALC.result = null; draw(); }, 'Відмітити типовий набір робіт')); });
+    presets.appendChild(fnBtn_('Зняти всі', 'small', function () { CALC.jobs = {}; calcSave_(); CALC.result = null; draw(); }));
+    var jb = fh_('div'), cats = {}; cfg.jobs.forEach(function (j) { (cats[j.category] = cats[j.category] || []).push(j); });
+    Object.keys(cats).forEach(function (c) {
+      var on = cats[c].filter(function (j) { return CALC.jobs[j.name]; }).length;
+      var det = fh_('details', { style: 'margin-bottom:6px;' }); if (on) det.open = true;
+      det.appendChild(fh_('summary', { style: 'cursor:pointer;font-weight:700;padding:6px 0;' }, [c + (on ? ' · відмічено ' + on : '')]));
+      cats[c].forEach(function (j) {
+        var cb = fh_('input', { type: 'checkbox' }); cb.checked = !!CALC.jobs[j.name];
+        var q = fnIn_({ value: (CALC.qty[j.name] !== undefined && CALC.qty[j.name] !== '') ? CALC.qty[j.name] : (calcDefaultQty_(j, v) || ''), inputmode: 'decimal', style: 'width:90px;', placeholder: j.unit });
+        cb.onchange = function () { CALC.jobs[j.name] = cb.checked; calcSave_(); CALC.result = null; draw(); };
+        q.onchange = function () { CALC.qty[j.name] = q.value; calcSave_(); CALC.result = null; };
+        det.appendChild(fh_('label', { style: 'display:flex;gap:8px;align-items:center;padding:4px 0;flex-wrap:wrap;' }, [cb, fh_('span', { style: 'flex:1;min-width:200px;' }, [j.name]), q, fh_('span', { 'class': 'page-sub', style: 'margin:0;width:36px;' }, [j.unit])]));
+      });
+      jb.appendChild(det);
+    });
+    box.appendChild(fh_('div', { 'class': 'card' }, [fh_('div', { 'class': 'chart-title' }, ['3. Які роботи будуть']), presets, jb, fh_('div', { 'class': 'page-sub' }, ['Кількість підставляється сама з розмірів — за потреби поправ вручну. Для робіт «за точками» (електрика, сантехніка) впиши кількість точок.'])]));
+    // 4. результат
+    var picked = function () { return cfg.jobs.filter(function (j) { return CALC.jobs[j.name]; }).map(function (j) { return { name: j.name, quantity: calcQty_(j, v) }; }).filter(function (j) { return j.quantity > 0; }); };
+    var go = fnBtn_('🧮 Порахувати матеріали', 'primary', function () {
+      var jobs = picked(); if (!jobs.length) return toast('Відміть роботи й вкажи розміри (кількість має бути більше 0)', 'error');
+      var done = fnBusy_(go, '⏳ Рахую…');
+      apiCall('calcMaterials', { vars: v, jobs: jobs }).then(function (r) { CALC.result = { r: r, jobs: jobs }; done(); draw(); window.scrollTo(0, document.body.scrollHeight); }).catch(function (e) { done(); fnErr_(e); });
+    });
+    box.appendChild(fh_('div', { 'class': 'toolbar' }, [go]));
+    if (CALC.result) drawResult_(box, CALC.result);
+  }
+  function drawResult_(host, res) {
+    var r = res.r, hasP = r.total !== null && r.total !== undefined, tb = fh_('tbody');
+    r.lines.forEach(function (l) { tb.appendChild(fh_('tr', {}, [fh_('td', {}, [fh_('b', {}, [l.name]), fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, [(l.for_works || []).join(', ')])]), fh_('td', { style: 'white-space:nowrap;text-align:right;' }, [l.quantity + ' ' + l.unit]), hasP ? fh_('td', { style: 'text-align:right;white-space:nowrap;' }, [purMoney_(l.sum || 0)]) : null])); });
+    var head = ['Матеріал', 'Кількість'].concat(hasP ? ['Орієнтовно, грн'] : []);
+    var card = fh_('div', { 'class': 'card' }, [fh_('div', { 'class': 'chart-title' }, ['4. Що потрібно (' + r.lines.length + ' позицій)']),
+      fh_('table', { 'class': 'table' }, [fh_('thead', {}, [fh_('tr', {}, head.map(function (t) { return fh_('th', {}, [t]); }))]), tb])]);
+    if (hasP) card.appendChild(fh_('div', { style: 'text-align:right;font-weight:800;margin-top:8px;' }, ['Разом: ' + purMoney_(r.total) + ' грн']));
+    if (r.no_norm && r.no_norm.length) card.appendChild(fh_('div', { 'class': 'page-sub', style: 'color:var(--warn,#d97706);' }, ['⚠ Для цих робіт немає норм витрат (додай у «Шаблони і норми»): ' + r.no_norm.join(', ')]));
+    if (r.warnings && r.warnings.length) card.appendChild(fh_('div', { 'class': 'page-sub' }, ['ℹ ' + r.warnings.join('; ')]));
+    var acts = fh_('div', { 'class': 'toolbar', style: 'margin-top:12px;' });
+    if (canDo_('materials', 'create')) acts.appendChild(fnBtn_('🛒 У закупівлі' + (CALC.obj ? '' : ' (оберіть обʼєкт зверху)'), 'primary', function () {
+      if (!CALC.obj) return toast('Спочатку оберіть обʼєкт у кроці 1', 'error');
+      apiCall('calcToPurchases', { object_id: CALC.obj, lines: r.lines }).then(function (x) { PUR.list = null; toast('Додано в закупівлі: ' + x.created + (x.skipped ? ' (вже були: ' + x.skipped + ')' : ''), 'success'); }).catch(fnErr_);
+    }));
+    if (canDo_('estimates', 'create')) acts.appendChild(fnBtn_('🧾 У кошторис', '', function () {
+      var ests = (STATE.db.estimates || []).filter(function (e) { return !CALC.obj || e.object_id === CALC.obj; });
+      if (!ests.length) return toast('Для цього обʼєкта ще немає кошторису — створіть його в розділі «Кошториси»', 'error');
+      var sel = fnSel_(ests.map(function (e) { return [e.id, (e.title || e.name || e.id) + (e.status ? ' · ' + e.status : '')]; }), CALC.est || ests[0].id);
+      var withWorks = fh_('input', { type: 'checkbox' }); withWorks.checked = true;
+      var ok = fnBtn_('Додати', 'primary', function () {
+        var done = fnBusy_(ok);
+        apiCall('calcToEstimate', { estimate_id: sel.value, lines: r.lines, jobs: withWorks.checked ? res.jobs : [] }).then(function (x) { CALC.est = sel.value; done(); closeModal(); toast('У кошторис додано: матеріалів ' + x.materials_added + ', робіт ' + x.works_added + (x.works_skipped.length ? ' (робіт не знайдено в прайсі: ' + x.works_skipped.length + ')' : ''), 'success'); try { syncAll(); } catch (e) {} }).catch(function (e) { done(); fnErr_(e); });
+      });
+      openModal('Додати в кошторис', fh_('div', {}, [fnRow_('Кошторис', sel), fh_('label', { style: 'display:flex;gap:8px;align-items:center;margin:8px 0;' }, [withWorks, 'Також додати самі роботи (за прайсом)']), fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), ok])]));
+    }));
+    acts.appendChild(fnBtn_('📋 Копіювати список', '', function () {
+      var t = r.lines.map(function (l) { return '• ' + l.name + ' — ' + l.quantity + ' ' + l.unit; }).join('\n');
+      try { navigator.clipboard.writeText(t).then(function () { toast('Скопійовано', 'success'); }, function () { openModal('Список матеріалів', fh_('pre', { style: 'white-space:pre-wrap;' }, [t])); }); } catch (e) { openModal('Список матеріалів', fh_('pre', { style: 'white-space:pre-wrap;' }, [t])); }
+    }));
+    card.appendChild(acts); host.appendChild(card);
+  }
+}
+
+var SYNC_READONLY_ACTIONS = { getMaterialCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
   getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgDiag: 1, tgRelayInfo: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
