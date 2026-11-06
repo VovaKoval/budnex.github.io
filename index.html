@@ -6082,15 +6082,16 @@ function renderCalcRooms(main) {
 var QC = { cfg: null, obj: '', area: '', lines: [] };
 function qcLoad_() { var d = null; try { d = JSON.parse(localStorage.getItem('budnex_qc_' + (QC.obj || '_'))); } catch (e) {} QC.area = (d && d.area) || ''; QC.lines = (d && d.lines) || []; }
 function qcSave_() { try { localStorage.setItem('budnex_qc_' + (QC.obj || '_'), JSON.stringify({ area: QC.area, lines: QC.lines })); } catch (e) {} }
+var QC_BASES = [['м²', 'м² — квадратні метри'], ['м.п.', 'м.п. — погонні метри'], ['м³', 'м³ — кубічні метри'], ['шт.', 'шт. — штуки'], ['кг', 'кг — вага']];
 var QC_PIECE = /шт|мішок|відро|рулон|лист|упак|уп\.|компл|точк|пачк/i;
 function qcCalc_(l) {
-  var a = fnNum_(l.area !== '' && l.area != null ? l.area : QC.area), c = fnNum_(l.cons), w = fnNum_(l.waste);
+  var own = l.area !== '' && l.area != null, a = fnNum_(own ? l.area : ((l.basis || 'м²') === 'м²' ? QC.area : '')), c = fnNum_(l.cons), w = fnNum_(l.waste);
   var q = a * c * (1 + w / 100);
   return { qty: !(q > 0) ? 0 : (QC_PIECE.test(l.unit || '') ? Math.ceil(q - 1e-9) : Math.round(q * 100) / 100) };
 }
 function renderCalc(main) {
   main.appendChild(el('div', { 'class': 'page-title' }, ['Скільки потрібно матеріалу']));
-  main.appendChild(fh_('div', { 'class': 'page-sub' }, ['Впишіть готову площу, оберіть матеріал зі списку — система порахує, скільки його купити (із запасом на відходи). Норму витрат можна поправити вручну.']));
+  main.appendChild(fh_('div', { 'class': 'page-sub' }, ['Впишіть готову кількість (площу, довжину чи обʼєм), оберіть матеріал зі списку й одиницю виміру — система порахує, скільки його купити (із запасом на відходи). Норму витрат можна поправити вручну.']));
   var box = fh_('div'); main.appendChild(box);
   if (!QC.cfg) {
     box.appendChild(fh_('div', { 'class': 'page-sub' }, ['⏳ Завантажую список матеріалів…']));
@@ -6107,35 +6108,51 @@ function renderCalc(main) {
     area.onchange = function () { QC.area = area.value; qcSave_(); draw(); };
     box.appendChild(fh_('div', { 'class': 'card' }, [
       fh_('div', { 'class': 'qc-grid' }, [fnRow_('Площа, м² (вже пораховану)', area, 'Підставляється в усі рядки нижче; в кожному рядку можна вказати свою.'), fnRow_('Обʼєкт (для закупівель і кошторису)', objSel)])]));
-    var dl = fh_('datalist', { id: 'qcMats' });
-    cfg.materials.forEach(function (m) { dl.appendChild(fh_('option', { value: m.name }, [m.category + ' · ' + m.unit])); });
-    box.appendChild(dl);
     var results = [];
     QC.lines.forEach(function (l, i) {
       var m = l.mat ? matByName(l.mat) : null;
-      var inp = fnIn_({ value: l.mat || '', list: 'qcMats', placeholder: 'Почніть вводити назву або оберіть зі списку', style: 'width:100%;' });
-      inp.onchange = function () {
-        var mm = matByName(inp.value);
-        if (!mm) { toast('Такого матеріалу немає в списку. Оберіть із підказок.', 'error'); inp.value = l.mat || ''; return; }
-        l.mat = mm.name; l.id = mm.id; l.unit = mm.unit; l.price = mm.price;
-        var n0 = mm.norms[0]; l.work = n0 ? n0.work : ''; l.cons = n0 ? n0.consumption : ''; l.waste = n0 ? n0.waste : 5; qcSave_(); draw();
-      };
+      var cats = []; cfg.materials.forEach(function (x) { if (cats.indexOf(x.category) === -1) cats.push(x.category); });
+      var curCat = l.cat || (m ? m.category : '');
+      var catSel = fnSel_([['', 'Усі категорії']].concat(cats.map(function (c0) { return [c0, c0]; })), curCat);
+      catSel.onchange = function () { l.cat = catSel.value; qcSave_(); draw(); };
+      var pool = cfg.materials.filter(function (x) { return !curCat || x.category === curCat; });
+      var dl = fh_('datalist', { id: 'qcMats' + i });
+      pool.forEach(function (x) { dl.appendChild(fh_('option', { value: x.name }, [x.category + ' · ' + x.unit])); });
+      var inp = fnIn_({ value: l.mat || '', list: 'qcMats' + i, placeholder: 'Почніть вводити назву або натисніть ▾', style: 'width:100%;' });
+      var pick = fh_('select', { 'class': 'v9-in', style: 'width:52px;flex:0 0 52px;', title: 'Обрати зі списку' });
+      pick.appendChild(fh_('option', { value: '' }, ['▾']));
+      pool.forEach(function (x) { pick.appendChild(fh_('option', { value: x.name }, [x.name + ' · ' + x.unit])); });
+      function choose(name) {
+        var mm = matByName(name); if (!mm) { toast('Такого матеріалу немає в списку. Оберіть із підказок.', 'error'); inp.value = l.mat || ''; return; }
+        l.mat = mm.name; l.id = mm.id; l.unit = mm.unit; l.price = mm.price; l.cat = mm.category;
+        var n0 = mm.norms[0]; l.basis = 'м²'; l.work = n0 ? n0.work : ''; l.cons = n0 ? n0.consumption : ''; l.waste = n0 ? n0.waste : 5; qcSave_(); draw();
+      }
+      inp.onchange = function () { if (!inp.value.trim()) { l.mat = ''; qcSave_(); draw(); return; } choose(inp.value); };
+      pick.onchange = function () { if (pick.value) choose(pick.value); };
       var work = null;
       if (m && m.norms.length > 1) {
         work = fnSel_(m.norms.map(function (n) { return [n.work, n.work]; }), l.work);
         work.onchange = function () { var n = m.norms.filter(function (x) { return x.work === work.value; })[0]; l.work = work.value; if (n) { l.cons = n.consumption; l.waste = n.waste; } qcSave_(); draw(); };
       }
-      var cons = fnIn_({ value: l.cons == null ? '' : l.cons, inputmode: 'decimal', style: 'width:100%;' }), waste = fnIn_({ value: l.waste == null ? '' : l.waste, inputmode: 'decimal', style: 'width:100%;' }), la = fnIn_({ value: l.area || '', inputmode: 'decimal', placeholder: QC.area || 'м²', style: 'width:100%;' });
+      var basis = l.basis || 'м²', basisSel = fnSel_(QC_BASES, basis);
+      basisSel.onchange = function () {
+        l.basis = basisSel.value;
+        if (l.basis === 'м²' && m && m.norms[0]) { var nn = m.norms.filter(function (x) { return x.work === l.work; })[0] || m.norms[0]; l.cons = nn.consumption; l.waste = nn.waste; }
+        else l.cons = '';
+        qcSave_(); draw();
+      };
+      var cons = fnIn_({ value: l.cons == null ? '' : l.cons, inputmode: 'decimal', style: 'width:100%;' }), waste = fnIn_({ value: l.waste == null ? '' : l.waste, inputmode: 'decimal', style: 'width:100%;' }), la = fnIn_({ value: l.area || '', inputmode: 'decimal', placeholder: basis === 'м²' ? (QC.area || 'кількість') : 'кількість', style: 'width:100%;' });
       cons.onchange = function () { l.cons = cons.value; qcSave_(); draw(); }; waste.onchange = function () { l.waste = waste.value; qcSave_(); draw(); }; la.onchange = function () { l.area = la.value; qcSave_(); draw(); };
       var r = qcCalc_(l), line = { material_id: l.id || '', name: l.mat, unit: l.unit, quantity: r.qty, price: l.price };
       if (m && r.qty > 0) results.push(line);
-      var hint = m ? (m.norms.length ? '' : 'Для цього матеріалу ще немає норми — впишіть витрату на 1 м² самі.') : '';
+      var hint = m ? (basis !== 'м²' ? 'Норми в довіднику дано на 1 м². Для вимірювання в «' + basis + '» впишіть витрату на 1 ' + basis + ' самі.' : (m.norms.length ? '' : 'Для цього матеріалу ще немає норми — впишіть витрату на 1 м² самі.')) : '';
       box.appendChild(fh_('div', { 'class': 'card qc-line' }, [
-        fh_('div', { style: 'display:flex;gap:8px;align-items:center;' }, [fh_('div', { style: 'flex:1;min-width:0;' }, [inp]), fnBtn_('🗑', 'small danger', function () { QC.lines.splice(i, 1); if (!QC.lines.length) QC.lines.push({}); qcSave_(); draw(); }, 'Прибрати рядок')]),
+        fh_('div', { 'class': 'qc-grid', style: 'margin-bottom:6px;' }, [fnRow_('Категорія', catSel)]),
+        fh_('div', { style: 'display:flex;gap:8px;align-items:center;' }, [fh_('div', { style: 'flex:1;min-width:0;' }, [inp, dl]), pick, fnBtn_('🗑', 'small danger', function () { QC.lines.splice(i, 1); if (!QC.lines.length) QC.lines.push({}); qcSave_(); draw(); }, 'Прибрати рядок')]),
         m ? fh_('div', {}, [work ? fnRow_('Для якої роботи', work) : (m.norms[0] ? fh_('div', { 'class': 'page-sub', style: 'margin:6px 0 0;' }, ['Для: ' + m.norms[0].work]) : null),
-          fh_('div', { 'class': 'qc-grid' }, [fnRow_('Площа, м²', la), fnRow_('Норма на 1 м² (' + m.unit + ')', cons), fnRow_('Відходи, %', waste)]),
+          fh_('div', { 'class': 'qc-grid' }, [fnRow_('Рахувати в', basisSel), fnRow_('Кількість, ' + basis, la), fnRow_('Витрата на 1 ' + basis + ' (' + m.unit + ')', cons), fnRow_('Відходи, %', waste)]),
           hint ? fh_('div', { 'class': 'page-sub', style: 'color:var(--gold);' }, [hint]) : null,
-          fh_('div', { 'class': 'qc-result' }, [r.qty > 0 ? ['Потрібно: ', fh_('b', {}, [r.qty + ' ' + m.unit]), (cfg.cost && m.price ? '  ≈ ' + purMoney_(r.qty * m.price) + ' грн' : '')] : 'Вкажіть площу' + (m.norms.length ? '' : ' і норму')])]) : null]));
+          fh_('div', { 'class': 'qc-result' }, [r.qty > 0 ? ['Потрібно: ', fh_('b', {}, [r.qty + ' ' + m.unit]), (cfg.cost && m.price ? '  ≈ ' + purMoney_(r.qty * m.price) + ' грн' : '')] : 'Вкажіть кількість' + (cons.value !== '' ? '' : ' і витрату')])]) : null]));
     });
     box.appendChild(fh_('div', { 'class': 'toolbar' }, [fnBtn_('+ Ще матеріал', 'primary', function () { QC.lines.push({}); qcSave_(); draw(); })]));
     if (results.length) {
