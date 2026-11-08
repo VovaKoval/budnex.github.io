@@ -401,7 +401,7 @@ body{padding-bottom:0;}
 // екран «встав URL» — впиши її сюди ОДИН раз (між лапками) перед тим, як
 // викладати файл. Порожньо = як раніше: URL береться з браузера або з
 // посилання-запрошення (Налаштування → «Запросити людину»).
-var DEFAULT_API_URL = '';
+var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycby_Hw_r43YCQa70XeSxPI1DwWAWjS2WvG7XGhS_EMhEDQ_ceQG9ZtZXbs6OD_ODr73dvg/exec';
 var CONFIG = {
   API_URL: localStorage.getItem('budnex_api_url') || DEFAULT_API_URL,
   APP_NAME: 'BUDNEX'
@@ -3946,7 +3946,7 @@ V9.itemTags = function (it) {
 };
 V9.estimateStatusBadge = function (e) {
   var resp = e.client_response === 'approved' ? el('span', { class: 'badge green', style: 'margin-left:4px;' }, ['✅ клієнт погодив'])
-    : e.client_response === 'declined' ? el('span', { class: 'badge gold', style: 'margin-left:4px;' }, ['❌ зауваження']) : null;
+    : e.client_response === 'declined' ? (String(e.client_comment || '').indexOf('[Відмова]') === 0 ? el('span', { class: 'badge red', style: 'margin-left:4px;' }, ['🚫 відмовився']) : el('span', { class: 'badge gold', style: 'margin-left:4px;' }, ['❌ зауваження'])) : null;
   if (e.status === 'final') return el('span', {}, [el('span', { class: 'badge green' }, ['🔒 затверджено']), resp]);
   var cs = e.check_status;
   return el('span', {}, [el('span', { class: 'badge ' + (cs === 'ok' ? 'green' : cs === 'warnings' ? 'gold' : cs === 'errors' ? 'red' : 'gray') },
@@ -4838,6 +4838,54 @@ V9.openLogistics = function (estimateId, after) {
   openModal('Логістика' + (o.city ? ' — ' + o.city : ''), body);
 };
 
+/* ЕТАП 39: рішення клієнта по кошторису — вручну (крім посилання) */
+V9.decisionBox = function (est) {
+  var r = est.client_response, cm = String(est.client_comment || '');
+  var refused = r === 'declined' && cm.indexOf('[Відмова]') === 0;
+  var txt = r === 'approved' ? '✅ Клієнт погодив' : refused ? '🚫 Клієнт відмовився' : r === 'declined' ? '💬 У клієнта є зауваження' : '⏳ Рішення клієнта ще немає';
+  var box = el('div', { class: 'v9-decision', style: 'margin-top:10px;padding:10px;border:1px dashed var(--border,#ccc);border-radius:10px;' });
+  box.appendChild(el('div', { class: 'v9-row' }, [el('b', {}, ['Рішення клієнта: ']), el('span', {}, [txt + (est.client_responded_at ? ' · ' + fmtDate(est.client_responded_at) : '')])]));
+  if (cm) box.appendChild(el('div', { class: 'page-sub', style: 'margin:4px 0 0;' }, ['💬 ' + cm.replace('[Відмова] ', '')]));
+  var row = el('div', { class: 'v9-row', style: 'margin-top:8px;' });
+  row.appendChild(btn_('✅ Клієнт погодив', 'small primary', function () { V9.openDecision(est, 'approved'); }, 'Заявка піде в «Підготовка», у групу прийде повідомлення, створяться завдання'));
+  row.appendChild(btn_('💬 Є зауваження', 'small', function () { V9.openDecision(est, 'remarks'); }, 'Заявка залишиться в «Погодження», створиться завдання'));
+  row.appendChild(btn_('🚫 Відмовився', 'small danger', function () { V9.openDecision(est, 'rejected'); }, 'Заявка піде у «Відмова» (потрібна причина)'));
+  if (r) row.appendChild(btn_('↩ Скинути', 'small', function () { V9.openDecision(est, 'reset'); }, 'Прибрати відповідь, якщо помилилися'));
+  box.appendChild(row);
+  box.appendChild(el('div', { class: 'page-sub', style: 'margin:6px 0 0;font-size:12px;' }, ['Можна відмітити вручну (клієнт сказав по телефону) — або клієнт сам натисне кнопку у посиланні. Результат однаковий.']));
+  return box;
+};
+V9.openDecision = function (est, decision) {
+  var titles = { approved: 'Клієнт погодив кошторис', remarks: 'Зауваження клієнта', rejected: 'Клієнт відмовився', reset: 'Скинути рішення клієнта' };
+  var info = { approved: 'Заявка перейде в «Підготовка», обʼєкт — у «підготовка». У групу Telegram прийде повідомлення, створяться завдання «Підготувати обʼєкт до початку робіт» та «Отримати аванс від клієнта».',
+    remarks: 'Заявка перейде в «Погодження» (є зауваження). Створиться завдання опрацювати зауваження.',
+    rejected: 'Заявка перейде у «Відмова», у групу прийде повідомлення. Причину буде видно в кошторисі.',
+    reset: 'Відповідь клієнта буде прибрано. Статус заявки не повернеться назад — змініть його вручну, якщо треба.' };
+  var body = el('div');
+  body.appendChild(el('p', { class: 'page-sub', style: 'margin-top:0;' }, [info[decision]]));
+  var ta = null;
+  if (decision !== 'reset') {
+    ta = el('textarea', { class: 'v9-in', rows: '3', placeholder: decision === 'rejected' ? 'Причина відмови (обовʼязково): дорого, обрали іншого…' : 'Коментар (необовʼязково)' });
+    body.appendChild(el('div', { class: 'form-row' }, [el('label', {}, [decision === 'rejected' ? 'Причина *' : 'Коментар']), ta]));
+  }
+  var actions = el('div', { class: 'form-actions' });
+  var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  var ok = el('button', { class: 'btn primary' }, ['Підтвердити']);
+  ok.onclick = function () {
+    var comment = ta ? ta.value.trim() : '';
+    if (decision === 'rejected' && !comment) { toast('Вкажіть причину відмови', 'error'); return; }
+    ok.disabled = true;
+    apiCall('setEstimateDecision', { id: est.id, decision: decision, comment: comment }).then(function (r) {
+      if (r && r.estimate) upsert_('estimates', r.estimate);
+      if (r && r.request) upsert_('requests', r.request);
+      if (r && r.object) upsert_('objects', r.object);
+      saveCache_(); closeModal(); toast('Збережено', 'success'); V9.rerender();
+    }).catch(function (e) { ok.disabled = false; errToast_(e); });
+  };
+  actions.appendChild(cancel); actions.appendChild(ok); body.appendChild(actions);
+  openModal(titles[decision], body);
+};
+
 /* --------------------------- estimate editor bar ------------------------ */
 V9.estimateBar = function (estimate) {
   var items = STATE.db.estimateItems.filter(function (it) { return it.estimate_id === estimate.id; });
@@ -4867,6 +4915,7 @@ V9.estimateBar = function (estimate) {
   }));
   else row.appendChild(btn_('🔒 Затвердити', 'small', function () { V9.showCheck(estimate.id); }, 'Спочатку автоматична перевірка, потім затвердження'));
   bar.appendChild(row);
+  bar.appendChild(V9.decisionBox(estimate));
   if (isFinal) bar.appendChild(el('div', { class: 'page-sub', style: 'margin:8px 0 0;' }, ['Кошторис затверджено. Для змін поверни його в чернетку або запусти автокошторис — буде створено нову версію.']));
   if (doubtful.length) {
     var d = el('div', { style: 'margin-top:10px;' }, [el('b', {}, ['⚠ Сумнівні позиції — підтверди або видали:'])]);
