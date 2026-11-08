@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -401,7 +401,7 @@ body{padding-bottom:0;}
 // екран «встав URL» — впиши її сюди ОДИН раз (між лапками) перед тим, як
 // викладати файл. Порожньо = як раніше: URL береться з браузера або з
 // посилання-запрошення (Налаштування → «Запросити людину»).
-var DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycby_Hw_r43YCQa70XeSxPI1DwWAWjS2WvG7XGhS_EMhEDQ_ceQG9ZtZXbs6OD_ODr73dvg/exec';
+var DEFAULT_API_URL = '';
 var CONFIG = {
   API_URL: localStorage.getItem('budnex_api_url') || DEFAULT_API_URL,
   APP_NAME: 'BUDNEX'
@@ -449,6 +449,7 @@ var NAV = [
   { id:'reports', label:'Звіти', icon:'🗒️', resource:'estimates' },
   { id:'insights', label:'Аналітика і прогноз', icon:'🧠', roles:['ADMIN'] },
   { id:'robot', label:'Автоматизація', icon:'🤖', roles:['ADMIN'] },
+  { id:'workdays', label:'Робочі дні', icon:'👷', resource:'objects' },
   { id:'activity', label:'Журнал дій', icon:'📜', roles:['ADMIN'] },
   { id:'data', label:'Керування даними', icon:'🗄️', roles:['ADMIN'] },
   { id:'settings', label:'Налаштування', icon:'⚙️', roles:['ADMIN'] }
@@ -981,7 +982,7 @@ function renderRoute() {
   var main = document.getElementById('main');
   main.innerHTML = '';
   var renderers = {
-    today: renderToday, reports: renderReports, invoices: renderInvoices, purchases: renderPurchases, calc: renderCalc, calcrooms: renderCalcRooms, activity: renderActivity, robot: renderRobot, insights: renderInsights, data: function () { renderData(main); },
+    today: renderToday, reports: renderReports, invoices: renderInvoices, purchases: renderPurchases, calc: renderCalc, calcrooms: renderCalcRooms, activity: renderActivity, robot: renderRobot, workdays: renderWorkDays, insights: renderInsights, data: function () { renderData(main); },
     dashboard: renderDashboard, clients: function () { renderClients(main, param); },
     requests: renderRequests, objects: function () { renderObjects(main, param); },
     works: renderWorks, estimates: function () { renderEstimatesList(main, param); },
@@ -1024,7 +1025,7 @@ var NAV_GROUPS = [
   { id: 'g_est', label: 'Кошторис', icon: '🧾', items: ['calc', 'estimates', 'works'] },
   { id: 'g_mat', label: 'Матеріали і закупівлі', icon: '📦', items: ['materials', 'purchases', 'prices', 'catalogs'] },
   { id: 'g_money', label: 'Гроші і документи', icon: '💰', items: ['finance', 'invoices', 'analytics', 'reports', 'dashboard'] },
-  { id: 'g_people', label: 'Бригади', icon: '👷', items: ['partners'] },
+  { id: 'g_people', label: 'Бригади', icon: '👷', items: ['workdays', 'partners'] },
   { id: 'g_sys', label: 'Система', icon: '⚙️', items: ['insights', 'robot', 'activity', 'data', 'settings'] }
 ];
 function navOpenState_() { try { return JSON.parse(localStorage.getItem('budnex_nav_open') || '{}'); } catch (e) { return {}; } }
@@ -1598,6 +1599,8 @@ function renderObjectCard(main, objectId) {
     ['estimate', 'Кошторис', function (c) { renderObjectEstimateTab(c, o); }],
     ['planning', 'Планування', function (c) { renderObjectPlanningTab(c, o); }],
     ['team', 'Бригада', function (c) { renderObjectTeamTab(c, o); }],
+    ['workdays', 'Робочі дні', function (c) { renderObjectWorkDaysTab(c, o); }],
+    ['money', 'Гроші', function (c) { renderObjectMoneyTab(c, o); }],
     ['finance', 'Платежі/Витрати', function (c) { renderObjectFinanceTab(c, o); }],
     ['tasks', 'Завдання', function (c) { renderObjectTasksTab(c, o); }],
     ['photos', 'Фото/Документи', function (c) { renderObjectPhotosTab(c, o); }]
@@ -6185,7 +6188,7 @@ function renderCalc(main) {
   }
 }
 
-var SYNC_READONLY_ACTIONS = { getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
+var SYNC_READONLY_ACTIONS = { getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
   getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgDiag: 1, tgRelayInfo: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
@@ -7004,7 +7007,7 @@ function renderFinance(main) {
       if (canDo_('finance', 'create')) act.appendChild(fnBtn_('+ Платіж', 'small', function (e) { e.stopPropagation(); openPaymentForm({ object_id: s.object_id }); }));
       cells.push(act);
       var tr = fh_('tr', { style: 'cursor:pointer;' }, cells);
-      tr.onclick = function () { STATE.ui.objectTab = 'finance'; location.hash = '#/objects/' + s.object_id; };
+      tr.onclick = function () { STATE.ui.objectTab = data.can_see_cost ? 'money' : 'finance'; location.hash = '#/objects/' + s.object_id; };
       tb.appendChild(tr);
     });
     t.appendChild(tb); content.appendChild(t);
@@ -8017,6 +8020,200 @@ function renderInsights(main) {
     table('👷 Ефективність бригад', ['Бригада', 'Робіт', 'Здано', 'Вчасно', 'Запізнення', 'Прострочено зараз', 'Винні їм'], a.crews.map(function (c) { return [c.name, c.total, c.finished, pc(c.on_time_pct), c.avg_delay_days ? c.avg_delay_days + ' дн.' : '—', c.overdue_now || '—', M(c.due)]; }));
     table('🧑‍💼 Менеджери', ['Менеджер', 'Обʼєктів', 'Відстають', 'Сер. маржа', 'Завдань прострочено', 'Конверсія заявок'], a.managers.map(function (m) { return [m.name, m.objects, m.late || '—', pc(m.avg_margin_pct), m.tasks_overdue + ' з ' + m.tasks_open, pc(m.conversion_pct)]; }));
     table('🏗 Обʼєкти за маржею (від найгіршої)', ['Обʼєкт', 'Статус', 'Договір', 'Собівартість (прогноз)', 'Маржа', 'Відставання'], a.objects.map(function (o) { return [o.name, o.status, M(o.contract), M(o.cost_forecast), o.margin_pct === null ? '—' : o.margin_pct + '% (' + M(o.margin_money) + ')', o.late ? o.late_days + ' дн.' : '—']; }));
+  }).catch(function (e) { box.innerHTML = ''; fnErr_(e); });
+}
+
+/* --------------------------- Робочі дні і гроші по обʼєкту (ETAP 38) --------------------------- */
+var WD_KINDS = ['різнороб', 'плиточник', 'штукатур', 'маляр', 'електрик', 'сантехнік', 'муляр', 'покрівельник', 'вантажник', 'водій', 'інше'];
+function wdCount_(start, end, weekends) {
+  if (!start || !end || end < start) return 0;
+  var a = Date.parse(start + 'T00:00:00Z'), b = Date.parse(end + 'T00:00:00Z'), n = 0;
+  for (var t = a; t <= b; t += 86400000) { var wd = new Date(t).getUTCDay(); if (weekends || (wd !== 0 && wd !== 6)) n++; }
+  return n;
+}
+function wdAddDays_(iso, n) { var d = new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000); return d.toISOString().slice(0, 10); }
+function wdDays_(n) { n = Number(n) || 0; var m = n % 10, h = n % 100; return n + (h > 10 && h < 15 ? ' днів' : m === 1 ? ' день' : (m >= 2 && m <= 4) ? ' дні' : ' днів'); }
+var WD_STATUS = { planned: ['🗓 Заплановано', 'gray'], active: ['🔨 Працює', 'gold'], done: ['✅ Завершено', 'green'] };
+function wdTile_(label, val, sub, color) { return fh_('div', { 'class': 'card', style: 'margin:0;padding:10px 12px;' }, [fh_('div', { 'class': 'page-sub', style: 'margin:0;' }, [label]), fh_('div', { style: 'font-size:19px;font-weight:800;' + (color ? 'color:' + color + ';' : '') }, [val]), sub ? fh_('div', { 'class': 'page-sub', style: 'margin:2px 0 0;font-size:11px;' }, [sub]) : null]); }
+
+function openWorkDayForm(rec, presetObject, done) {
+  rec = rec || {}; var cost = canSeeCost_(), objs = (STATE.db.objects || []).filter(function (o) { return !/завершено/i.test(o.status || '') || o.id === rec.object_id; });
+  var today = new Date().toISOString().slice(0, 10);
+  var objSel = fnSel_([['', '— оберіть обʼєкт —']].concat(objs.map(function (o) { return [o.id, o.name]; })), rec.object_id || presetObject || '');
+  var partners = (STATE.db.partners || []);
+  var whoSel = fnSel_([['', '— оберіть майстра зі списку —']].concat(partners.map(function (p) { return [p.id, p.name + (p.specialization ? ' · ' + p.specialization : '')]; })).concat([['__other', '➕ Інша людина (вписати імʼя)']]), rec.partner_id || (rec.worker_name ? '__other' : ''));
+  var nameIn = fnIn_({ value: rec.partner_id ? '' : (rec.worker_name || ''), placeholder: 'Імʼя або «Різнороби (3 особи)»', style: 'width:100%;' });
+  var kind = fnIn_({ value: rec.kind || '', list: 'wdKinds', placeholder: 'Вид роботи: різнороб, плиточник…', style: 'width:100%;' });
+  var kl = fh_('datalist', { id: 'wdKinds' }); WD_KINDS.forEach(function (k) { kl.appendChild(fh_('option', { value: k })); });
+  var people = fnIn_({ type: 'number', min: 1, max: 500, value: rec.people || 1, inputmode: 'numeric', style: 'width:100%;' });
+  var start = fnIn_({ type: 'date', value: rec.start_date || today, style: 'width:100%;' }), end = fnIn_({ type: 'date', value: rec.end_date_plan || '', style: 'width:100%;' });
+  var wk = fh_('input', { type: 'checkbox' }); wk.checked = !!rec.weekends;
+  var rate = cost ? fnIn_({ type: 'number', min: 0, value: rec.rate != null ? rec.rate : '', inputmode: 'decimal', placeholder: 'грн за 1 людину в день', style: 'width:100%;' }) : null;
+  var paid = (cost && rec.id) ? fnIn_({ type: 'number', min: 0, value: rec.paid != null ? rec.paid : '', inputmode: 'decimal', style: 'width:100%;' }) : null;
+  var note = fnIn_({ value: rec.note || '', placeholder: 'Необовʼязково', style: 'width:100%;' });
+  var prev = fh_('div', { 'class': 'card', style: 'padding:10px 12px;margin:6px 0 10px;border-color:var(--gold);font-weight:700;' });
+  function recalc() {
+    var n = wdCount_(start.value, end.value, wk.checked), p = Number(people.value) || 1, r = rate ? Number(rate.value) || 0 : 0;
+    prev.textContent = n ? '📅 ' + wdWords_(n) + ' · ' + p + ' ' + (p === 1 ? 'людина' : 'люд.') + ' → ' + (n * p) + ' людино-днів' + (rate && r ? ' · ' + fmtMoney(n * p * r) : '') : 'Вкажіть дати — система порахує робочі дні';
+    nameIn.style.display = whoSel.value === '__other' ? '' : 'none';
+  }
+  function wdWords_(n) { return wdDays_(n) + (wk.checked ? ' (з вихідними)' : ' (без вихідних)'); }
+  [whoSel, people, start, end, wk, rate].forEach(function (x) { if (x) { x.oninput = recalc; x.onchange = recalc; } });
+  var quick = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;' });
+  [['1 день', 0], ['3 дні', 2], ['тиждень', 6], ['2 тижні', 13], ['місяць', 29]].forEach(function (q) { quick.appendChild(fnBtn_(q[0], 'small', function () { if (!start.value) start.value = today; end.value = wdAddDays_(start.value, q[1]); recalc(); })); });
+  var body = fh_('div', {}, [fnRow_('Обʼєкт *', objSel), fnRow_('Хто працює *', fh_('div', {}, [whoSel, nameIn, kl])), fnRow_('Вид роботи', kind),
+    fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Скільки людей', people), fnRow_('Дата початку *', start)]),
+    fnRow_('Орієнтовна дата закінчення *', fh_('div', {}, [end, quick])),
+    fh_('label', { style: 'display:flex;gap:8px;align-items:center;margin:2px 0 8px;cursor:pointer;' }, [wk, 'Рахувати суботу й неділю робочими']), prev,
+    rate ? fnRow_('Ставка за день, грн (за 1 людину)', rate, 'Необовʼязково. Потрібно, щоб система рахувала суму й вносила її в гроші обʼєкта.') : null,
+    paid ? fnRow_('Уже виплачено, грн', paid) : null, fnRow_('Нотатка', note)]);
+  var save = fnBtn_(rec.id ? 'Зберегти' : 'Додати', 'primary', function () {
+    var data = { object_id: objSel.value, partner_id: whoSel.value === '__other' ? '' : whoSel.value, worker_name: whoSel.value === '__other' ? nameIn.value.trim() : '', kind: kind.value.trim(), people: people.value, start_date: start.value, end_date_plan: end.value, weekends: wk.checked, note: note.value.trim() };
+    if (rate) data.rate = rate.value || 0; if (paid) data.paid = paid.value || 0;
+    if (rec.id) data.id = rec.id;
+    var d0 = fnBusy_(save);
+    apiCall(rec.id ? 'updateWorkDay' : 'createWorkDay', data).then(function () { d0(); closeModal(); toast('Збережено', 'success'); if (done) done(); }).catch(function (e) { d0(); fnErr_(e); });
+  });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]));
+  recalc(); openModal(rec.id ? 'Редагувати робочі дні' : 'Робочі дні: додати', body);
+}
+function wdFinishDialog_(it, done) {
+  var today = new Date().toISOString().slice(0, 10), inp = fnIn_({ type: 'date', value: today, style: 'width:100%;' });
+  var info = fh_('div', { 'class': 'page-sub' });
+  function recalc() { var n = wdCount_(it.start_date, inp.value, it.weekends); info.textContent = n ? 'Фактично відпрацьовано: ' + wdDays_(n) + ' (' + (n * it.people) + ' людино-днів)' + (it.rate ? ' · ' + fmtMoney(n * it.people * it.rate) : '') : 'Дата раніше за початок'; }
+  inp.oninput = recalc; inp.onchange = recalc; recalc();
+  var ok = fnBtn_('Завершити', 'primary', function () { var d0 = fnBusy_(ok); apiCall('finishWorkDay', { id: it.id, end_date_fact: inp.value }).then(function () { d0(); closeModal(); toast('Завершено ✓', 'success'); done(); }).catch(function (e) { d0(); fnErr_(e); }); });
+  openModal('Коли закінчили роботу?', fh_('div', {}, [fh_('div', { 'class': 'page-sub' }, [it.worker_name + ' · ' + it.object_name + ' · початок ' + fmtDate(it.start_date)]), fnRow_('Фактична дата закінчення', inp), info, fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), ok])]));
+}
+function wdRecordsTable_(data, reload, opts) {
+  opts = opts || {}; var cost = data.can_see_cost, canEdit = canDo_('objects', 'edit');
+  if (!data.items.length) return fh_('div', { 'class': 'empty-state' }, ['Записів ще немає. Натисніть «+ Додати», вкажіть хто, з якої і по яку дату.']);
+  var heads = [].concat(opts.noObject ? [] : ['Обʼєкт'], ['Хто', 'Період', 'Днів', 'Людей', 'Статус'], cost ? ['Ставка', 'Сума', 'Виплачено'] : [], ['']);
+  var t = fh_('table', { 'class': 'dt' }); t.appendChild(fh_('thead', {}, [fh_('tr', {}, heads.map(function (h) { return fh_('th', {}, [h]); }))]));
+  var tb = fh_('tbody');
+  data.items.forEach(function (it) {
+    var st = WD_STATUS[it.status] || WD_STATUS.planned, period = fmtDate(it.start_date) + ' — ' + fmtDate(it.end_date_fact || it.end_date_plan);
+    var daysTxt = it.status === 'done' ? wdDays_(it.days_fact) : wdDays_(it.days_plan) + (it.status === 'active' ? ' · вже ' + it.days_so_far : '');
+    var act = fh_('td', {});
+    if (canEdit) {
+      if (it.status !== 'done') act.appendChild(fnBtn_('✅ Завершити', 'small', function () { wdFinishDialog_(it, reload); }));
+      else act.appendChild(fnBtn_('↩', 'small', function () { apiCall('reopenWorkDay', { id: it.id }).then(reload).catch(fnErr_); }, 'Повернути в роботу'));
+      act.appendChild(fnBtn_('✏️', 'small', function () { openWorkDayForm(it, '', reload); }, 'Редагувати'));
+      act.appendChild(fnBtn_('🗑', 'small', function () { if (confirm('Видалити запис «' + it.worker_name + '»?')) apiCall('deleteWorkDay', { id: it.id }).then(function () { toast('Видалено', 'success'); reload(); }).catch(fnErr_); }, 'Видалити'));
+    }
+    var cells = [].concat(opts.noObject ? [] : [fh_('td', {}, [it.object_name])], [
+      fh_('td', {}, [fh_('b', {}, [it.worker_name]), it.kind ? fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, [it.kind]) : null]),
+      fh_('td', {}, [period, it.overdue ? fh_('div', { style: 'color:var(--red);font-size:11px;' }, ['⚠️ строк минув']) : null]),
+      fh_('td', {}, [daysTxt]), fh_('td', {}, [String(it.people)]), fh_('td', {}, [fh_('span', { 'class': 'badge ' + st[1] }, [st[0]])])],
+      cost ? [fh_('td', {}, [it.rate ? fmtMoney(it.rate) : '—']), fh_('td', {}, [it.amount ? fmtMoney(it.amount) : '—']), fh_('td', {}, [fmtMoney(it.paid), it.due > 0.5 ? fh_('div', { style: 'color:var(--gold);font-size:11px;' }, ['винні ' + fmtMoney(it.due)]) : null])] : [], [act]);
+    tb.appendChild(fh_('tr', {}, cells));
+  });
+  t.appendChild(tb); return fh_('div', { 'class': 'table-scroll' }, [t]);
+}
+function wdTiles_(tot, cost) {
+  var k = [wdTile_('Робочих днів', String(tot.days), 'сума днів по записах'), wdTile_('Людино-днів', String(tot.man_days), 'дні × кількість людей')];
+  if (cost) k.push(wdTile_('Нараховано', fmtMoney(tot.amount)), wdTile_('Виплачено', fmtMoney(tot.paid), tot.due > 0.5 ? 'ще винні ' + fmtMoney(tot.due) : '', tot.due > 0.5 ? 'var(--gold)' : ''));
+  return fh_('div', { 'class': 'qc-grid', style: 'margin-bottom:12px;' }, k);
+}
+// вкладка в картці обʼєкта
+function renderObjectWorkDaysTab(container, o) {
+  var box = fh_('div'); container.appendChild(box);
+  function load() {
+    box.innerHTML = '<div class="page-sub">⏳ Завантаження…</div>';
+    apiCall('getWorkDays', { object_id: o.id }).then(function (data) {
+      box.innerHTML = '';
+      var bar = fh_('div', { 'class': 'toolbar' }, [fh_('div', { 'class': 'page-sub', style: 'margin:0;flex:1;' }, ['Хто, скільки днів і за яку суму працював на цьому обʼєкті. Гроші автоматично потрапляють у вкладку «Гроші».'])]);
+      if (canDo_('objects', 'edit')) bar.appendChild(fnBtn_('+ Додати', 'primary', function () { openWorkDayForm({}, o.id, load); }));
+      box.appendChild(bar); box.appendChild(wdTiles_(data.totals, data.can_see_cost));
+      if (data.by_worker.length > 1) {
+        var sum = fh_('div', { 'class': 'card', style: 'padding:10px 12px;margin-bottom:10px;' }, [fh_('b', {}, ['По людях на цьому обʼєкті'])]);
+        data.by_worker.forEach(function (w) { sum.appendChild(fh_('div', { style: 'display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:13px;' }, [w.name, fh_('span', {}, [wdDays_(w.days) + (data.can_see_cost && w.amount ? ' · ' + fmtMoney(w.amount) : '')])])); });
+        box.appendChild(sum);
+      }
+      box.appendChild(wdRecordsTable_(data, load, { noObject: true })); wrapTablesForMobile_(box);
+    }).catch(function (e) { box.innerHTML = ''; fnErr_(e); });
+  }
+  load();
+}
+// сторінка «Робочі дні»
+function renderWorkDays(main) {
+  main.appendChild(el('div', { 'class': 'page-title' }, ['👷 Робочі дні']));
+  main.appendChild(fh_('div', { 'class': 'page-sub' }, ['Різнороби й майстри: вкажіть початок і орієнтовне закінчення — система порахує дні та суму і збереже окремо по кожному обʼєкту й по кожній людині.']));
+  var bar = fh_('div', { 'class': 'toolbar' }), box = fh_('div'), tabs = fh_('div', { 'class': 'tabs' }); main.appendChild(bar); main.appendChild(tabs); main.appendChild(box);
+  if (!STATE.ui.wdTab) STATE.ui.wdTab = 'object';
+  var data = null;
+  function drawTabs() {
+    tabs.innerHTML = '';
+    [['object', 'По обʼєктах'], ['worker', 'По людях'], ['all', 'Усі записи']].forEach(function (d) { var b = fh_('button', { 'class': 'tab-btn' + (STATE.ui.wdTab === d[0] ? ' active' : '') }, [d[1]]); b.onclick = function () { STATE.ui.wdTab = d[0]; drawTabs(); drawBody(); }; tabs.appendChild(b); });
+  }
+  function summaryTable(rows, nameKey, extra) {
+    var cost = data.can_see_cost, heads = [nameKey, 'Записів', 'Днів', 'Людино-днів'].concat(cost ? ['Нараховано', 'Виплачено', 'Винні'] : []).concat([extra]);
+    var t = fh_('table', { 'class': 'dt' }); t.appendChild(fh_('thead', {}, [fh_('tr', {}, heads.map(function (h) { return fh_('th', {}, [h]); }))]));
+    var tb = fh_('tbody');
+    rows.forEach(function (r) {
+      var cells = [fh_('td', {}, [fh_('b', {}, [r.name])]), fh_('td', {}, [String(r.records)]), fh_('td', {}, [String(r.days)]), fh_('td', {}, [String(r.man_days)])];
+      if (cost) cells.push(fh_('td', {}, [fmtMoney(r.amount)]), fh_('td', {}, [fmtMoney(r.paid)]), fh_('td', {}, [r.due > 0.5 ? fh_('b', { style: 'color:var(--gold);' }, [fmtMoney(r.due)]) : '—']));
+      cells.push(fh_('td', {}, [r.objects ? r.objects.map(function (x) { return x.name + ' — ' + wdDays_(x.days); }).join('; ') : (r.workers_count + ' ос.')]));
+      var tr = fh_('tr', { style: r.object_id ? 'cursor:pointer;' : '' }, cells);
+      if (r.object_id) tr.onclick = function () { STATE.ui.objectTab = 'workdays'; location.hash = '#/objects/' + r.object_id; };
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); return fh_('div', { 'class': 'table-scroll' }, [t]);
+  }
+  function drawBody() {
+    box.innerHTML = '';
+    if (!data) { box.appendChild(fh_('div', { 'class': 'page-sub' }, ['⏳ Рахуємо…'])); return; }
+    box.appendChild(wdTiles_(data.totals, data.can_see_cost));
+    if (STATE.ui.wdTab === 'object') box.appendChild(data.by_object.length ? summaryTable(data.by_object, 'Обʼєкт', 'Працює') : fh_('div', { 'class': 'empty-state' }, ['Записів ще немає.']));
+    else if (STATE.ui.wdTab === 'worker') box.appendChild(data.by_worker.length ? summaryTable(data.by_worker, 'Хто', 'Де працював (днів)') : fh_('div', { 'class': 'empty-state' }, ['Записів ще немає.']));
+    else box.appendChild(wdRecordsTable_(data, load));
+    wrapTablesForMobile_(box);
+  }
+  function load() { apiCall('getWorkDays', {}).then(function (d) { data = d; drawBody(); }).catch(function (e) { box.innerHTML = ''; fnErr_(e); }); }
+  if (canDo_('objects', 'edit')) bar.appendChild(fnBtn_('+ Додати робочі дні', 'primary', function () { openWorkDayForm({}, '', load); }));
+  drawTabs(); drawBody(); load();
+}
+
+// вкладка «Гроші» в картці обʼєкта: що отримано, на що витрачено, кому скільки винні
+function renderObjectMoneyTab(container, o) {
+  if (!canDo_('finance', 'view')) { container.appendChild(fh_('div', { 'class': 'page-sub' }, ['Немає доступу до фінансів.'])); return; }
+  var box = fh_('div'); container.appendChild(box); box.innerHTML = '<div class="page-sub">⏳ Рахуємо гроші обʼєкта…</div>';
+  apiCall('getObjectMoney', { object_id: o.id }).then(function (m) {
+    box.innerHTML = '';
+    var T = m.totals, M = fmtMoney, tiles = [wdTile_('Договір', m.contract.total ? M(m.contract.total) : 'не вказано'), wdTile_('Отримано від клієнта', M(m.income.received), m.contract.total ? m.income.percent + '% · ще винен ' + M(m.income.due) : '')];
+    if (m.can_see_cost) tiles.push(wdTile_('Витрачено (сплачено)', M(T.costs_paid), 'прогноз усіх витрат ' + M(T.costs_committed)), wdTile_('Залишок на руках', M(T.balance_now), 'отримано − сплачено', T.balance_now < 0 ? 'var(--red)' : ''), wdTile_('Прогноз прибутку', T.forecast_profit === null ? '—' : M(T.forecast_profit), T.forecast_margin_pct === null ? 'вкажіть договір' : 'маржа ' + T.forecast_margin_pct + '%', T.forecast_profit !== null && T.forecast_profit < 0 ? 'var(--red)' : 'var(--green)'));
+    box.appendChild(fh_('div', { 'class': 'qc-grid', style: 'margin-bottom:12px;' }, tiles));
+    function section(title, total, items, render, emptyText) {
+      var card = fh_('div', { 'class': 'card' }, [fh_('div', { style: 'display:flex;justify-content:space-between;gap:10px;' }, [fh_('div', { 'class': 'chart-title', style: 'margin:0;' }, [title]), fh_('b', {}, [total])])]);
+      if (!items.length) card.appendChild(fh_('div', { 'class': 'page-sub' }, [emptyText]));
+      items.forEach(function (x) { card.appendChild(render(x)); }); box.appendChild(card); return card;
+    }
+    function line(left, sub, amount, color) { return fh_('div', { style: 'display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;' }, [fh_('div', { style: 'min-width:0;' }, [left, sub ? fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, [sub]) : null]), fh_('b', { style: 'white-space:nowrap;' + (color ? 'color:' + color + ';' : '') }, [amount])]); }
+    var pay = function (p) { return line(fmtDate(p.date) + (p.type ? ' · ' + p.type : ''), [p.description, p.method].filter(Boolean).join(' · '), M(p.amount)); };
+    var c1 = section('💵 Від клієнта: отримано', M(m.income.received), m.income.items, pay, 'Платежів від клієнта ще не було.');
+    m.income.planned.forEach(function (p) { c1.appendChild(line('🗓 Очікується ' + fmtDate(p.date) + (p.type ? ' · ' + p.type : ''), p.overdue ? 'прострочено' : '', M(p.amount), p.overdue ? 'var(--red)' : 'var(--muted)')); });
+    if (!m.can_see_cost) return;
+    var exBox = section('🧱 Витрати за категоріями', M(m.expenses.total), [], function () { return null; }, m.expenses.categories.length ? '' : 'Витрат ще немає.');
+    m.expenses.categories.forEach(function (c) {
+      var d = fh_('details', { style: 'padding:4px 0;border-bottom:1px solid var(--border);' }, [fh_('summary', { style: 'cursor:pointer;display:flex;justify-content:space-between;gap:10px;' }, [fh_('span', {}, [c.category + ' (' + c.items.length + ')']), fh_('b', {}, [M(c.total)])])]);
+      c.items.forEach(function (it) { d.appendChild(line(it.description || '—', [fmtDate(it.date), it.supplier].filter(Boolean).join(' · '), M(it.amount))); });
+      exBox.appendChild(d);
+    });
+    var crBox = section('👷 Бригади: домовлено / виплачено / винні', M(m.crews.paid) + ' з ' + M(m.crews.price), [], function () { return null; }, m.crews.items.length ? '' : 'Бригади ще не призначені.');
+    m.crews.items.forEach(function (c) {
+      var d = fh_('details', { style: 'padding:4px 0;border-bottom:1px solid var(--border);' }, [fh_('summary', { style: 'cursor:pointer;display:flex;justify-content:space-between;gap:10px;' }, [fh_('span', {}, [c.name + (c.scope ? ' · ' + c.scope : '')]), fh_('b', { style: c.due > 0.5 ? 'color:var(--gold);' : 'color:var(--green);' }, [M(c.paid) + ' / ' + M(c.price)])])]);
+      d.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:4px 0;' }, [c.due > 0.5 ? 'Ще винні: ' + M(c.due) : 'Розраховано']));
+      c.payments.forEach(function (p) { d.appendChild(pay(p)); }); crBox.appendChild(d);
+    });
+    m.crews.stray.forEach(function (p) { crBox.appendChild(line('Виплата без привʼязки: ' + p.name, fmtDate(p.date) + (p.description ? ' · ' + p.description : ''), M(p.amount))); });
+    section('🛠 Різнороби й майстри (за днями)', M(m.day_labor.paid) + ' з ' + M(m.day_labor.amount), m.day_labor.items, function (w) {
+      return line(w.name + (w.kind ? ' · ' + w.kind : ''), fmtDate(w.start_date) + ' — ' + fmtDate(w.end_date) + ' · ' + wdDays_(w.days) + ' × ' + w.people + ' люд.' + (w.rate ? ' × ' + M(w.rate) : ''), M(w.amount), w.due > 0.5 ? 'var(--gold)' : '');
+    }, 'Записів про робочі дні ще немає. Їх додають у вкладці «Робочі дні».');
+    var sum = fh_('div', { 'class': 'card', style: 'border-color:var(--gold);' }, [fh_('div', { 'class': 'chart-title' }, ['📊 Підсумок по обʼєкту'])]);
+    [['Отримано від клієнта', M(T.received)], ['Сплачено витрат (матеріали, бригади, різнороби)', '− ' + M(T.costs_paid)], ['Залишок на руках зараз', M(T.balance_now)], ['Ще винні бригадам і майстрам', M(T.still_to_pay)], ['Клієнт ще має доплатити', M(T.client_due)],
+      ['Прогноз усіх витрат до кінця', M(T.costs_committed)], ['Прогноз прибутку (договір − усі витрати)', T.forecast_profit === null ? '—' : M(T.forecast_profit) + ' (' + T.forecast_margin_pct + '%)']].forEach(function (r) { sum.appendChild(line(r[0], '', r[1])); });
+    box.appendChild(sum);
+    wrapTablesForMobile_(box);
   }).catch(function (e) { box.innerHTML = ''; fnErr_(e); });
 }
 
