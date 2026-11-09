@@ -1708,7 +1708,18 @@ V43.renderArchive = function (main) {
     var f = q.value.trim().toLowerCase();
     var objs = A.objects.filter(function (o) { var c = byId(STATE.db.clients, o.client_id); return !f || [o.name, o.address, o.archive_reason, c && c.name].join(' ').toLowerCase().indexOf(f) !== -1; });
     var oIds = {}; A.objects.forEach(function (o) { oIds[o.id] = 1; });
-    var lone = A.estimates.filter(function (e) { return !oIds[e.object_id] && (!f || [e.id, e.archive_reason].join(' ').toLowerCase().indexOf(f) !== -1); });
+    var orph = A.estimates.filter(function (e) { return e.orphan; });
+    var lone = A.estimates.filter(function (e) { return !e.orphan && !oIds[e.object_id] && (!f || [e.id, e.archive_reason].join(' ').toLowerCase().indexOf(f) !== -1); });
+    if (orph.length) {
+      box.appendChild(el('div', { class: 'card', style: 'padding:12px 14px;margin:0 0 14px;border-color:var(--gold);' }, [
+        el('b', {}, ['⚠ Кошториси без обʼєкта (' + orph.length + ')']),
+        el('div', { class: 'page-sub', style: 'margin:4px 0 8px;' }, ['Це «осиротілі» кошториси: їхній обʼєкт видалено або не було. У загальному списку вони більше не показуються. Якщо вони не потрібні — видаліть.']),
+        el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;' }, orph.map(function (e) { return fnBtn_(e.id + ' · ' + fmtMoney(e.client_total), 'small', function () { V43.viewEstimate(e); }); })
+          .concat([fnBtn_('🗑 Видалити всі ' + orph.length, 'small danger', function () {
+            if (!confirm('Видалити ' + orph.length + ' кошторис(ів) без обʼєкта НАЗАВЖДИ?')) return;
+            apiCall('purgeOrphanEstimates', {}).then(function (r) { toast('Видалено: ' + (r && r.deleted || 0), 'success'); return syncAll(); }).catch(fnErr_);
+          })]))]));
+    }
     box.appendChild(el('h3', { style: 'margin:6px 0 8px;' }, ["Обʼєкти (" + objs.length + ")"]));
     if (!objs.length) box.appendChild(el('div', { class: 'empty-state' }, ['Архів обʼєктів порожній.']));
     objs.forEach(function (o) {
