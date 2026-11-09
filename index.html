@@ -6411,10 +6411,10 @@ var Fin = {
     if (!force && Fin.data && Date.now() - Fin.at < 15000) return Promise.resolve(Fin.data);
     return Promise.resolve().then(function () { return apiCall('getFinanceOverview', {}); }).then(function (d) {
       if (!d || !Array.isArray(d.objects)) throw new Error('Некоректна відповідь сервера (оновіть Code.gs і опублікуйте нову версію)');
-      Fin.data = d; Fin.at = Date.now(); return d;
+      Fin.data = d; Fin.last = d; Fin.at = Date.now(); return d;
     });
   },
-  invalidate: function () { Fin.data = null; Fin.at = 0; },
+  invalidate: function () { if (Fin.data) Fin.last = Fin.data; Fin.data = null; Fin.at = 0; },
   obj: function (id) { return (Fin.data && Fin.data.objects || []).filter(function (s) { return s.object_id === id; })[0] || null; },
   brigade: function (id) { return (Fin.data && Fin.data.brigades || []).filter(function (s) { return s.partner_id === id; })[0] || null; }
 };
@@ -6997,7 +6997,7 @@ function renderObjectFinanceTab(container, o) {
     var src = { manual: 'введено вручну', estimate_final: 'затверджений кошторис' + (s.estimate_version ? ' v' + s.estimate_version : ''), estimate_draft: 'чернетка кошторису' + (s.estimate_version ? ' v' + s.estimate_version : '') + ' — ще не затверджено', none: 'кошторису немає' };
     var kp = [kpiCard('Сума договору', fmtMoney(s.contract_total), [['джерело', src[s.contract_source] || '—']]),
       kpiCard('Отримано від клієнта', fmtMoney(s.client_paid), [['від договору', s.client_percent + '%']]),
-      kpiCard(s.client_overpaid > 0 ? 'Переплата клієнта' : 'Клієнт ще має доплатити', fmtMoney(s.client_overpaid > 0 ? s.client_overpaid : s.client_due))];
+      s.debt_active === false ? kpiCard('Клієнт ще має доплатити', '—', [['не рахується', s.debt_reason || 'ще не в роботі']]) : kpiCard(s.client_overpaid > 0 ? 'Переплата клієнта' : 'Клієнт ще має доплатити', fmtMoney(s.client_overpaid > 0 ? s.client_overpaid : s.client_due))];
     if (cost) kp.push(kpiCard('Бригадам ще виплатити', fmtMoney(s.brigades_due)));
     box.appendChild(fh_('div', { 'class': 'grid cols-4', style: 'margin-bottom:8px;' }, kp));
     box.appendChild(fnBar_(s.client_percent));
@@ -7073,7 +7073,7 @@ function renderFinance(main) {
   function drawKpis() {
     kpiBox.innerHTML = '';
     if (!data) return;
-    var t = data.totals, k = [kpiCard('Договорів на суму', fmtMoney(t.contract_total)), kpiCard('Отримано від клієнтів', fmtMoney(t.client_paid)), kpiCard('Клієнти ще мають доплатити', fmtMoney(t.client_due))];
+    var t = data.totals, k = [kpiCard('Договорів на суму', fmtMoney(t.contract_total), [['лише погоджені й у роботі', '']]), kpiCard('Отримано від клієнтів', fmtMoney(t.client_paid)), kpiCard('Клієнти ще мають доплатити', fmtMoney(t.client_due))];
     if (data.can_see_cost) k.push(kpiCard('Бригадам ще виплатити', fmtMoney(t.brigades_due)), kpiCard('Витрати', fmtMoney(t.expenses)), kpiCard('Гроші на руках', fmtMoney(t.cash_on_hand), [['очікуваний прибуток', fmtMoney(t.expected_profit)]]));
     kpiBox.appendChild(fh_('div', { 'class': 'grid cols-3', style: 'margin-bottom:14px;' }, k));
   }
@@ -7118,7 +7118,7 @@ function renderFinance(main) {
       var cells = [fh_('td', {}, [fh_('b', {}, [s.name]), fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, [[s.client_name, s.status].filter(Boolean).join(' · ')])]),
         fh_('td', {}, [s.contract_total > 0 ? fmtMoney(s.contract_total) : fh_('span', { 'class': 'page-sub' }, ['не вказано'])]),
         fh_('td', {}, [fmtMoney(s.client_paid), fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, [s.client_percent + '%'])]),
-        fh_('td', {}, [fh_('b', { style: 'color:' + (s.client_due > 0.5 ? 'var(--gold)' : 'var(--green)') + ';' }, [s.client_overpaid > 0 ? 'переплата ' + fmtMoney(s.client_overpaid) : fmtMoney(s.client_due)])])];
+        fh_('td', {}, [s.debt_active === false ? fh_('span', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, ['— ' + (s.debt_reason || 'ще не в роботі')]) : fh_('b', { style: 'color:' + (s.client_due > 0.5 ? 'var(--gold)' : 'var(--green)') + ';' }, [s.client_overpaid > 0 ? 'переплата ' + fmtMoney(s.client_overpaid) : fmtMoney(s.client_due)])])];
       if (data.can_see_cost) {
         cells.push(fh_('td', {}, [fh_('b', { style: 'color:' + (s.brigades_due > 0.5 ? 'var(--gold)' : 'var(--green)') + ';' }, [fmtMoney(s.brigades_due)]),
           s.brigades.length ? fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, [s.brigades.map(function (b) { return b.name + ': ' + fmtMoney(b.due); }).join(' · ')]) : null]));
@@ -7405,7 +7405,7 @@ function renderToday(main) {
       tkTile_('Прострочені завдання (усі)', overdueAll, overdueAll ? 'у команді — натисни, щоб побачити' : 'усе вчасно 👍', function () { STATE.ui.todayWho = 'all'; renderRoute(); }, overdueAll ? 'bad' : ''),
       tkTile_('Нові заявки', newReq, newReq ? 'чекають на обробку' : 'нових немає', function () { location.hash = '#/requests'; }, newReq ? 'warn' : ''),
       tkTile_("Об'єкти в роботі", inWork, late ? late + ' з простроченим планом' : 'за планом', function () { location.hash = '#/objects'; }, late ? 'warn' : '')];
-    var moneyTile = tkTile_('Клієнти ще винні', '…', 'рахую', function () { location.hash = '#/finance'; });
+    var moneyTile = tkTile_('Клієнти ще винні', Fin.last ? fmtMoney(Fin.last.totals.client_due) : '…', Fin.last ? 'бригадам ще виплатити ' + fmtMoney(Fin.last.totals.brigades_due) : 'рахую', function () { location.hash = '#/finance'; });
     if (canDo_('finance', 'view') && canSeeCost_()) tiles.push(moneyTile);
     main.appendChild(fh_('div', { 'class': 'grid cols-4', style: 'margin:12px 0 16px;' }, tiles));
     if (tiles.indexOf(moneyTile) >= 0) Fin.load().then(function (d) {
