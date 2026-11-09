@@ -432,6 +432,7 @@ var NAV = [
   { id:'clients', label:'Клієнти', icon:'👤', resource:'clients' },
   { id:'requests', label:'Заявки', icon:'📥', resource:'requests' },
   { id:'objects', label:"Об'єкти", icon:'🏗️', roles:null },
+  { id:'archive', label:'Архів', icon:'🗄️', roles:['ADMIN'] },
   { id:'works', label:'Прайс робіт', icon:'📋', resource:'price_list' },
   { id:'estimates', label:'Кошториси', icon:'🧾', resource:'estimates' },
   { id:'partners', label:'Бригади', icon:'👷', resource:'partners' },
@@ -703,7 +704,8 @@ function syncAll(ev) {
       documents: data.documents || [], users: data.users || [], roles: data.roles || [],
       workTemplates: data.workTemplates || [], templateItems: data.templateItems || [], workMaterials: data.workMaterials || [],
       checkRules: data.checkRules || [], priceUpdates: data.priceUpdates || [], v9: data.v9 || null,
-      me: data.me || null, myPermissions: data.myPermissions || {}, rolesFull: (STATE.db && STATE.db.rolesFull) || []
+      me: data.me || null, myPermissions: data.myPermissions || {}, rolesFull: (STATE.db && STATE.db.rolesFull) || [],
+      archive: data.archive || { objects: [], estimates: [] }
     };
     // «me» несе найсвіжіші see_cost/scope_own_objects/роль — синхронізуємо це в
     // STATE.currentUser щоразу (раніше це перевірялось один раз одразу після
@@ -984,7 +986,7 @@ function renderRoute() {
   var renderers = {
     today: renderToday, reports: renderReports, invoices: renderInvoices, purchases: renderPurchases, calc: renderCalc, calcrooms: renderCalcRooms, activity: renderActivity, robot: renderRobot, workdays: renderWorkDays, insights: renderInsights, data: function () { renderData(main); },
     dashboard: renderDashboard, clients: function () { renderClients(main, param); },
-    requests: renderRequests, objects: function () { renderObjects(main, param); },
+    requests: renderRequests, objects: function () { renderObjects(main, param); }, archive: function () { V43.renderArchive(main); },
     works: renderWorks, estimates: function () { renderEstimatesList(main, param); },
     partners: renderPartners, materials: renderMaterialsPage, finance: renderFinance,
     calendar: renderCalendar, tasks: renderTasks, analytics: renderAnalytics, settings: renderSettings,
@@ -1021,7 +1023,7 @@ window.addEventListener('hashchange', renderRoute);
 // адреси (#/estimates, #/purchases …) працюють як раніше.
 var NAV_GROUPS = [
   { id: 'g_work', label: 'Робота', icon: '📌', items: ['today', 'tasks', 'calendar'] },
-  { id: 'g_sales', label: 'Клієнти і обʼєкти', icon: '👥', items: ['clients', 'requests', 'objects'] },
+  { id: 'g_sales', label: 'Клієнти і обʼєкти', icon: '👥', items: ['clients', 'requests', 'objects', 'archive'] },
   { id: 'g_est', label: 'Кошторис', icon: '🧾', items: ['calc', 'estimates', 'works'] },
   { id: 'g_mat', label: 'Матеріали і закупівлі', icon: '📦', items: ['materials', 'purchases', 'prices', 'catalogs'] },
   { id: 'g_money', label: 'Гроші і документи', icon: '💰', items: ['finance', 'invoices', 'analytics', 'reports', 'dashboard'] },
@@ -1425,6 +1427,15 @@ function renderRequests(main) {
       e.preventDefault(); col.classList.remove('dragover');
       var id = e.dataTransfer.getData('text/plain');
       var req = byId(STATE.db.requests, id);
+      if (req && req.status === status) return;
+      if (req && status === 'REJECTED') {
+        V43.askReason('🚫 Відмова по заявці', 'Чому клієнт відмовився? Причина збережеться в заявці, а обʼєкт і кошториси підуть в архів (їх можна відновити).', 'Відмовити й перенести в архів', function (why, done) {
+          apiCall('updateRequest', { id: id, status: 'REJECTED', notes: (req.notes ? req.notes + '\n' : '') + '[Відмова] ' + why }).then(function () {
+            closeModal(); toast('Заявку відхилено, обʼєкт перенесено в архів', 'success'); return syncAll();
+          }).catch(function (e3) { done(); fnErr_(e3); });
+        });
+        return;
+      }
       if (req && req.status !== status) {
         req.status = status;
         apiCall('updateRequest', { id: id, status: status }).then(function (res) { Storage.saveCache(); renderRoute(); toast('Статус оновлено', 'success'); })
@@ -1591,6 +1602,11 @@ function renderObjectCard(main, objectId) {
   ]);
   var editBtn = el('button', { class: 'btn' }, ['Редагувати']); editBtn.onclick = function () { openObjectForm(o); };
   if (canDo_('objects', 'edit')) head.appendChild(editBtn);
+  if (canDo_('objects', 'edit') && currentRole_() === 'ADMIN') {
+    var archBtn = el('button', { class: 'btn', style: 'margin-left:8px;', title: 'Сховати зі списків, нічого не видаляючи' }, ['🗄 В архів']);
+    archBtn.onclick = function () { V43.archiveObject(o); };
+    head.appendChild(archBtn);
+  }
   main.appendChild(head);
 
   var tabs = el('div', { class: 'tabs' });
@@ -1651,6 +1667,78 @@ function renderObjectEstimateTab(container, o) {
 }
 
 /* ЕТАП 41: розбивка кошторису «роботи / матеріали» (дзеркало серверного t41Breakdown_) */
+var V43 = {};
+// вікно «вкажіть причину» (причина обовʼязкова)
+V43.askReason = function (title, text, okLabel, onOk) {
+  var inp = fh_('textarea', { 'class': 'v9-in', rows: '3', style: 'width:100%;', placeholder: 'Причина (обовʼязково)' });
+  var ok = fnBtn_(okLabel || 'Підтвердити', 'primary', function () {
+    var why = inp.value.trim(); if (!why) { toast('Вкажи причину', 'error'); inp.focus(); return; }
+    var done = fnBusy_(ok); onOk(why, done);
+  });
+  var body = fh_('div', {}, [fh_('div', { 'class': 'page-sub', style: 'margin:0 0 8px;' }, [text]), inp, fh_('div', { 'class': 'form-actions', style: 'margin-top:10px;' }, [fnBtn_('Скасувати', '', closeModal), ok])]);
+  openModal(title, body); setTimeout(function () { try { inp.focus(); } catch (e) {} }, 50);
+};
+V43.archiveObject = function (o) {
+  V43.askReason('🗄 В архів: ' + o.name, 'Обʼєкт і його кошториси зникнуть із загальних списків, але нічого не видалиться. Їх можна відновити в розділі «Архів».', 'Перенести в архів', function (why, done) {
+    apiCall('archiveObject', { id: o.id, reason: why }).then(function () { closeModal(); toast('Перенесено в архів', 'success'); Fin.invalidate(); return syncAll(); }).then(function () { location.hash = '#/archive'; }).catch(function (e) { done(); fnErr_(e); });
+  });
+};
+V43.restore = function (arg) {
+  apiCall('restoreFromArchive', arg).then(function () { toast('Відновлено ✓', 'success'); Fin.invalidate(); return syncAll(); }).catch(fnErr_);
+};
+V43.viewEstimate = function (e) {
+  apiCall('getArchivedEstimate', { id: e.id }).then(function (r) {
+    var rows = (r.items || []).filter(function (it) { return it.item_type !== 'section'; }).map(function (it) {
+      return fh_('tr', {}, [fh_('td', {}, [it.name || '']), fh_('td', {}, [it.unit || '']), fh_('td', {}, [String(it.quantity || '')]), fh_('td', {}, [fmtMoney(it.client_price)]), fh_('td', {}, [fmtMoney(it.client_total)])]);
+    });
+    var tb = fh_('table', { 'class': 'dt' }, [fh_('thead', {}, [fh_('tr', {}, ['Позиція', 'Од.', 'К-сть', 'Ціна', 'Сума'].map(function (h) { return fh_('th', {}, [h]); }))]), fh_('tbody', {}, rows)]);
+    openModal('Кошторис ' + e.id + ' (v' + (e.version || 1) + ') — ' + fmtMoney(e.client_total), fh_('div', {}, [tb, fh_('div', { 'class': 'form-actions', style: 'margin-top:10px;' }, [fnBtn_('Закрити', '', closeModal)])]), { wide: true });
+  }).catch(fnErr_);
+};
+V43.renderArchive = function (main) {
+  var A = (STATE.db && STATE.db.archive) || { objects: [], estimates: [] };
+  main.appendChild(el('div', { class: 'page-title' }, ['🗄 Архів']));
+  main.appendChild(el('div', { class: 'page-sub' }, ['Сюди автоматично потрапляють обʼєкти й кошториси, від яких клієнт відмовився (по посиланню чи вручну). Нічого не видаляється — будь-що можна відновити.']));
+  var q = fh_('input', { 'class': 'v9-in', placeholder: 'Пошук: обʼєкт, клієнт, причина…', style: 'width:100%;max-width:420px;margin:8px 0 14px;' });
+  main.appendChild(q);
+  var box = el('div'); main.appendChild(box);
+  function dt(v) { return v ? String(v).slice(0, 10).split('-').reverse().join('.') : ''; }
+  function draw() {
+    box.innerHTML = '';
+    var f = q.value.trim().toLowerCase();
+    var objs = A.objects.filter(function (o) { var c = byId(STATE.db.clients, o.client_id); return !f || [o.name, o.address, o.archive_reason, c && c.name].join(' ').toLowerCase().indexOf(f) !== -1; });
+    var oIds = {}; A.objects.forEach(function (o) { oIds[o.id] = 1; });
+    var lone = A.estimates.filter(function (e) { return !oIds[e.object_id] && (!f || [e.id, e.archive_reason].join(' ').toLowerCase().indexOf(f) !== -1); });
+    box.appendChild(el('h3', { style: 'margin:6px 0 8px;' }, ["Обʼєкти (" + objs.length + ")"]));
+    if (!objs.length) box.appendChild(el('div', { class: 'empty-state' }, ['Архів обʼєктів порожній.']));
+    objs.forEach(function (o) {
+      var c = byId(STATE.db.clients, o.client_id), es = A.estimates.filter(function (e) { return e.object_id === o.id; });
+      var estBtns = es.map(function (e) { return fnBtn_('🧾 v' + (e.version || 1) + ' · ' + fmtMoney(e.client_total), 'small', function () { V43.viewEstimate(e); }); });
+      var delBtn = fnBtn_('Видалити назавжди', 'small danger', function () {
+        if (!confirm('Видалити «' + o.name + '» і його кошториси НАЗАВЖДИ? Це неможливо скасувати.')) return;
+        Promise.all(es.map(function (e) { return apiCall('deleteEstimate', { id: e.id }); })).then(function () { return apiCall('deleteObject', { id: o.id }); })
+          .then(function () { toast('Видалено', 'success'); return syncAll(); }).catch(fnErr_);
+      });
+      box.appendChild(el('div', { class: 'card', style: 'padding:12px 14px;margin:0 0 10px;' }, [
+        el('div', { style: 'display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start;' }, [
+          el('div', {}, [el('b', {}, [o.name]), el('div', { class: 'page-sub', style: 'margin:2px 0;' }, [[c ? c.name : '', o.address || '', 'у архіві з ' + dt(o.archived_at)].filter(Boolean).join(' · ')])]),
+          el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;' }, [fnBtn_('↩ Відновити', 'primary small', function () { V43.restore({ object_id: o.id }); }), delBtn])]),
+        el('div', { style: 'margin:8px 0 6px;' }, ['💬 Причина: ', el('b', {}, [o.archive_reason || '—'])]),
+        estBtns.length ? el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;' }, estBtns) : null]));
+    });
+    if (lone.length) {
+      box.appendChild(el('h3', { style: 'margin:16px 0 8px;' }, ['Окремі кошториси (' + lone.length + ')']));
+      lone.forEach(function (e) {
+        var ob = byId(STATE.db.objects, e.object_id);
+        box.appendChild(el('div', { class: 'card', style: 'padding:12px 14px;margin:0 0 10px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;' }, [
+          el('div', {}, [el('b', {}, [e.id + ' · v' + (e.version || 1) + ' · ' + fmtMoney(e.client_total)]), el('div', { class: 'page-sub', style: 'margin:2px 0;' }, [(ob ? ob.name + ' · ' : '') + 'у архіві з ' + dt(e.archived_at) + (e.archive_reason ? ' · 💬 ' + e.archive_reason : '')])]),
+          el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;' }, [fnBtn_('Переглянути', 'small', function () { V43.viewEstimate(e); }), fnBtn_('↩ Відновити', 'primary small', function () { V43.restore({ estimate_id: e.id }); }),
+            fnBtn_('Видалити назавжди', 'small danger', function () { if (!confirm('Видалити кошторис назавжди?')) return; apiCall('deleteEstimate', { id: e.id }).then(function () { toast('Видалено', 'success'); return syncAll(); }).catch(fnErr_); })])]));
+      });
+    }
+  }
+  q.oninput = draw; draw();
+};
 var V41 = {};
 V41.breakdown = function (items, logistics) {
   var n = function (v) { return Number(v) || 0; }, r2 = function (v) { return Math.round(v * 100) / 100; };
@@ -3060,7 +3148,7 @@ function renderEstimatesList(main) {
   csvBtn.onclick = function () { downloadText_('BUDNEX_кошториси.csv', arrayToCsv_(STATE.db.estimates), 'text/csv;charset=utf-8'); };
   main.appendChild(el('div', { class: 'toolbar' }, [el('div', { class: 'spacer' }), csvBtn]));
   var table = el('table', { class: 'dt' });
-  table.appendChild(el('thead', {}, [el('tr', {}, ['ID', "Об'єкт", 'Клієнт', 'Статус', 'Собівартість', 'Ціна клієнту', 'Прибуток', 'Маржа'].map(function (h) { return el('th', {}, [h]); }))]));
+  table.appendChild(el('thead', {}, [el('tr', {}, ['ID', "Об'єкт", 'Клієнт', 'Статус', 'Собівартість', 'Ціна клієнту', 'Прибуток', 'Маржа', ''].map(function (h) { return el('th', {}, [h]); }))]));
   var tbody = el('tbody');
   var settings = STATE.db.settings;
   var minMargin = Number(settings.min_margin) || 15;
@@ -3072,7 +3160,13 @@ function renderEstimatesList(main) {
       el('td', {}, [e.id]), el('td', {}, [o ? o.name : e.object_id]), el('td', {}, [c ? c.name : e.client_id]),
       el('td', {}, [V9.estimateStatusBadge(e)]),
       el('td', {}, [fmtMoney(e.contractor_total)]), el('td', {}, [fmtMoney(e.client_total)]), el('td', {}, [fmtMoney(e.profit)]),
-      el('td', {}, [marginBadge])
+      el('td', {}, [marginBadge]),
+      el('td', {}, [currentRole_() === 'ADMIN' ? fnBtn_('🗄', 'small', function (ev) {
+        ev.stopPropagation();
+        V43.askReason('🗄 Кошторис ' + e.id + ' в архів', 'Кошторис зникне зі списку, але не видалиться — його можна відновити в розділі «Архів».', 'В архів', function (why, done) {
+          apiCall('archiveEstimate', { id: e.id, reason: why }).then(function () { closeModal(); toast('Кошторис в архіві', 'success'); return syncAll(); }).catch(function (er) { done(); fnErr_(er); });
+        });
+      }, 'В архів') : ''])
     ]);
     tr.onclick = function () { location.hash = '#/objects/' + e.object_id; };
     tbody.appendChild(tr);
@@ -9081,6 +9175,7 @@ function renderPublicView_(data, token) {
   if (est.client_response) {
     var txt = est.client_response === 'approved'
       ? '✅ Дякуємо! Ви погодили цей кошторис' + (est.client_responded_at ? ' ' + fmtDate(est.client_responded_at) : '') + '.'
+      : est.client_rejected ? '🚫 Дякуємо за відповідь. Ми зафіксували вашу відмову' + (est.client_responded_at ? ' ' + fmtDate(est.client_responded_at) : '') + '.'
       : '❌ Ваше зауваження надіслано' + (est.client_responded_at ? ' ' + fmtDate(est.client_responded_at) : '') + '. Ми звʼяжемось із вами.';
     actions.appendChild(el('div', { style: 'font-weight:700;text-align:center;padding:10px;' }, [txt]));
   } else {
@@ -9089,20 +9184,31 @@ function renderPublicView_(data, token) {
     var approveBtn = el('button', { class: 'btn primary' }, ['✅ Погоджую кошторис']);
     var declineBtn = el('button', { class: 'btn danger' }, ['✎ Є зауваження']);
     var sendBtn = el('button', { class: 'btn primary', style: 'display:none;' }, ['Надіслати зауваження']);
+    var refuseBtn = el('button', { class: 'btn', style: 'border-color:#c0392b;color:#c0392b;' }, ['🚫 Відмовитись']);
+    var refuseInp = el('textarea', { id: 'pv_refuse', class: 'v9-in', style: 'width:100%;', rows: '2', placeholder: 'Вкажіть, будь ласка, причину відмови *' });
+    var refuseSend = el('button', { class: 'btn danger' }, ['Підтвердити відмову']);
+    var refuseBox = el('div', { style: 'display:none;margin-top:10px;' }, [el('div', { style: 'font-weight:600;margin-bottom:6px;' }, ['Причина відмови (обовʼязково)']), refuseInp, el('div', { style: 'margin-top:8px;' }, [refuseSend])]);
     function respond(response, comment) {
-      approveBtn.disabled = declineBtn.disabled = sendBtn.disabled = true;
+      approveBtn.disabled = declineBtn.disabled = sendBtn.disabled = refuseBtn.disabled = refuseSend.disabled = true;
       publicApiCall_('respondPublicEstimate', { share_token: token, response: response, comment: comment || '' }).then(function (res) {
         renderPublicView_(res.view, token);
       }).catch(function (e) {
-        approveBtn.disabled = declineBtn.disabled = sendBtn.disabled = false;
+        approveBtn.disabled = declineBtn.disabled = sendBtn.disabled = refuseBtn.disabled = refuseSend.disabled = false;
         alert('Не вдалося зберегти відповідь: ' + (e && e.message || e));
       });
     }
     approveBtn.onclick = function () { if (confirm('Погодити цей кошторис?')) respond('approved'); };
     declineBtn.onclick = function () { declineBox.style.display = ''; declineBtn.style.display = 'none'; sendBtn.style.display = ''; commentInp.focus(); };
     sendBtn.onclick = function () { respond('declined', commentInp.value.trim()); };
-    actions.appendChild(el('div', { class: 'v9-row', style: 'justify-content:center;' }, [approveBtn, declineBtn, sendBtn]));
+    refuseBtn.onclick = function () { refuseBox.style.display = ''; refuseBtn.style.display = 'none'; declineBox.style.display = 'none'; sendBtn.style.display = 'none'; declineBtn.style.display = ''; refuseInp.focus(); };
+    refuseSend.onclick = function () {
+      var why = refuseInp.value.trim();
+      if (!why) { alert('Будь ласка, вкажіть причину відмови.'); refuseInp.focus(); return; }
+      if (confirm('Відмовитись від цього кошторису?')) respond('rejected', why);
+    };
+    actions.appendChild(el('div', { class: 'v9-row', style: 'justify-content:center;' }, [approveBtn, declineBtn, sendBtn, refuseBtn]));
     actions.appendChild(declineBox);
+    actions.appendChild(refuseBox);
   }
   pv.appendChild(actions);
 }
