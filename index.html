@@ -80,6 +80,7 @@ input,select,textarea{font-family:inherit;font-size:14px;}
 .bulk-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;margin-bottom:8px;background:var(--panel2);border:1px solid var(--gold,#F2C200);border-radius:8px;position:sticky;top:0;z-index:5;}
 .bulk-info{font-weight:700;margin-right:auto;}
 tr.bulk-sel td{background:rgba(242,194,0,.12);}
+.tk-row.bulk-sel,.kanban-card.bulk-sel,.v44-row.bulk-sel{background:rgba(242,194,0,.14)!important;outline:1px solid var(--gold,#F2C200);}
 table.dt input[type=checkbox]{width:18px;height:18px;cursor:pointer;}
 
 /* ---------- generic components ---------- */
@@ -95,6 +96,13 @@ table.dt input[type=checkbox]{width:18px;height:18px;cursor:pointer;}
 .spacer{flex:1;}
 
 .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+.v44-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0 14px;}
+.v44-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:14px;}
+.v44-row{padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;display:flex;gap:8px;justify-content:space-between;align-items:baseline;}
+.v44-row:last-child{border-bottom:0;}
+.v44-chip{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:999px;font-size:12.5px;cursor:pointer;margin:0 6px 6px 0;background:var(--panel);}
+.v44-chip b{font-size:14px;}
+@media(max-width:700px){.v44-cols{grid-template-columns:1fr;}}
 .grid{display:grid;gap:14px;}
 .grid.cols-4{grid-template-columns:repeat(4,1fr);}
 .grid.cols-3{grid-template-columns:repeat(3,1fr);}
@@ -569,8 +577,28 @@ function linkNotes_(d) {
   try { toast('🔗 Автоматично: ' + d.auto_notes.join('; '), 'success'); } catch (e) {}
   setTimeout(function () { try { if (typeof syncAll === 'function') syncAll(); } catch (e) {} }, 400);
 }
+var INFLIGHT_ = {};
+function newRid_() { return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 8); }
 function apiCall(action, data) {
   if (!CONFIG.API_URL) return Promise.reject(new Error('API_URL не налаштований'));
+  var isRead = RETRYABLE_READS_.test(action);
+  if (!isRead) {
+    // Кожна змінна дія має унікальний _rid: якщо відповідь загубилась і дію повторять
+    // (чергою чи кнопкою), сервер впізнає її і не створює дубля.
+    data = Object.assign({}, data || {});
+    if (!data._rid) data._rid = newRid_();
+    // подвійний клік: той самий запит, що ще виконується, не відправляється вдруге
+    var ikey = action + '|' + JSON.stringify(data, function (k, v) { return k === '_rid' ? undefined : v; });
+    if (INFLIGHT_[ikey]) return INFLIGHT_[ikey];
+    var pr = apiCallRaw_(action, data);
+    INFLIGHT_[ikey] = pr;
+    var clear = function () { setTimeout(function () { if (INFLIGHT_[ikey] === pr) delete INFLIGHT_[ikey]; }, 400); };
+    pr.then(clear, clear);
+    return pr;
+  }
+  return apiCallRaw_(action, data);
+}
+function apiCallRaw_(action, data) {
   var canRetry = RETRYABLE_READS_.test(action);
   function attempt(n) {
     return fetch(CONFIG.API_URL, {
@@ -869,7 +897,7 @@ var Bulk = (function () {
         input = el('select', { id: 'bk_val' });
         f.options.forEach(function (o) { var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; input.appendChild(el('option', { value: v }, [l])); });
       } else {
-        input = el('input', { id: 'bk_val', type: f.type === 'number' ? 'number' : 'text', step: 'any', placeholder: f.hint || '' });
+        input = el('input', { id: 'bk_val', type: f.type === 'number' ? 'number' : (f.type === 'date' ? 'date' : 'text'), step: 'any', placeholder: f.hint || '' });
       }
       var wrap = formField(f.type === 'percent' ? 'Відсоток (напр. 10 або -5)' : 'Нове значення', '');
       wrap.appendChild(input); valWrap.appendChild(wrap);
@@ -924,6 +952,11 @@ var Bulk = (function () {
       };
       bar.appendChild(db);
     }
+    (cfg.actions || []).forEach(function (ac) {
+      var ab = el('button', { class: 'btn small' + (ac.cls ? ' ' + ac.cls : '') }, [ac.label]);
+      ab.onclick = function () { ac.run(Object.keys(sel(cfg.entity)), function () { selection[cfg.entity] = {}; return syncAll().catch(function () {}).then(function () { renderRoute(); }); }); };
+      bar.appendChild(ab);
+    });
     var clr = el('button', { class: 'btn small' }, ['Зняти вибір']);
     bar.appendChild(clr);
     box.appendChild(bar);
@@ -964,13 +997,72 @@ var Bulk = (function () {
     refresh();
     return box;
   }
-  return { wrap: wrap, clear: function () { selection = {}; } };
+  /* list(cfg): вибір для довільних списків і карток (завдання, заявки). Кнопка «☑ Вибрати»
+     вмикає режим: торкнись запису — він позначається; зверху зʼявляється панель дій.
+     Повертає {toggle, bar, add(rowEl, item)}. */
+  var MODE = {};
+  function list(cfg) {
+    var s = sel(cfg.entity), on = !!MODE[cfg.entity];
+    var canEdit = canDo_(cfg.resource, 'edit'), canDel = canDo_(cfg.resource, 'delete') && !cfg.noDelete;
+    var usable = (canEdit || canDel) && !isForeman_();
+    var rows = [];
+    var bar = el('div', { class: 'bulk-bar', style: 'display:none;' });
+    var info = el('span', { class: 'bulk-info' });
+    function nSel() { return count(cfg.entity); }
+    function refresh() {
+      bar.style.display = on ? '' : 'none';
+      info.textContent = nSel() ? 'Вибрано: ' + nSel() + ' з ' + cfg.items.length : 'Торкнись записів, щоб вибрати';
+      rows.forEach(function (r) { var ch = !!s[r.id]; r.el.classList.toggle('bulk-sel', ch); r.mark.textContent = ch ? '✔' : ''; r.mark.style.background = ch ? 'var(--gold,#F2C200)' : 'transparent'; });
+    }
+    bar.appendChild(info);
+    function act(label, cls, fn) { var b = el('button', { class: 'btn small' + (cls ? ' ' + cls : '') }, [label]); b.onclick = function () { if (!nSel()) { toast('Спочатку виберіть записи', 'error'); return; } fn(); }; bar.appendChild(b); return b; }
+    (cfg.quick || []).forEach(function (q) { act(q.label, q.cls, function () { run_(cfg, 'update', { patch: q.patch }); }); });
+    if (canEdit && (cfg.fields || []).length) act('✎ Змінити…', '', function () { openEdit_(cfg); });
+    (cfg.actions || []).forEach(function (ac) { act(ac.label, ac.cls, function () { ac.run(Object.keys(s), function () { selection[cfg.entity] = {}; return syncAll().catch(function () {}).then(function () { renderRoute(); }); }); }); });
+    if (canDel) act('✕ Видалити', 'danger', function () { confirmAction('Видалити вибране (' + nSel() + ')? Цю дію не можна скасувати.', function () { run_(cfg, 'delete', {}); }); });
+    var allB = el('button', { class: 'btn small' }, ['Вибрати все']); allB.onclick = function () { rows.forEach(function (r) { s[r.id] = true; }); refresh(); }; bar.appendChild(allB);
+    var clrB = el('button', { class: 'btn small' }, ['Зняти']); clrB.onclick = function () { Object.keys(s).forEach(function (k) { delete s[k]; }); refresh(); }; bar.appendChild(clrB);
+    var doneB = el('button', { class: 'btn small' }, ['Готово']); doneB.onclick = function () { MODE[cfg.entity] = false; Object.keys(s).forEach(function (k) { delete s[k]; }); renderRoute(); }; bar.appendChild(doneB);
+    var toggle = usable ? el('button', { class: 'btn small' + (on ? ' primary' : '') }, ['☑ Вибрати']) : el('span');
+    if (usable) toggle.onclick = function () { MODE[cfg.entity] = !MODE[cfg.entity]; Object.keys(s).forEach(function (k) { delete s[k]; }); renderRoute(); };
+    function add(rowEl, item) {
+      if (!on || !usable || !item || item.id == null) return rowEl;
+      var id = String(item.id), mark = el('span', { class: 'bulk-mark', style: 'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:2px solid var(--gold,#F2C200);border-radius:5px;font-size:13px;font-weight:900;color:#000;flex:0 0 auto;margin-right:8px;' });
+      if (rowEl.classList.contains('kanban-card')) { mark.style.cssText += 'position:absolute;top:6px;right:6px;margin:0;'; rowEl.style.position = 'relative'; rowEl.appendChild(mark); }
+      else rowEl.insertBefore(mark, rowEl.firstChild);
+      rowEl.draggable = false;
+      rowEl.onclick = function (e) { e.preventDefault(); e.stopPropagation(); if (s[id]) delete s[id]; else s[id] = true; refresh(); };
+      Array.prototype.forEach.call(rowEl.querySelectorAll('input[type=checkbox]'), function (c) { c.disabled = true; });
+      rows.push({ id: id, el: rowEl, mark: mark }); refresh();
+      return rowEl;
+    }
+    cfg.items = cfg.items || [];
+    return { toggle: toggle, bar: bar, add: add, active: on && usable };
+  }
+  return { wrap: wrap, list: list, clear: function () { selection = {}; } };
 })();
 
 /* ============================== ROUTER =================================== */
+/* Памʼять прокрутки: зайшов в обʼєкт/клієнта/завдання і повернувся — список
+   відкривається на тому самому місці, а не нагорі. Клік по пункту меню — завжди з початку. */
+var SCROLLMEM_ = {}, SCROLL_SKIP_ = false;
+document.addEventListener('click', function (ev) { try { if (ev.target.closest && ev.target.closest('#sidebar .nav-item')) SCROLL_SKIP_ = true; } catch (e) {} }, true);
+function restoreScroll_(y) {
+  var main = document.getElementById('main'); if (!main || !y) return;
+  var tries = [0, 80, 250, 600, 1200];
+  tries.forEach(function (ms) { setTimeout(function () { if (main.scrollTop < y - 2 && main.scrollHeight >= y) main.scrollTop = y; }, ms); });
+}
 function renderRoute() {
   closeSidebar_(); // будь-яка навігація одразу закриває мобільну шухляду меню
   var hash = location.hash || '#/today';
+  var prevRoute_ = STATE.route, mainEl_ = document.getElementById('main');
+  if (prevRoute_ && prevRoute_ !== hash && mainEl_) SCROLLMEM_[prevRoute_] = { y: mainEl_.scrollTop, t: Date.now() };
+  var wantY_ = 0;
+  if (prevRoute_ && prevRoute_ !== hash) {
+    var mem_ = SCROLLMEM_[hash];
+    if (mem_ && !SCROLL_SKIP_ && Date.now() - mem_.t < 30 * 60000) wantY_ = mem_.y;
+    SCROLL_SKIP_ = false;
+  }
   STATE.route = hash;
   var parts = hash.replace('#/', '').split('/');
   var page = parts[0] || 'today';
@@ -1016,6 +1108,7 @@ function renderRoute() {
   }
   wrapTablesForMobile_(main);
   try { updateNavBadges_(); } catch (e) {}
+  if (wantY_) restoreScroll_(wantY_); else if (prevRoute_ && prevRoute_ !== hash) main.scrollTop = 0;
 }
 window.addEventListener('hashchange', renderRoute);
 
@@ -1326,6 +1419,7 @@ function openClientForm(existing) {
   body.appendChild(formField('Нотатки', '<textarea id="f_notes">' + esc(c.notes || '') + '</textarea>'));
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  if (existing && currentRole_() === 'ADMIN' && canDo_('clients', 'delete')) actions.appendChild(V45.delBtn('deleteClient', existing.id, 'клієнта «' + (existing.name || '') + '»', 'Разом із ним видаляться його заявки та завдання (якщо немає обʼєктів і платежів).', 'clients'));
   var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
   save.onclick = function () {
     var data = {
@@ -1403,6 +1497,10 @@ function renderRequests(main) {
   if (canManageRequests_()) toolbar.appendChild(addBtn);
   main.appendChild(toolbar);
 
+  var RB = Bulk.list({ entity: 'requests', resource: 'requests', items: STATE.db.requests, fields: [
+    { key: 'status', label: 'Статус', options: REQUEST_STATUSES.map(function (st) { return [st, REQUEST_STATUS_LABELS[st] || st]; }) }, { key: 'manager', label: 'Менеджер' }] });
+  toolbar.insertBefore(RB.toggle, toolbar.firstChild);
+  main.appendChild(RB.bar);
   var board = el('div', { class: 'kanban' });
   KANBAN_STATUSES.concat(['REJECTED', 'PAUSED']).forEach(function (status) {
     var items = STATE.db.requests.filter(function (r) { return r.status === status; });
@@ -1419,7 +1517,7 @@ function renderRequests(main) {
       card.dataset.id = r.id;
       card.ondragstart = function (e) { e.dataTransfer.setData('text/plain', r.id); };
       card.onclick = function () { openRequestForm(r); };
-      col.appendChild(card);
+      col.appendChild(RB.add(card, r));
     });
     col.ondragover = function (e) { e.preventDefault(); col.classList.add('dragover'); };
     col.ondragleave = function () { col.classList.remove('dragover'); };
@@ -1542,7 +1640,8 @@ function renderObjects(main, objectId) {
   });
   table.appendChild(tbody);
   main.appendChild(Bulk.wrap(table, STATE.db.objects, { entity: 'objects', resource: 'objects', fields: [
-    { key: 'status', label: 'Статус', options: OBJECT_STATUSES }, { key: 'manager', label: 'Менеджер' }] }));
+    { key: 'status', label: 'Статус', options: OBJECT_STATUSES }, { key: 'manager', label: 'Менеджер' }],
+    actions: currentRole_() === 'ADMIN' ? [{ label: '🗄 В архів', run: function (ids, done) { V45.archiveMany(ids, done); } }] : [] }));
 }
 
 function openObjectForm(existing) {
@@ -1564,6 +1663,10 @@ function openObjectForm(existing) {
   body.appendChild(el('div', { class: 'page-sub', style: 'margin:-6px 0 10px;' }, ['Бригадир бачить лише свої закріплені обʼєкти й може додавати по них завдання та фото — без доступу до кошторису.']));
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  if (existing && currentRole_() === 'ADMIN') {
+    actions.appendChild(fnBtn_('🗄 В архів', '', function () { closeModal(); V43.archiveObject(existing); }, 'Сховати зі списків, нічого не видаляючи'));
+    if (canDo_('objects', 'delete')) actions.appendChild(V45.delBtn('deleteObject', existing.id, 'обʼєкт «' + (existing.name || '') + '»', 'Видаляться його кошториси та завдання; якщо є платежі, витрати чи бригади — система не дозволить (тоді краще «В архів»).', 'objects'));
+  }
   var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
   save.onclick = function () {
     var data = {
@@ -1667,6 +1770,173 @@ function renderObjectEstimateTab(container, o) {
 }
 
 /* ЕТАП 41: розбивка кошторису «роботи / матеріали» (дзеркало серверного t41Breakdown_) */
+var V45 = { lastCfg: null };
+// масові дії над завданнями: швидко «Виконано» + зміна статусу, пріоритету, виконавця, терміну
+V45.tasksCfg = function () {
+  var users = tkAssignable_ ? tkAssignable_() : [];
+  var cfg = { entity: 'tasks', resource: 'tasks', items: STATE.db.tasks || [],
+    quick: [{ label: '✔ Виконано', cls: 'primary', patch: { status: 'DONE' } }, { label: '⏰ На завтра', patch: { deadline: tkAddDays_(1) } }],
+    fields: [
+      { key: 'status', label: 'Статус', options: TASK_STATUSES.map(function (st) { return [st, TASK_STATUS_LABELS[st]]; }) },
+      { key: 'deadline', label: 'Термін', type: 'date' },
+      { key: 'priority', label: 'Пріоритет', options: ['висока', 'середня', 'низька'] },
+      { key: 'assignee_user_id', label: 'Виконавець', options: [['', '— без виконавця —']].concat(users.map(function (u) { return [u.id, u.name]; })) }] };
+  V45.lastCfg = cfg; return cfg;
+};
+V45.archiveMany = function (ids, done) {
+  V43.askReason('🗄 В архів: ' + ids.length + ' обʼєкт(ів)', 'Вони зникнуть зі списків, але нічого не видалиться. Їх можна відновити в розділі «Архів».', 'Перенести в архів', function (why, fin) {
+    Promise.all(ids.map(function (id) { return apiCall('archiveObject', { id: id, reason: why }).then(function () { return 1; }, function () { return 0; }); })).then(function (r) {
+      closeModal(); toast('В архів перенесено: ' + r.reduce(function (a, b) { return a + b; }, 0), 'success'); done();
+    }).catch(function (e) { fin(); fnErr_(e); });
+  });
+};
+// кнопка «Видалити» для форм (власник): підтвердження + зрозуміла відмова, якщо є повʼязані гроші/обʼєкти
+V45.delBtn = function (action, id, what, warn, store) {
+  return fnBtn_('🗑 Видалити', 'danger', function () {
+    confirmAction('Видалити ' + what + '?' + (warn ? ' ' + warn : '') + ' Цю дію не можна скасувати.', function () {
+      apiCall(action, { id: id }).then(function () {
+        if (store && STATE.db[store]) STATE.db[store] = STATE.db[store].filter(function (x) { return x.id !== id; });
+        Storage.saveCache(); closeModal(); toast('Видалено', 'success');
+        return syncAll().catch(function () {});
+      }).then(function () { var h = location.hash; if (/^#\/(clients|objects)\//.test(h)) location.hash = h.split('/').slice(0, 2).join('/'); else renderRoute(); })
+        .catch(function (e) { toast(e && e.message || String(e), 'error'); });
+    });
+  });
+};
+var V44 = {};
+/* Командний центр — перший екран. Власник бачить усю компанію: гроші, заявки, обʼєкти,
+   що горить і що сьогодні. Інші ролі — те саме, але лише своє і без грошей. */
+V44.card = function (title, kids, opts) {
+  var c = fh_('div', { 'class': 'card', style: 'margin:0;' + (opts && opts.warn ? 'border-color:var(--gold);' : '') }, [fh_('div', { 'class': 'chart-title' }, [title])]);
+  (kids || []).forEach(function (k) { if (k) c.appendChild(k); });
+  return c;
+};
+V44.row = function (left, right, go, bad) {
+  var r = fh_('div', { 'class': 'v44-row', style: bad ? 'color:var(--red);' : '' }, [fh_('span', {}, [left]), right ? fh_('b', { style: 'white-space:nowrap;' }, [right]) : null]);
+  if (go) r.onclick = go; else r.style.cursor = 'default';
+  return r;
+};
+V44.empty = function (t) { return fh_('div', { 'class': 'page-sub', style: 'margin:4px 0;' }, [t]); };
+V44.overview = function (main, isAdmin) {
+  var db = STATE.db, today = fnToday_(), me = tkMe_();
+  var canMoney = isAdmin && canDo_('finance', 'view') && canSeeCost_();
+  var canReq = canDo_('requests', 'view');
+  var tasks = (db.tasks || []);
+  var mine = isAdmin ? tasks : tkFilterWho_(tasks, 'me');
+  var open = mine.filter(tkOpen_);
+  var overdue = open.filter(function (t) { return tkBucket_(t, today) === 'overdue'; });
+  var todayT = open.filter(function (t) { return tkBucket_(t, today) === 'today'; });
+  var objs = db.objects || [], reqs = db.requests || [], ests = db.estimates || [];
+  var inWork = objs.filter(function (o) { return o.status === 'у роботі'; });
+  var lateObjs = objs.filter(function (o) { return o.status !== 'завершено' && fnDay_(o.planned_end_date) && fnDay_(o.planned_end_date) < today; });
+  var newReq = reqs.filter(function (r) { return r.status === 'NEW'; });
+  var activeReq = reqs.filter(function (r) { return ['COMPLETED', 'REJECTED', 'PAUSED'].indexOf(r.status) === -1; });
+  var waiting = ests.filter(function (e) { return e.share_token && !e.client_response && !e.archived_at; });
+  var go = function (h) { return function () { location.hash = h; }; };
+
+  // ---- плитки
+  var tiles = [];
+  tiles.push(tkTile_(isAdmin ? 'Прострочені завдання' : 'Мої прострочені', overdue.length, overdue.length ? 'потребують уваги' : 'усе вчасно 👍', function () { STATE.ui.todayWho = isAdmin ? 'all' : 'me'; renderRoute(); }, overdue.length ? 'bad' : ''));
+  tiles.push(tkTile_(isAdmin ? 'Завдання на сьогодні' : 'Мої на сьогодні', todayT.length, 'відкритих: ' + open.length, go('#/tasks')));
+  if (canReq) {
+    tiles.push(tkTile_('Нові заявки', newReq.length, newReq.length ? 'чекають на обробку' : 'нових немає', go('#/requests'), newReq.length ? 'warn' : ''));
+    if (isAdmin) tiles.push(tkTile_('Заявок у роботі', activeReq.length, 'у воронці', go('#/requests')));
+  }
+  if (isAdmin) tiles.push(tkTile_('Кошториси чекають клієнта', waiting.length, waiting.length ? 'надіслані, без відповіді' : 'немає', go('#/estimates'), waiting.length ? 'warn' : ''));
+  tiles.push(tkTile_("Обʼєкти в роботі", inWork.length, lateObjs.length ? lateObjs.length + ' з простроченим планом' : 'за планом', go('#/objects'), lateObjs.length ? 'warn' : ''));
+  var money = {};
+  if (canMoney) {
+    money.due = tkTile_('Клієнти ще винні', Fin.last ? fmtMoney(Fin.last.totals.client_due) : '…', 'лише погоджені й у роботі', go('#/finance'));
+    money.paid = tkTile_('Отримано від клієнтів', Fin.last ? fmtMoney(Fin.last.totals.client_paid) : '…', 'за всіма обʼєктами', go('#/finance'));
+    money.brig = tkTile_('Бригадам виплатити', Fin.last ? fmtMoney(Fin.last.totals.brigades_due) : '…', 'ще не виплачено', go('#/finance'));
+    money.profit = tkTile_('Очікуваний прибуток', Fin.last ? fmtMoney(Fin.last.totals.expected_profit) : '…', 'за договорами в роботі', go('#/finance'));
+    tiles.push(money.due, money.paid, money.brig, money.profit);
+  }
+  main.appendChild(fh_('div', { 'class': 'v44-grid' }, tiles));
+
+  // ---- воронка заявок
+  if (canReq && isAdmin) {
+    var fun = fh_('div', {});
+    KANBAN_STATUSES.forEach(function (st) {
+      var n = reqs.filter(function (r) { return r.status === st; }).length; if (!n) return;
+      var ch = fh_('span', { 'class': 'v44-chip' }, [(REQUEST_STATUS_LABELS[st] || st) + ' ', fh_('b', {}, [String(n)])]); ch.onclick = go('#/requests'); fun.appendChild(ch);
+    });
+    var rej = reqs.filter(function (r) { return r.status === 'REJECTED'; }).length;
+    if (rej) { var rc = fh_('span', { 'class': 'v44-chip', style: 'opacity:.7;' }, ['Відмова ', fh_('b', {}, [String(rej)])]); rc.onclick = go('#/requests'); fun.appendChild(rc); }
+    if (!fun.childNodes.length) fun.appendChild(V44.empty('Заявок ще немає.'));
+    main.appendChild(fh_('div', { 'class': 'card', style: 'margin-bottom:14px;' }, [fh_('div', { 'class': 'chart-title' }, ['📥 Воронка заявок']), fun]));
+  }
+
+  // ---- «Сьогодні» + «Потребує уваги»
+  var todayKids = [], ev = [];
+  todayT.slice().sort(function (a, b) { return String(a.due_time || '99:99').localeCompare(String(b.due_time || '99:99')); }).slice(0, 8).forEach(function (t) {
+    var who = isAdmin ? (t.responsible || '') : '';
+    todayKids.push(V44.row((t.due_time ? '⏰ ' + t.due_time + ' ' : '☐ ') + t.title + (t.object_id ? ' · ' + fnObjName_(t.object_id) : ''), who, function () { openTaskEditor(t); }));
+  });
+  (db.assignments || []).forEach(function (a) {
+    var st = String(a.status).toLowerCase(); if (st === 'завершена' || st === 'скасована') return;
+    if (fnDay_(a.start_date) === today) todayKids.push(V44.row('🔧 Старт бригади «' + fnPartnerName_(fnAsgPartner_(a)) + '» — ' + fnObjName_(a.object_id), '', go('#/objects/' + a.object_id)));
+    if (fnDay_(a.end_date) === today) todayKids.push(V44.row('🏁 Завершення роботи бригади «' + fnPartnerName_(fnAsgPartner_(a)) + '» — ' + fnObjName_(a.object_id), '', go('#/objects/' + a.object_id)));
+  });
+  if (canMoney) (db.plannedPayments || []).forEach(function (pp) {
+    if (fnDay_(pp.date) !== today) return;
+    todayKids.push(V44.row((pp.direction === 'out' ? '💸 Виплатити «' + fnPartnerName_(pp.partner_id) + '»' : '💰 Очікується від клієнта') + ' — ' + fnObjName_(pp.object_id), fmtMoney(pp.amount), go('#/objects/' + pp.object_id)));
+  });
+  if (!todayKids.length) todayKids.push(V44.empty('На сьогодні подій немає 🎉'));
+  var cols = fh_('div', { 'class': 'v44-cols' }, [V44.card('📅 Сьогодні', todayKids)]);
+  if (isAdmin) { var att = fh_('div'); renderAttentionCard_(att); cols.appendChild(att.firstChild || V44.card('🔥 Потребує уваги', [V44.empty('Усе під контролем 👍')])); }
+  main.appendChild(cols);
+
+  // ---- обʼєкти в роботі
+  var showObjs = objs.filter(function (o) { return o.status === 'у роботі' || o.status === 'підготовка'; }).sort(function (a, b) { return String(fnDay_(a.planned_end_date) || '9').localeCompare(String(fnDay_(b.planned_end_date) || '9')); });
+  var moneyCells = {};
+  var tbl = fh_('table', { 'class': 'dt' });
+  var heads = ["Обʼєкт", 'Клієнт', 'Статус', 'План до', 'Бригади'].concat(canMoney ? ['Договір', 'Отримано', 'Борг'] : []);
+  tbl.appendChild(fh_('thead', {}, [fh_('tr', {}, heads.map(function (h) { return fh_('th', {}, [h]); }))]));
+  var tb = fh_('tbody');
+  showObjs.slice(0, 15).forEach(function (o) {
+    var c = byId(db.clients, o.client_id), pe = fnDay_(o.planned_end_date), late = pe && pe < today && o.status !== 'завершено';
+    var crews = (db.assignments || []).filter(function (a) { return a.object_id === o.id && ['активна', 'в роботі', 'active'].indexOf(String(a.status).toLowerCase()) !== -1; }).length;
+    var cells = [fh_('td', {}, [fh_('b', {}, [o.name])]), fh_('td', {}, [c ? c.name : '']), fh_('td', {}, [o.status || '']),
+      fh_('td', { style: late ? 'color:var(--red);font-weight:700;' : '' }, [pe ? fmtDate(pe) + (late ? ' ⚠' : '') : '—']), fh_('td', {}, [crews ? String(crews) : '—'])];
+    if (canMoney) { var m = [fh_('td', {}, ['…']), fh_('td', {}, ['…']), fh_('td', {}, ['…'])]; moneyCells[o.id] = m; cells = cells.concat(m); }
+    var tr = fh_('tr', { style: 'cursor:pointer;' }, cells); tr.onclick = go('#/objects/' + o.id); tb.appendChild(tr);
+  });
+  tbl.appendChild(tb);
+  main.appendChild(fh_('div', { 'class': 'card', style: 'margin-bottom:14px;' }, [fh_('div', { 'class': 'chart-title' }, [(isAdmin ? '🏗 Обʼєкти в роботі та підготовці' : '🏗 Мої обʼєкти') + ' (' + showObjs.length + ')']),
+    showObjs.length ? fh_('div', { 'class': 'table-scroll' }, [tbl]) : V44.empty('Зараз немає обʼєктів у роботі.')]));
+
+  // ---- кошториси чекають + оплати
+  var lower = fh_('div', { 'class': 'v44-cols' });
+  if (isAdmin) {
+    var wk = waiting.slice(0, 8).map(function (e) {
+      var o = byId(objs, e.object_id), c = byId(db.clients, e.client_id);
+      return V44.row((o ? o.name : e.object_id) + (c ? ' · ' + c.name : ''), canSeeCost_() ? fmtMoney(e.client_total) : '', go('#/objects/' + e.object_id));
+    });
+    lower.appendChild(V44.card('🧾 Кошториси чекають відповіді клієнта (' + waiting.length + ')', wk.length ? wk : [V44.empty('Усі кошториси мають відповідь.')]));
+  }
+  if (canMoney) {
+    var end = tkAddDays_(14), pays = (db.plannedPayments || []).filter(function (pp) { var d = fnDay_(pp.date); return d && d <= end; }).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+    var pk = pays.slice(0, 8).map(function (pp) {
+      var late = fnDay_(pp.date) < today;
+      return V44.row(fmtDate(pp.date) + ' · ' + (pp.direction === 'out' ? '💸 ' + fnPartnerName_(pp.partner_id) : '💰 ' + ((byId(db.clients, pp.client_id) || {}).name || 'клієнт')) + ' — ' + fnObjName_(pp.object_id), fmtMoney(pp.amount), go('#/objects/' + pp.object_id), late);
+    });
+    lower.appendChild(V44.card('💳 Оплати на 14 днів (' + pays.length + ')', pk.length ? pk : [V44.empty('Запланованих оплат немає.')]));
+  }
+  if (lower.childNodes.length) main.appendChild(lower);
+
+  // ---- гроші приходять асинхронно (не гальмують екран)
+  if (canMoney) Fin.load().then(function (d) {
+    if (!d || !main.isConnected) return;
+    var T = d.totals || {};
+    if (money.due.isConnected) { money.due.querySelector('.kpi-value').textContent = fmtMoney(T.client_due); money.paid.querySelector('.kpi-value').textContent = fmtMoney(T.client_paid); money.brig.querySelector('.kpi-value').textContent = fmtMoney(T.brigades_due); money.profit.querySelector('.kpi-value').textContent = fmtMoney(T.expected_profit); }
+    (d.objects || []).forEach(function (s) {
+      var m = moneyCells[s.object_id]; if (!m) return;
+      m[0].textContent = s.contract_total ? fmtMoney(s.contract_total) : '—'; m[1].textContent = fmtMoney(s.client_paid || 0);
+      m[2].textContent = s.debt_active === false ? '—' : fmtMoney(s.client_due || 0); if (s.debt_active !== false && s.client_due > 0.5) m[2].style.cssText = 'color:var(--gold);font-weight:700;';
+    });
+  }).catch(function () { ['due', 'paid', 'brig', 'profit'].forEach(function (k) { if (money[k]) money[k].querySelector('.kpi-value').textContent = '—'; }); });
+};
 var V43 = {};
 // вікно «вкажіть причину» (причина обовʼязкова)
 V43.askReason = function (title, text, okLabel, onOk) {
@@ -3200,6 +3470,7 @@ function openPartnerForm(existing) {
   body.appendChild(formField('Статус (далі змінюється автоматично, коли бригаду призначено на обʼєкт)', '<select id="f_status">' + ['вільна','зайнята','заброньована','недоступна'].map(function(s){return '<option'+(p.status===s?' selected':'')+'>'+s+'</option>';}).join('') + '</select>'));
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
+  if (existing && currentRole_() === 'ADMIN' && canDo_('partners', 'delete')) actions.appendChild(V45.delBtn('deletePartner', existing.id, 'бригаду «' + (existing.name || '') + '»', '', 'partners'));
   var save = el('button', { class: 'btn primary' }, [existing ? 'Зберегти' : 'Створити']);
   save.onclick = function () {
     var data = {
@@ -7500,25 +7771,8 @@ function renderToday(main) {
   var allTasks = STATE.db.tasks || [];
   var who = STATE.ui.todayWho || (isForeman_() ? 'all' : 'me');
 
-  // --- плитки для власника
-  if (isAdmin) {
-    var db = STATE.db, overdueAll = allTasks.filter(function (t) { return tkOpen_(t) && tkBucket_(t, today) === 'overdue'; }).length;
-    var newReq = (db.requests || []).filter(function (r) { return r.status === 'NEW'; }).length;
-    var inWork = (db.objects || []).filter(function (o) { return o.status === 'у роботі'; }).length;
-    var late = (db.objects || []).filter(function (o) { return o.status !== 'завершено' && fnDay_(o.planned_end_date) && fnDay_(o.planned_end_date) < today; }).length;
-    var tiles = [
-      tkTile_('Прострочені завдання (усі)', overdueAll, overdueAll ? 'у команді — натисни, щоб побачити' : 'усе вчасно 👍', function () { STATE.ui.todayWho = 'all'; renderRoute(); }, overdueAll ? 'bad' : ''),
-      tkTile_('Нові заявки', newReq, newReq ? 'чекають на обробку' : 'нових немає', function () { location.hash = '#/requests'; }, newReq ? 'warn' : ''),
-      tkTile_("Об'єкти в роботі", inWork, late ? late + ' з простроченим планом' : 'за планом', function () { location.hash = '#/objects'; }, late ? 'warn' : '')];
-    var moneyTile = tkTile_('Клієнти ще винні', Fin.last ? fmtMoney(Fin.last.totals.client_due) : '…', Fin.last ? 'бригадам ще виплатити ' + fmtMoney(Fin.last.totals.brigades_due) : 'рахую', function () { location.hash = '#/finance'; });
-    if (canDo_('finance', 'view') && canSeeCost_()) tiles.push(moneyTile);
-    main.appendChild(fh_('div', { 'class': 'grid cols-4', style: 'margin:12px 0 16px;' }, tiles));
-    if (tiles.indexOf(moneyTile) >= 0) Fin.load().then(function (d) {
-      if (!moneyTile.isConnected || !d) return;
-      moneyTile.querySelector('.kpi-value').textContent = fmtMoney(d.totals.client_due);
-      moneyTile.lastChild.textContent = 'бригадам ще виплатити ' + fmtMoney(d.totals.brigades_due);
-    }).catch(function () { moneyTile.querySelector('.kpi-value').textContent = '—'; moneyTile.lastChild.textContent = 'не вдалося порахувати'; });
-  }
+  // --- командний центр (власник — все; інші ролі — своє, без грошей)
+  try { V44.overview(main, isAdmin); } catch (e44) { console.error(e44); }
 
   // --- швидке додавання
   var qTitle = fnIn_({ placeholder: '＋ Нове завдання: напиши і натисни Enter', style: 'flex:1 1 220px;min-width:180px;font-size:14px;padding:10px;' });
@@ -7550,6 +7804,9 @@ function renderToday(main) {
   main.appendChild(chips);
 
   var list = tkFilterWho_(allTasks, who);
+  var TBT = Bulk.list(V45.tasksCfg()); V45.lastCfg.items = list;
+  chips.insertBefore(TBT.toggle, chips.querySelector('.spacer'));
+  main.appendChild(TBT.bar);
   var open = list.filter(tkOpen_);
   var groups = {}; open.forEach(function (t) { var b = tkBucket_(t, today); (groups[b] = groups[b] || []).push(t); });
   var counts = fh_('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:13px;' }, [
@@ -7567,7 +7824,7 @@ function renderToday(main) {
       sdef[1] + ' · ' + items.length, fh_('span', { 'class': 'page-sub', style: 'margin:0;' }, [expanded ? 'сховати' : 'показати'])]);
     head.onclick = function () { STATE.ui.tkOpen[sdef[0]] = !expanded; renderRoute(); };
     var card = fh_('div', { 'class': 'card', style: 'padding:0;margin-bottom:12px;' + (sdef[0] === 'overdue' ? 'border-color:var(--red);' : '') }, [head]);
-    if (expanded) items.forEach(function (t) { card.appendChild(tkRow_(t, { hideWho: who !== 'all' && who !== 'none' })); });
+    if (expanded) items.forEach(function (t) { card.appendChild(TBT.add(tkRow_(t, { hideWho: who !== 'all' && who !== 'none' }), t)); });
     main.appendChild(card);
   });
   var doneToday = list.filter(function (t) { return t.status === 'DONE' && fnDay_(t.completed_at) === today; });
@@ -7626,7 +7883,6 @@ function renderToday(main) {
       main.appendChild(ac);
     }
   }
-  if (isAdmin) renderAttentionCard_(main);
 }
 
 /* ================================ ЗАВДАННЯ ================================== */
@@ -7637,6 +7893,8 @@ function renderTasks(main) {
   var bar = fh_('div', { 'class': 'toolbar' });
   if (canDo_('tasks', 'create')) bar.appendChild(fnBtn_('+ Завдання', 'primary', function () { openTaskEditor({}); }));
   if (canDo_('tasks', 'create') && canDo_('clients', 'create')) bar.appendChild(fnBtn_('📞 Новий дзвінок', '', function () { openTaskEditor({ title: 'Передзвонити клієнту', create_request: true, priority: 'висока' }); }, 'Клієнт зателефонував: одразу створюється клієнт, обʼєкт, заявка й завдання, усе повʼязано'));
+  var TB = Bulk.list(V45.tasksCfg());
+  bar.appendChild(TB.toggle);
   bar.appendChild(fnBtn_('Дошка', 'small' + (view === 'board' ? ' primary' : ''), function () { STATE.ui.tasksView = 'board'; renderRoute(); }));
   bar.appendChild(fnBtn_('Список', 'small' + (view === 'list' ? ' primary' : ''), function () { STATE.ui.tasksView = 'list'; renderRoute(); }));
   var whoSel = fnSel_([['all', 'Усі виконавці'], ['me', 'Тільки мої'], ['none', 'Без виконавця']].concat(tkUsers_().map(function (u) { return [u.id, u.name]; })), who);
@@ -7650,11 +7908,13 @@ function renderTasks(main) {
   if (isAdmin) bar.appendChild(fnBtn_('⚙ Автозавдання і нагадування', 'small', openTaskSettings_));
   main.appendChild(bar);
   var tasks = tkFilterWho_(STATE.db.tasks || [], who).filter(function (t) { return !q || (t.title + ' ' + (t.description || '')).toLowerCase().indexOf(q.toLowerCase()) !== -1; });
+  TB.bar.cfgItems = tasks; V45.lastCfg.items = tasks;
+  main.appendChild(TB.bar);
   if (view === 'list') {
     var open = tasks.filter(tkOpen_).sort(function (a, b) { return String(fnDay_(a.deadline) || '9999').localeCompare(String(fnDay_(b.deadline) || '9999')) || tkSort_(a, b); });
     var done = tasks.filter(function (t) { return !tkOpen_(t); }).sort(function (a, b) { return String(b.completed_at || '').localeCompare(String(a.completed_at || '')); }).slice(0, 30);
     if (!open.length && !done.length) main.appendChild(fh_('div', { 'class': 'empty-state' }, ['Завдань немає.']));
-    else main.appendChild(fh_('div', { 'class': 'card', style: 'padding:0;' }, open.concat(done).map(function (t) { return tkRow_(t); })));
+    else main.appendChild(fh_('div', { 'class': 'card', style: 'padding:0;' }, open.concat(done).map(function (t) { return TB.add(tkRow_(t), t); })));
     return;
   }
   var board = el('div', { 'class': 'kanban' });
@@ -7678,7 +7938,7 @@ function renderTasks(main) {
         due ? fh_('div', { 'class': 'kc-meta', style: od ? 'color:var(--red);font-weight:700;' : '' }, [(od ? '⏰ ' : '') + 'до ' + fmtDate(due)]) : null]);
       card.ondragstart = function (e) { e.dataTransfer.setData('text/plain', t.id); };
       card.onclick = function () { openTaskEditor(t); };
-      col.appendChild(card);
+      col.appendChild(TB.add(card, t));
     });
     board.appendChild(col);
   });
