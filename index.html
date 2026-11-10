@@ -2251,6 +2251,22 @@ V41.summaryCard = function (estimate, items, showCost) {
   typeRow((whole ? 'РАЗОМ ПО ОБʼЄКТУ (погоджене)' : 'Разом: роботи + матеріали' + (b.logistics ? ' + логістика' : '')), b.total_cost, b.total_profit, b.total_client, true);
   if (whole && pendingSum.total_client > 0) row('Якщо клієнт погодить і решту', V41.sumB([counted, pendingSum]), false, true);
   table.appendChild(tb); card.appendChild(table);
+  // розбивка кожної додаткової угоди: роботи / матеріали окремо — собівартість, заробіток, ціна клієнту
+  if (whole) parts.slice(1).forEach(function (p) {
+    var x = p.b, t2 = el('table', { class: 'dt', style: 'margin-top:14px;' }), tb2 = el('tbody');
+    t2.appendChild(el('thead', {}, [el('tr', {}, [el('th', {}, ['➕ ' + (p.e.title || 'Дод. угода') + ' — розбивка' + (p.ok ? ' ✅' : ' ⏳ ще не погоджена')])].concat(head.slice(1).map(function (h) { return el('th', {}, [h]); })))]));
+    function r2(label, cost, profit, client, bold) {
+      var cells = [el('td', {}, [label])];
+      if (showCost) cells.push(el('td', {}, [M(cost)]), el('td', {}, [M(profit) + V41.pct(profit, client)]));
+      cells.push(el('td', {}, [M(client)]));
+      tb2.appendChild(el('tr', bold ? { style: 'font-weight:700;border-top:2px solid var(--border);' } : {}, cells));
+    }
+    r2('🔨 Роботи', x.work_cost, x.work_profit, x.work_client);
+    r2('🧱 Матеріали (собівартість + націнка)', x.mat_cost, x.mat_profit, x.mat_client);
+    if (x.logistics) r2('🚚 Виїзд / логістика', x.logistics, 0, x.logistics);
+    r2('Разом по угоді', x.total_cost, x.total_profit, x.total_client, true);
+    t2.appendChild(tb2); card.appendChild(t2);
+  });
   return card;
 };
 // «Гроші» обʼєкта: план за кошторисом vs домовлено з майстрами
