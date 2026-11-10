@@ -1757,7 +1757,7 @@ function renderObjectEstimateTab(container, o) {
   var pickId = STATE.ui.estPick[o.id];
   if (pickId && adds.some(function (e) { return e.id === pickId; })) estimate = adds.filter(function (e) { return e.id === pickId; })[0];
   else delete STATE.ui.estPick[o.id];
-  if (baseList[0]) { V46.objectCard(container, o, baseList[0], adds); V46.bar(container, o, baseList[0], adds, estimate); }
+  if (baseList[0]) { V46.objectCard(container, o, baseList[0], adds, { compact: true }); V46.bar(container, o, baseList[0], adds, estimate); }
   if (!estimate) {
     container.appendChild(el('div', { class: 'empty-state' }, [
       el('p', {}, ['Для цього об’єкта ще немає кошторису.']),
@@ -1864,29 +1864,24 @@ V46.actions = function (e) {
   return row;
 };
 // «Разом по обʼєкту»: основний кошторис + додаткові угоди, оплачено і скільки лишилось
-V46.objectCard = function (container, o, base, adds) {
+// opts.compact — один рядок угорі; opts.current — id кошториса, який відкрито (позначається «← ви тут»)
+V46.objectCard = function (container, o, base, adds, opts) {
+  opts = opts || {};
   var money = canDo_('finance', 'view') && canSeeCost_();
-  var showSum = canSeeCost_();
+  if (!canSeeCost_()) return;
   var manual = Number(o.contract_total) || 0;
   var baseTotal = manual > 0 ? manual : (Number(base.client_total) || 0);
   var rows = [], approved = baseTotal, pending = 0;
   var baseOk = base.client_response === 'approved';
-  rows.push(['🧾 Основний кошторис' + (manual > 0 ? ' (сума договору вручну)' : '') + ' ' + V46.icon(base), baseTotal, baseOk ? '' : (base.share_token ? 'чекає відповіді клієнта' : 'ще не надіслано')]);
+  function st(e, ok) { return ok ? 'входить у договір' : (e.client_response ? 'є зауваження' : (e.share_token ? 'чекає відповіді клієнта' : 'ще не надіслано')); }
+  rows.push(['🧾 Основний кошторис' + (manual > 0 ? ' (сума договору вручну)' : '') + ' ' + V46.icon(base), baseTotal, baseOk ? '' : st(base, false), base.id]);
   adds.forEach(function (e) {
     var t = Number(e.client_total) || 0, ok = e.client_response === 'approved';
     if (ok) approved += t; else pending += t;
-    rows.push(['➕ ' + (e.title || 'Дод. угода') + ' ' + V46.icon(e), t, ok ? 'входить у договір' : (e.client_response ? 'є зауваження' : (e.share_token ? 'чекає відповіді клієнта' : 'ще не надіслано'))]);
+    rows.push(['➕ ' + (e.title || 'Дод. угода') + ' ' + V46.icon(e), t, st(e, ok), e.id]);
   });
-  var card = fh_('div', { 'class': 'card', style: 'margin:0 0 12px;padding:12px 14px;' }, [fh_('div', { 'class': 'chart-title' }, ['💼 Разом по обʼєкту «' + (o.name || '') + '»'])]);
-  if (!showSum) return;
-  var tb = fh_('tbody');
-  rows.forEach(function (r) { tb.appendChild(fh_('tr', {}, [fh_('td', {}, [r[0]]), fh_('td', { 'class': 'page-sub', style: 'font-size:12px;' }, [r[2]]), fh_('td', { style: 'text-align:right;white-space:nowrap;' }, [fmtMoney(r[1])])])); });
-  tb.appendChild(fh_('tr', { style: 'font-weight:700;border-top:2px solid var(--border);' }, [fh_('td', {}, ['Разом по обʼєкту (погоджене)']), fh_('td'), fh_('td', { style: 'text-align:right;white-space:nowrap;', id: 'v46_total' }, [fmtMoney(approved)])]));
-  if (pending > 0) tb.appendChild(fh_('tr', { 'class': 'page-sub' }, [fh_('td', {}, ['Якщо клієнт погодить і решту']), fh_('td'), fh_('td', { style: 'text-align:right;white-space:nowrap;' }, [fmtMoney(approved + pending)])]));
-  card.appendChild(fh_('table', { 'class': 'dt' }, [tb]));
-  if (money) {
-    var pay = fh_('div', { style: 'margin-top:10px;' }, [fh_('span', { 'class': 'page-sub' }, ['⏳ Рахуємо оплати…'])]);
-    card.appendChild(pay);
+  var pay = fh_('div', { style: 'margin-top:10px;' }, [fh_('span', { 'class': 'page-sub' }, ['⏳ Рахуємо оплати…'])]);
+  function loadPay() {
     apiCall('getObjectMoney', { object_id: o.id }).then(function (m) {
       if (!pay.isConnected) return;
       var rec = Number(m.income && m.income.received) || 0, total = approved;
@@ -1894,13 +1889,36 @@ V46.objectCard = function (container, o, base, adds) {
       var pct = total > 0 ? Math.min(100, Math.round(rec / total * 100)) : 0;
       var nextPlan = ((m.income && m.income.planned) || []).filter(function (p) { return p.status !== 'paid' && p.status !== 'Оплачено'; }).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); })[0];
       pay.innerHTML = '';
+      if (opts.compact) {
+        pay.appendChild(fh_('div', { style: 'display:flex;gap:6px 18px;flex-wrap:wrap;font-size:13px;' }, [
+          fh_('span', {}, ['✅ Оплачено: ', fh_('b', {}, [fmtMoney(rec)]), ' (' + pct + '%)']),
+          over > 0 ? fh_('span', {}, ['Переплата: ', fh_('b', {}, [fmtMoney(over)])]) : fh_('span', {}, ['💳 Залишилось: ', fh_('b', {}, [fmtMoney(left)])])]));
+        return;
+      }
       pay.appendChild(fh_('div', { 'class': 'v44-grid', style: 'margin:0 0 8px;' }, [
+        kpiCard('Сума по обʼєкту (погоджена)', fmtMoney(total)),
         kpiCard('✅ Клієнт уже оплатив', fmtMoney(rec), [['від суми обʼєкта', pct + '%']]),
         over > 0 ? kpiCard('Переплата', fmtMoney(over)) : kpiCard('💳 Залишилось сплатити', fmtMoney(left), nextPlan ? [['найближча', fmtDate(nextPlan.date) + ' · ' + fmtMoney(nextPlan.amount)]] : [])]));
       pay.appendChild(fh_('div', { style: 'height:8px;background:var(--border);border-radius:6px;overflow:hidden;' }, [fh_('div', { style: 'height:100%;width:' + pct + '%;background:var(--green,#2ecc71);' })]));
-      if (pending > 0) pay.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:6px 0 0;' }, ['Після погодження решти угод залишок збільшиться на ' + fmtMoney(pending) + '.']));
+      if (pending > 0) pay.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:6px 0 0;' }, ['Після погодження решти угод сума збільшиться на ' + fmtMoney(pending) + ', залишок — теж.']));
     }).catch(function () { pay.innerHTML = ''; });
   }
+  if (opts.compact) {
+    var line = fh_('div', { 'class': 'card', style: 'margin:0 0 12px;padding:10px 14px;' }, [
+      fh_('div', { style: 'font-size:13px;' }, ['💼 Договір по обʼєкту (основний' + (adds.length ? ' + угоди' : '') + '): ', fh_('b', {}, [fmtMoney(approved)]), pending > 0 ? fh_('span', { 'class': 'page-sub' }, [' · якщо погодить решту ' + fmtMoney(approved + pending)]) : null, fh_('span', { 'class': 'page-sub' }, [' · деталі внизу кошториса ↓'])])]);
+    if (money) { line.appendChild(pay); loadPay(); }
+    container.appendChild(line); return;
+  }
+  var card = fh_('div', { 'class': 'card v46-total', style: 'margin:16px 0 12px;padding:12px 14px;border-color:var(--gold);' }, [fh_('div', { 'class': 'chart-title' }, ['💼 Разом по обʼєкту «' + (o.name || '') + '» — основний кошторис + додаткові угоди'])]);
+  var tb = fh_('tbody');
+  rows.forEach(function (r) {
+    var here = opts.current && opts.current === r[3];
+    tb.appendChild(fh_('tr', here ? { style: 'background:var(--panel2);' } : {}, [fh_('td', {}, [r[0] + (here ? '  ← ви тут' : '')]), fh_('td', { 'class': 'page-sub', style: 'font-size:12px;' }, [r[2]]), fh_('td', { style: 'text-align:right;white-space:nowrap;' }, [fmtMoney(r[1])])]));
+  });
+  tb.appendChild(fh_('tr', { style: 'font-weight:700;border-top:2px solid var(--border);' }, [fh_('td', {}, ['Разом по обʼєкту (погоджене)']), fh_('td'), fh_('td', { style: 'text-align:right;white-space:nowrap;', id: 'v46_total' }, [fmtMoney(approved)])]));
+  if (pending > 0) tb.appendChild(fh_('tr', { 'class': 'page-sub' }, [fh_('td', {}, ['Якщо клієнт погодить і решту']), fh_('td'), fh_('td', { style: 'text-align:right;white-space:nowrap;' }, [fmtMoney(approved + pending)])]));
+  card.appendChild(fh_('table', { 'class': 'dt' }, [tb]));
+  if (money) { card.appendChild(pay); loadPay(); }
   container.appendChild(card);
 };
 // картка у вкладці «Гроші»
@@ -2178,10 +2196,24 @@ V41.breakdown = function (items, logistics) {
   return b;
 };
 V41.pct = function (profit, client) { return client > 0 ? ' (' + (profit / client * 100).toFixed(1) + '%)' : ''; };
+V41.sumB = function (list) {
+  var t = {}; list.forEach(function (b) { Object.keys(b).forEach(function (k) { t[k] = (t[k] || 0) + b[k]; }); });
+  Object.keys(t).forEach(function (k) { t[k] = Math.round(t[k] * 100) / 100; }); return t;
+};
 V41.summaryCard = function (estimate, items, showCost) {
-  var b = V41.breakdown(items, estimate.logistics_total), M = fmtMoney;
+  var M = fmtMoney;
+  var all = (STATE.db.estimates || []).filter(function (e) { return e.object_id === estimate.object_id && !e.archived_at; });
+  var adds = estimate.kind === 'addendum' ? [] : all.filter(function (e) { return e.kind === 'addendum'; }).sort(function (a, b) { return String(a.title).localeCompare(String(b.title)); });
+  var itemsOf = function (e) { return e.id === estimate.id ? items : (STATE.db.estimateItems || []).filter(function (x) { return x.estimate_id === e.id; }); };
+  var whole = adds.length > 0;                        // основний кошторис, до якого є угоди → рахуємо весь обʼєкт
+  var parts = [{ e: estimate, ok: true }];
+  adds.forEach(function (e) { parts.push({ e: e, ok: e.client_response === 'approved' }); });
+  parts.forEach(function (p) { p.b = V41.breakdown(itemsOf(p.e), p.e.logistics_total); });
+  var counted = V41.sumB(parts.filter(function (p) { return p.ok; }).map(function (p) { return p.b; }));
+  var pendingSum = V41.sumB(parts.filter(function (p) { return !p.ok; }).map(function (p) { return p.b; }));
+  var b = whole ? counted : parts[0].b;
   var card = el('div', { class: 'card v41-summary', style: 'margin-top:16px;' });
-  card.appendChild(el('div', { class: 'chart-title' }, ['Підсумок кошторису: роботи і матеріали окремо']));
+  card.appendChild(el('div', { class: 'chart-title' }, [whole ? 'Підсумок по обʼєкту: основний кошторис + погоджені додаткові угоди' : estimate.kind === 'addendum' ? 'Підсумок додаткової угоди (лише зміни)' : 'Підсумок кошторису: роботи і матеріали окремо']));
   if (showCost) {
     card.appendChild(el('div', { class: 'grid cols-4', style: 'margin-bottom:12px;' }, [
       kpiCard('Майстру за роботу', M(b.work_cost)),
@@ -2194,16 +2226,30 @@ V41.summaryCard = function (estimate, items, showCost) {
   var table = el('table', { class: 'dt' });
   table.appendChild(el('thead', {}, [el('tr', {}, head.map(function (h) { return el('th', {}, [h]); }))]));
   var tb = el('tbody');
-  function row(label, cost, profit, client, bold) {
+  function row(label, x, bold, muted) {
+    var cells = [el('td', {}, [label])];
+    if (showCost) cells.push(el('td', {}, [M(x.total_cost)]), el('td', {}, [M(x.total_profit) + V41.pct(x.total_profit, x.total_client)]));
+    cells.push(el('td', {}, [M(x.total_client)]));
+    tb.appendChild(el('tr', { style: (bold ? 'font-weight:700;border-top:2px solid var(--border);' : '') + (muted ? 'color:var(--muted);' : '') }, cells));
+  }
+  function typeRow(label, cost, profit, client, bold) {
     var cells = [el('td', {}, [label])];
     if (showCost) cells.push(el('td', {}, [M(cost)]), el('td', {}, [M(profit) + V41.pct(profit, client)]));
     cells.push(el('td', {}, [M(client)]));
     tb.appendChild(el('tr', bold ? { style: 'font-weight:700;border-top:2px solid var(--border);' } : {}, cells));
   }
-  row('🔨 Роботи', b.work_cost, b.work_profit, b.work_client);
-  row('🧱 Матеріали (собівартість + націнка)', b.mat_cost, b.mat_profit, b.mat_client);
-  if (b.logistics) row('🚚 Виїзд / логістика', b.logistics, 0, b.logistics);
-  row('Разом: роботи + матеріали' + (b.logistics ? ' + логістика' : ''), b.total_cost, b.total_profit, b.total_client, true);
+  if (whole) {
+    // склад: основний + кожна угода окремо, потім сума
+    parts.forEach(function (p, i) {
+      var lbl = i === 0 ? '🧾 Основний кошторис' : '➕ ' + (p.e.title || 'Дод. угода') + (p.ok ? ' ✅' : ' ⏳ ще не погоджена — до суми не входить');
+      row(lbl, p.b, false, !p.ok);
+    });
+  }
+  typeRow('🔨 Роботи' + (whole ? ' (разом)' : ''), b.work_cost, b.work_profit, b.work_client);
+  typeRow('🧱 Матеріали (собівартість + націнка)' + (whole ? ' (разом)' : ''), b.mat_cost, b.mat_profit, b.mat_client);
+  if (b.logistics) typeRow('🚚 Виїзд / логістика', b.logistics, 0, b.logistics);
+  typeRow((whole ? 'РАЗОМ ПО ОБʼЄКТУ (погоджене)' : 'Разом: роботи + матеріали' + (b.logistics ? ' + логістика' : '')), b.total_cost, b.total_profit, b.total_client, true);
+  if (whole && pendingSum.total_client > 0) row('Якщо клієнт погодить і решту', V41.sumB([counted, pendingSum]), false, true);
   table.appendChild(tb); card.appendChild(table);
   return card;
 };
@@ -2324,6 +2370,13 @@ function renderEstimateEditor(container, estimate) {
   container.appendChild(buildPart(workItems, 'work'));
   container.appendChild(buildPart(matItems, 'material'));
   container.appendChild(V41.summaryCard(estimate, items, showCost));
+  // ЕТАП 46: внизу кошториса — сума по всьому обʼєкту (основний + угоди), оплачено, залишок
+  try {
+    var o46 = byId(STATE.db.objects, estimate.object_id);
+    var all46 = (STATE.db.estimates || []).filter(function (e) { return e.object_id === estimate.object_id; });
+    var base46 = all46.filter(function (e) { return e.kind !== 'addendum'; }).sort(function (a, b) { return b.version - a.version; })[0];
+    if (o46 && base46) V46.objectCard(container, o46, base46, all46.filter(function (e) { return e.kind === 'addendum'; }).sort(function (a, b) { return String(a.title).localeCompare(String(b.title)); }), { current: estimate.id });
+  } catch (e46b) { console.error(e46b); }
 
   var logi = el('div', { class: 'card', style: 'margin-top:16px;' });
   logi.appendChild(el('div', { class: 'chart-title' }, ['Виїзд / логістика']));
@@ -5586,6 +5639,24 @@ V9.docData = function (est, m) {
     differs: Math.abs(subtotal - (Number(est.client_total) || 0)) > 1 };
 };
 
+// ЕТАП 46: склад договору для клієнтського документа: основний кошторис + додаткові угоди
+V9.contractModel = function (est) {
+  var all = (STATE.db.estimates || []).filter(function (e) { return e.object_id === est.object_id && !e.archived_at; });
+  var sent = function (e) { return e.id === est.id || e.status === 'final' || !!e.client_response; };
+  var adds = all.filter(function (e) { return e.kind === 'addendum' && sent(e); }).sort(function (a, b) { return String(a.title).localeCompare(String(b.title)); });
+  var CT = est.contract;
+  if (!CT && !adds.length) return null;
+  var base = est.kind === 'addendum' ? all.filter(function (e) { return e.id === est.parent_id; })[0] || all.filter(function (e) { return e.kind !== 'addendum'; }).sort(function (a, b) { return b.version - a.version; })[0] : est;
+  var res;
+  if (CT) res = { base_total: Number(CT.base_total) || 0, addenda: CT.addenda.map(function (a) { return { title: a.title, total: Number(a.total) || 0, approved: !!a.approved }; }) };
+  else res = { base_total: base ? Number(base.client_total) || 0 : 0, addenda: adds.map(function (e) { return { title: e.title, total: Number(e.client_total) || 0, approved: e.client_response === 'approved' }; }) };
+  res.total_approved = res.base_total; res.total_all = res.base_total;
+  res.addenda.forEach(function (a) { res.total_all += a.total; if (a.approved) res.total_approved += a.total; });
+  // розділи з позиціями — лише під основним кошторисом
+  res.details = est.kind === 'addendum' ? [] : adds.filter(function (e) { return e.id !== est.id; }).map(function (e) { return { est: e, approved: e.client_response === 'approved' }; });
+  return res;
+};
+
 V9.docHtml = function (est, m, forPrint) {
   var s = settings_() || {};
   var d = V9.docData(est, m);
@@ -5661,7 +5732,33 @@ V9.docHtml = function (est, m, forPrint) {
   if (d.matSum) h.push('<tr><td>Матеріали' + (m.show_materials ? '' : ' (згідно зі специфікацією)') + '</td><td>' + money2_(d.matSum) + ' грн</td></tr>');
   if (d.logistics) h.push('<tr><td>' + docEsc_(m.logistics_label || 'Логістика') + '</td><td>' + money2_(d.logistics) + ' грн</td></tr>');
   if (d.discount) h.push('<tr><td>Знижка ' + fmtNum(m.discount_pct) + '%</td><td>−' + money2_(d.discount) + ' грн</td></tr>');
-  h.push('<tr class="tot"><td>РАЗОМ ДО СПЛАТИ</td><td>' + money2_(d.total) + ' грн</td></tr></table>');
+  var CM = V9.contractModel(est);
+  h.push('<tr class="tot"><td>' + (est.kind === 'addendum' ? 'РАЗОМ ПО ДОДАТКОВІЙ УГОДІ' : (CM && CM.details.length ? 'РАЗОМ ПО ОСНОВНОМУ КОШТОРИСУ' : 'РАЗОМ ДО СПЛАТИ')) + '</td><td>' + money2_(d.total) + ' грн</td></tr></table>');
+  // додаткові угоди внизу основного кошторису + підсумок по всьому договору
+  if (CM) {
+    CM.details.forEach(function (a) {
+      var da = V9.docData(a.est, { lines: {}, sections: {}, discount_pct: 0 });
+      h.push('<div class="blk" style="margin-top:22px;"><h3>➕ ' + docEsc_(a.est.title || 'Додаткова угода') + '</h3><div class="legal" style="margin:3px 0 6px;">' + (a.approved ? '✅ погоджено клієнтом' : '⏳ очікує вашого погодження') + ' · лише зміни до основного кошторису</div></div>');
+      var ai = 0;
+      if (da.sections.length) {
+        h.push('<table class="it">' + head() + '<tbody>');
+        da.sections.forEach(function (sec) { sec.lines.forEach(function (l) { ai++; h.push(row('Д' + ai, l)); }); });
+        h.push('</tbody></table>');
+      }
+      if (da.materials.length) {
+        h.push('<table class="it">' + head() + '<tbody>');
+        da.materials.forEach(function (l) { ai++; h.push(row('Д' + ai, l)); });
+        h.push('</tbody></table>');
+      }
+      h.push('<table class="sum"><tr><td>Разом по угоді</td><td>' + money2_(da.total) + ' грн</td></tr></table>');
+    });
+    h.push('<div class="blk" style="margin-top:22px;"><h3>Підсумок по договору</h3></div><table class="sum" style="width:100%;margin-top:6px;">');
+    h.push('<tr><td>Основний кошторис</td><td>' + money2_(CM.base_total) + ' грн</td></tr>');
+    CM.addenda.forEach(function (a) { h.push('<tr><td>' + docEsc_(a.title || 'Додаткова угода') + (a.approved ? ' ✅' : ' ⏳ (очікує погодження)') + '</td><td>' + money2_(a.total) + ' грн</td></tr>'); });
+    h.push('<tr class="tot"><td>РАЗОМ ПО ДОГОВОРУ (погоджене)</td><td>' + money2_(CM.total_approved) + ' грн</td></tr>');
+    if (CM.total_all > CM.total_approved + 0.005) h.push('<tr><td>Разом, якщо погодите всі зміни</td><td>' + money2_(CM.total_all) + ' грн</td></tr>');
+    h.push('</table>');
+  }
   if (m.notes) h.push('<div class="blk"><h3>Примітки</h3><div>' + docNl_(m.notes) + '</div></div>');
   if (m.terms) h.push('<div class="blk"><h3>Умови</h3><div>' + docNl_(m.terms) + '</div></div>');
   if (m.show_signatures) h.push('<table class="sign"><tr><td><div class="lbl">Виконавець — ' + docEsc_(cname) + '</div><div class="sline"></div></td><td><div class="lbl">Замовник</div><div class="sline"></div></td></tr></table>');
@@ -9574,7 +9671,9 @@ function bootPublicView_(route) {
 function renderPublicView_(data, token) {
   // мінімальний STATE.db, якого досить для V9.docHtml/V9.docData — інших
   // даних тут просто немає (і не може бути: це відповідь без входу в систему)
-  STATE.db = { estimates: [data.estimate], estimateItems: data.items, works: [], settings: data.settings || {},
+  var addEsts = (data.addenda || []).map(function (a) { return a.estimate; });
+  var addItems = []; (data.addenda || []).forEach(function (a) { addItems = addItems.concat(a.items || []); });
+  STATE.db = { estimates: [data.estimate].concat(addEsts), estimateItems: (data.items || []).concat(addItems), works: [], settings: data.settings || {},
     objects: [data.object], clients: [data.client] };
   var est = data.estimate;
   var m = V9.docModel(est);
