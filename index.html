@@ -1757,7 +1757,7 @@ function renderObjectEstimateTab(container, o) {
   var pickId = STATE.ui.estPick[o.id];
   if (pickId && adds.some(function (e) { return e.id === pickId; })) estimate = adds.filter(function (e) { return e.id === pickId; })[0];
   else delete STATE.ui.estPick[o.id];
-  if (baseList[0]) V46.bar(container, o, baseList[0], adds, estimate);
+  if (baseList[0]) { V46.objectCard(container, o, baseList[0], adds); V46.bar(container, o, baseList[0], adds, estimate); }
   if (!estimate) {
     container.appendChild(el('div', { class: 'empty-state' }, [
       el('p', {}, ['Для цього об’єкта ще немає кошторису.']),
@@ -1783,8 +1783,11 @@ var V46 = {};
 V46.icon = function (e) { return e.client_response === 'approved' ? '✅' : e.client_response ? '💬' : (e.share_token ? '⏳' : '✏'); };
 V46.createFor = function (o) {
   apiCall('createAddendum', { object_id: o.id }).then(function (res) {
-    STATE.db.estimates.push(res); STATE.ui.estPick = STATE.ui.estPick || {}; STATE.ui.estPick[o.id] = res.id;
-    Storage.saveCache(); renderRoute(); toast('Створено «' + res.title + '». Додайте сюди лише нові роботи й матеріали.', 'success');
+    var had = STATE.db.estimates.some(function (e) { return e.id === res.id; });
+    if (!had) STATE.db.estimates.push(res);
+    STATE.ui.estPick = STATE.ui.estPick || {}; STATE.ui.estPick[o.id] = res.id;
+    Storage.saveCache(); renderRoute();
+    toast(res.existing ? 'Вже є незавершена «' + res.title + '» — відкрив її, нову не створюю.' : 'Створено «' + res.title + '». Додайте сюди лише нові роботи й матеріали.', 'success');
   }).catch(function (e) { toast(e && e.message || String(e), 'error'); });
 };
 V46.bar = function (container, o, base, adds, current) {
@@ -1813,7 +1816,8 @@ V46.editorBanner = function (container, estimate) {
     var delta = Number(estimate.client_total) || 0;
     container.appendChild(fh_('div', { 'class': 'card', style: 'margin:0 0 12px;padding:10px 14px;border-color:var(--gold);' }, [
       fh_('b', {}, ['➕ ' + (estimate.title || 'Додаткова угода') + ' — лише зміни до основного кошторису' + (parent ? ' ' + parent.id : '')]),
-      fh_('div', { 'class': 'page-sub', style: 'margin:4px 0 0;' }, [canSeeCost_() ? 'Було: ' + fmtMoney(before) + ' · зміни: +' + fmtMoney(delta) + ' · стане після погодження: ' + fmtMoney(before + delta) + '. ' : '', 'Клієнт побачить і погодить тільки ці позиції. Статус обʼєкта не зміниться.'])]));
+      fh_('div', { 'class': 'page-sub', style: 'margin:4px 0 8px;' }, [canSeeCost_() ? 'Було: ' + fmtMoney(before) + ' · зміни: +' + fmtMoney(delta) + ' · стане після погодження: ' + fmtMoney(before + delta) + '. ' : '', 'Клієнт побачить і погодить тільки ці позиції. Статус обʼєкта не зміниться.']),
+      V46.actions(estimate)]));
     return;
   }
   var obj = byId(STATE.db.objects, estimate.object_id);
@@ -1823,6 +1827,81 @@ V46.editorBanner = function (container, estimate) {
       fh_('div', { 'class': 'page-sub', style: 'margin:4px 0 8px;' }, ['Якщо змінити його тут, клієнт цього не побачить, а сума договору «попливе». Нові роботи й матеріали краще оформити додатковою угодою: клієнту піде тільки різниця.']),
       obj ? fnBtn_('➕ Створити додаткову угоду', 'primary small', function () { V46.createFor(obj); }) : null]));
   }
+};
+// редагування / видалення / архів самої угоди (власник і ті, хто має права на кошториси)
+V46.actions = function (e) {
+  var row = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;' });
+  var after = function (msg) { Storage.saveCache(); toast(msg, 'success'); renderRoute(); };
+  if (canDo_('estimates', 'edit')) {
+    row.appendChild(fnBtn_('✎ Назва', 'small', function () {
+      var inp = fh_('input', { 'class': 'v9-in', style: 'width:100%;', value: e.title || '' });
+      var ok = fnBtn_('Зберегти', 'primary', function () {
+        var t = inp.value.trim(); if (!t) { toast('Вкажіть назву', 'error'); return; }
+        var done = fnBusy_(ok);
+        apiCall('updateEstimate', { id: e.id, title: t }).then(function () { e.title = t; done(); closeModal(); after('Назву змінено'); }).catch(function (er) { done(); fnErr_(er); });
+      });
+      openModal('Назва додаткової угоди', fh_('div', {}, [inp, fh_('div', { 'class': 'form-actions', style: 'margin-top:10px;' }, [fnBtn_('Скасувати', '', closeModal), ok])]));
+    }));
+    if (e.client_response) row.appendChild(fnBtn_('↩ Скинути відповідь клієнта', 'small', function () {
+      confirmAction('Скинути відповідь клієнта? Угода знову стане «без відповіді» і перестане входити в договір.', function () {
+        apiCall('setEstimateDecision', { id: e.id, decision: 'reset' }).then(function () { e.client_response = ''; e.client_responded_at = ''; e.client_comment = ''; after('Відповідь скинуто'); }).catch(fnErr_);
+      });
+    }));
+  }
+  if (currentRole_() === 'ADMIN') row.appendChild(fnBtn_('🗄 В архів', 'small', function () {
+    V43.askReason('🗄 Угода в архів', 'Зникне зі списків і з договору, але не видалиться — її можна відновити в «Архіві».', 'В архів', function (why, done) {
+      apiCall('archiveEstimate', { id: e.id, reason: why }).then(function () { closeModal(); STATE.db.estimates = STATE.db.estimates.filter(function (x) { return x.id !== e.id; }); delete (STATE.ui.estPick || {})[e.object_id]; return syncAll().catch(function () {}); }).then(function () { renderRoute(); toast('В архіві', 'success'); }).catch(function (er) { done(); fnErr_(er); });
+    });
+  }));
+  if (canDo_('estimates', 'delete')) row.appendChild(fnBtn_('🗑 Видалити', 'small danger', function () {
+    confirmAction('Видалити «' + (e.title || 'угоду') + '» разом з усіма її позиціями?' + (e.client_response === 'approved' ? ' Вона вже погоджена — договір зменшиться.' : '') + ' Цю дію не можна скасувати.', function () {
+      apiCall('deleteEstimate', { id: e.id }).then(function () {
+        STATE.db.estimates = STATE.db.estimates.filter(function (x) { return x.id !== e.id; }); STATE.db.estimateItems = STATE.db.estimateItems.filter(function (x) { return x.estimate_id !== e.id; });
+        delete (STATE.ui.estPick || {})[e.object_id]; Fin.invalidate(); after('Угоду видалено');
+      }).catch(fnErr_);
+    });
+  }));
+  return row;
+};
+// «Разом по обʼєкту»: основний кошторис + додаткові угоди, оплачено і скільки лишилось
+V46.objectCard = function (container, o, base, adds) {
+  var money = canDo_('finance', 'view') && canSeeCost_();
+  var showSum = canSeeCost_();
+  var manual = Number(o.contract_total) || 0;
+  var baseTotal = manual > 0 ? manual : (Number(base.client_total) || 0);
+  var rows = [], approved = baseTotal, pending = 0;
+  var baseOk = base.client_response === 'approved';
+  rows.push(['🧾 Основний кошторис' + (manual > 0 ? ' (сума договору вручну)' : '') + ' ' + V46.icon(base), baseTotal, baseOk ? '' : (base.share_token ? 'чекає відповіді клієнта' : 'ще не надіслано')]);
+  adds.forEach(function (e) {
+    var t = Number(e.client_total) || 0, ok = e.client_response === 'approved';
+    if (ok) approved += t; else pending += t;
+    rows.push(['➕ ' + (e.title || 'Дод. угода') + ' ' + V46.icon(e), t, ok ? 'входить у договір' : (e.client_response ? 'є зауваження' : (e.share_token ? 'чекає відповіді клієнта' : 'ще не надіслано'))]);
+  });
+  var card = fh_('div', { 'class': 'card', style: 'margin:0 0 12px;padding:12px 14px;' }, [fh_('div', { 'class': 'chart-title' }, ['💼 Разом по обʼєкту «' + (o.name || '') + '»'])]);
+  if (!showSum) return;
+  var tb = fh_('tbody');
+  rows.forEach(function (r) { tb.appendChild(fh_('tr', {}, [fh_('td', {}, [r[0]]), fh_('td', { 'class': 'page-sub', style: 'font-size:12px;' }, [r[2]]), fh_('td', { style: 'text-align:right;white-space:nowrap;' }, [fmtMoney(r[1])])])); });
+  tb.appendChild(fh_('tr', { style: 'font-weight:700;border-top:2px solid var(--border);' }, [fh_('td', {}, ['Разом по обʼєкту (погоджене)']), fh_('td'), fh_('td', { style: 'text-align:right;white-space:nowrap;', id: 'v46_total' }, [fmtMoney(approved)])]));
+  if (pending > 0) tb.appendChild(fh_('tr', { 'class': 'page-sub' }, [fh_('td', {}, ['Якщо клієнт погодить і решту']), fh_('td'), fh_('td', { style: 'text-align:right;white-space:nowrap;' }, [fmtMoney(approved + pending)])]));
+  card.appendChild(fh_('table', { 'class': 'dt' }, [tb]));
+  if (money) {
+    var pay = fh_('div', { style: 'margin-top:10px;' }, [fh_('span', { 'class': 'page-sub' }, ['⏳ Рахуємо оплати…'])]);
+    card.appendChild(pay);
+    apiCall('getObjectMoney', { object_id: o.id }).then(function (m) {
+      if (!pay.isConnected) return;
+      var rec = Number(m.income && m.income.received) || 0, total = approved;
+      var left = Math.max(0, Math.round((total - rec) * 100) / 100), over = Math.max(0, Math.round((rec - total) * 100) / 100);
+      var pct = total > 0 ? Math.min(100, Math.round(rec / total * 100)) : 0;
+      var nextPlan = ((m.income && m.income.planned) || []).filter(function (p) { return p.status !== 'paid' && p.status !== 'Оплачено'; }).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); })[0];
+      pay.innerHTML = '';
+      pay.appendChild(fh_('div', { 'class': 'v44-grid', style: 'margin:0 0 8px;' }, [
+        kpiCard('✅ Клієнт уже оплатив', fmtMoney(rec), [['від суми обʼєкта', pct + '%']]),
+        over > 0 ? kpiCard('Переплата', fmtMoney(over)) : kpiCard('💳 Залишилось сплатити', fmtMoney(left), nextPlan ? [['найближча', fmtDate(nextPlan.date) + ' · ' + fmtMoney(nextPlan.amount)]] : [])]));
+      pay.appendChild(fh_('div', { style: 'height:8px;background:var(--border);border-radius:6px;overflow:hidden;' }, [fh_('div', { style: 'height:100%;width:' + pct + '%;background:var(--green,#2ecc71);' })]));
+      if (pending > 0) pay.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:6px 0 0;' }, ['Після погодження решти угод залишок збільшиться на ' + fmtMoney(pending) + '.']));
+    }).catch(function () { pay.innerHTML = ''; });
+  }
+  container.appendChild(card);
 };
 // картка у вкладці «Гроші»
 V46.moneyCard = function (box, m) {
@@ -9502,6 +9581,10 @@ function renderPublicView_(data, token) {
   var pv = document.getElementById('publicView');
   pv.innerHTML = '';
   var AD = est.kind === 'addendum' ? est.addendum : null;
+  var CT = est.contract;
+  if (CT && !AD) pv.appendChild(el('div', { style: 'max-width:900px;margin:0 auto 10px;padding:12px 16px;border:1px solid #F2C200;border-radius:10px;font-size:14px;line-height:1.5;' }, [
+    el('b', {}, ['Договір з урахуванням додаткових угод: ' + fmtMoney(CT.total_approved)]), el('br'),
+    'Основний кошторис: ' + fmtMoney(CT.base_total) + CT.addenda.map(function (a) { return ' · ' + a.title + ': ' + fmtMoney(a.total) + (a.approved ? ' ✅' : ' ⏳'); }).join('') + '.']));
   if (AD) pv.appendChild(el('div', { style: 'max-width:900px;margin:0 auto 10px;padding:12px 16px;border:2px solid #F2C200;border-radius:10px;background:rgba(242,194,0,.10);font-size:14px;line-height:1.5;' }, [
     el('b', {}, ['➕ ' + (est.title || 'Додаткова угода') + ' — лише зміни до вашого погодженого кошторису']), el('br'),
     'Було погоджено: ' + fmtMoney(AD.total_before) + ' · зміни: ' + (AD.delta >= 0 ? '+' : '') + fmtMoney(AD.delta) + ' · разом після погодження: ' + fmtMoney(AD.total_after) + '. Нижче — лише нові позиції; решта кошторису лишається без змін.']));
