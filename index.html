@@ -1633,7 +1633,7 @@ function renderObjects(main, objectId) {
     var tr = el('tr', {}, [
       el('td', {}, [o.id]), el('td', {}, [o.name]), el('td', {}, [client ? client.name : '—']),
       el('td', {}, [o.area ? o.area + ' м²' : '—']),
-      el('td', {}, [el('span', { class: 'badge blue' }, [o.status || '—'])]),
+      el('td', {}, [V49.badge(o)]),
       el('td', {}, [o.manager || '—'])
     ]);
     tr.onclick = function () { location.hash = '#/objects/' + o.id; };
@@ -1706,6 +1706,11 @@ function renderObjectCard(main, objectId) {
   ]);
   var editBtn = el('button', { class: 'btn' }, ['Редагувати']); editBtn.onclick = function () { openObjectForm(o); };
   if (canDo_('objects', 'edit')) head.appendChild(editBtn);
+  if (V49.canChange()) {
+    var stBtn = el('button', { class: 'btn', style: 'margin-left:8px;', title: 'Змінити статус обʼєкта' }, ['🏷 ' + (o.status || '—') + ' ▾']);
+    stBtn.onclick = function () { V49.open(o); };
+    head.appendChild(stBtn);
+  }
   if (canDo_('objects', 'edit') && currentRole_() === 'ADMIN') {
     var archBtn = el('button', { class: 'btn', style: 'margin-left:8px;', title: 'Сховати зі списків, нічого не видаляючи' }, ['🗄 В архів']);
     archBtn.onclick = function () { V43.archiveObject(o); };
@@ -6945,7 +6950,7 @@ function renderCalc(main) {
   }
 }
 
-var SYNC_READONLY_ACTIONS = { getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
+var SYNC_READONLY_ACTIONS = { previewObjectStatus: 1, getObjectTimeline: 1, getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
   getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgDiag: 1, tgRelayInfo: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
@@ -10016,7 +10021,9 @@ V47.stages = function (main, o) {
   var strip = fh_('div', { style: 'display:flex;gap:4px;flex-wrap:wrap;margin:0 0 8px;' });
   V47.STAGES.forEach(function (st, i) {
     var cur = i === idx, past = idx > -1 && i < idx;
-    strip.appendChild(fh_('span', { style: 'padding:4px 10px;border-radius:14px;font-size:12px;border:1px solid ' + (cur ? 'var(--gold)' : 'var(--border)') + ';' + (cur ? 'background:var(--gold);color:#000;font-weight:700;' : (past ? 'opacity:.75;' : 'opacity:.45;')) }, [(past ? '✓ ' : '') + st]));
+    var chipEl = fh_('span', { style: 'padding:4px 10px;border-radius:14px;font-size:12px;border:1px solid ' + (cur ? 'var(--gold)' : 'var(--border)') + ';' + (cur ? 'background:var(--gold);color:#000;font-weight:700;' : (past ? 'opacity:.75;' : 'opacity:.45;')) + (V49.canChange() ? 'cursor:pointer;' : '') }, [(past ? '✓ ' : '') + st]);
+    if (V49.canChange()) { chipEl.title = cur ? 'Поточний статус — клацни, щоб змінити' : 'Перевести обʼєкт у статус «' + st + '»'; chipEl.onclick = function () { V49.open(o, cur ? undefined : st); }; }
+    strip.appendChild(chipEl);
   });
   var tasks = (db.tasks || []).filter(function (t) { return t.object_id === o.id && tkOpen_(t); });
   var late = tasks.filter(function (t) { return tkBucket_(t, today) === 'overdue'; });
@@ -10102,6 +10109,72 @@ V47.debtCard = function (main, d) {
     return r;
   };
 })();
+
+/* =========================================================================
+   ЕТАП 49: ЛЕГКА ЗМІНА СТАТУСУ ОБʼЄКТА (і вона справді щось означає для системи)
+   Відкривається з картки обʼєкта (кнопка «🏷 статус»), зі смужки етапів і зі списку обʼєктів.
+   Перед зміною сервер перевіряє, що не так, і показує, що станеться автоматично.
+   ========================================================================= */
+var V49 = {};
+V49.DESC = { 'новий': 'Щойно зʼявився, ще нічого не зроблено', 'огляд': 'Виїзд на обʼєкт, заміри', 'кошторис': 'Готуємо розрахунок', 'погодження': 'Кошторис у клієнта, чекаємо рішення',
+  'підготовка': 'Погоджено — готуємось до старту, аванс', 'у роботі': 'Бригади працюють на обʼєкті', 'завершено': 'Роботи прийнято, розрахунки закрито' };
+V49.canChange = function () { return canDo_('objects', 'edit') && !isForeman_(); };
+V49.badge = function (o) {
+  var b = el('span', { 'class': 'badge blue' }, [o.status || '—']);
+  if (V49.canChange()) { b.style.cursor = 'pointer'; b.title = 'Клацни, щоб змінити статус'; b.onclick = function (e) { e.stopPropagation(); V49.open(o); }; b.textContent = (o.status || '—') + ' ▾'; }
+  return b;
+};
+V49.open = function (o, target) {
+  if (!V49.canChange()) { toast('Немає права змінювати статус', 'error'); return; }
+  var order = OBJECT_STATUSES, cur = order.indexOf(o.status);
+  function pick() {
+    var body = fh_('div', {}, [fh_('div', { 'class': 'page-sub', style: 'margin:0 0 10px;' }, ['Зараз: ', fh_('b', {}, [o.status || '—']), '. Обери новий статус — перед зміною система покаже, що перевірити і що станеться автоматично.'])]);
+    order.forEach(function (st, i) {
+      var here = st === o.status, back = cur > -1 && i < cur;
+      var b = fh_('button', { 'class': 'btn' + (here ? ' primary' : ''), style: 'display:block;width:100%;text-align:left;margin:0 0 6px;padding:10px 12px;' + (here ? 'cursor:default;' : '') + (back && !here ? 'opacity:.75;' : '') }, [
+        fh_('b', {}, [(here ? '● ' : back ? '↩ ' : '') + st]), fh_('span', { 'class': 'page-sub', style: 'margin-left:8px;font-size:12px;' }, [V49.DESC[st] || ''])]);
+      if (!here) b.onclick = function () { confirmStep(st); };
+      body.appendChild(b);
+    });
+    body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Закрити', '', closeModal)]));
+    openModal('Статус обʼєкта «' + o.name + '»', body);
+  }
+  function confirmStep(st) {
+    openModal('Статус обʼєкта «' + o.name + '»', fh_('div', { 'class': 'page-sub' }, ['⏳ Перевіряю…']));
+    apiCall('previewObjectStatus', { id: o.id, status: st }).then(function (p) {
+      var back = cur > -1 && order.indexOf(st) < cur, warns = (p.checks || []).filter(function (c) { return c.level === 'warn'; }), infos = (p.checks || []).filter(function (c) { return c.level !== 'warn'; });
+      var body = fh_('div', {}, [fh_('div', { style: 'font-size:16px;margin:0 0 6px;' }, [fh_('b', {}, [(o.status || '—') + ' → ' + st])])]);
+      if (p.days_in_status != null) body.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 8px;' }, ['У статусі «' + (o.status || '—') + '» уже ' + p.days_in_status + ' дн.']));
+      if (warns.length) {
+        var wb = fh_('div', { 'class': 'margin-warn', style: 'margin:0 0 10px;' }, [fh_('b', {}, ['⚠ Зверни увагу:'])]);
+        warns.forEach(function (w) { wb.appendChild(fh_('div', { style: 'margin:4px 0 0;' }, ['• ' + w.text])); });
+        body.appendChild(wb);
+      }
+      if (infos.length) {
+        var ib = fh_('div', { 'class': 'card', style: 'margin:0 0 10px;padding:10px 12px;' }, [fh_('div', { 'class': 'chart-title', style: 'margin-bottom:4px;' }, ['Що станеться автоматично'])]);
+        infos.forEach(function (w) { ib.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:3px 0;font-size:13px;' }, ['✔ ' + w.text])); });
+        body.appendChild(ib);
+      }
+      var why = fh_('textarea', { 'class': 'v9-in', rows: '2', style: 'width:100%;', placeholder: back ? 'Причина повернення назад (обовʼязково)' : 'Коментар (необовʼязково)' });
+      body.appendChild(why);
+      var ok = fnBtn_(warns.length ? 'Все одно змінити' : 'Змінити статус', warns.length ? 'danger' : 'primary', function () {
+        var reason = why.value.trim();
+        if (back && !reason) { toast('Вкажи причину повернення назад', 'error'); why.focus(); return; }
+        var done = fnBusy_(ok);
+        apiCall('setObjectStatus', { id: o.id, status: st, force: warns.length > 0, reason: reason }).then(function (r) {
+          if (r && r.ok === false) { done(); toast('Потрібне підтвердження — спробуй ще раз', 'error'); confirmStep(st); return; }
+          o.status = st; var row = byId(STATE.db.objects, o.id); if (row) row.status = st;
+          try { Fin.invalidate(); Storage.saveCache(); } catch (e) {}
+          closeModal(); toast('Статус: «' + st + '»', 'success');
+          return Promise.resolve(syncAll()).catch(function () {}).then(function () { renderRoute(); });
+        }).catch(function (e) { done(); fnErr_(e); });
+      });
+      body.appendChild(fh_('div', { 'class': 'form-actions', style: 'margin-top:10px;' }, [fnBtn_('← Інший статус', '', pick), ok]));
+      openModal('Статус обʼєкта «' + o.name + '»', body);
+    }).catch(function (e) { fnErr_(e); pick(); });
+  }
+  if (target && target !== o.status) confirmStep(target); else pick();
+};
 
 function boot() {
   var pubRoute = parsePublicRoute_();
