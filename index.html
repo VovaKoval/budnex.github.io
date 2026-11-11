@@ -2016,7 +2016,8 @@ V44.overview = function (main, isAdmin) {
     money.due = tkTile_('Клієнти ще винні', Fin.last ? fmtMoney(Fin.last.totals.client_due) : '…', 'лише погоджені й у роботі', go('#/finance'));
     money.paid = tkTile_('Отримано від клієнтів', Fin.last ? fmtMoney(Fin.last.totals.client_paid) : '…', 'за всіма обʼєктами', go('#/finance'));
     money.brig = tkTile_('Бригадам виплатити', Fin.last ? fmtMoney(Fin.last.totals.brigades_due) : '…', 'ще не виплачено', go('#/finance'));
-    money.profit = tkTile_('Очікуваний прибуток', Fin.last ? fmtMoney(Fin.last.totals.expected_profit) : '…', 'за договорами в роботі', go('#/finance'));
+    var tx50 = Fin.last ? V50.tileText(Fin.last.totals) : { label: 'Очікуваний прибуток', value: null, sub: 'за договорами в роботі' };
+    money.profit = tkTile_(tx50.label, Fin.last ? fmtMoney(tx50.value) : '…', tx50.sub, go('#/finance'));
     tiles.push(money.due, money.paid, money.brig, money.profit);
   }
   main.appendChild(fh_('div', { 'class': 'v44-grid' }, tiles));
@@ -2098,7 +2099,7 @@ V44.overview = function (main, isAdmin) {
     if (!d || !main.isConnected) return;
     var T = d.totals || {};
     try { V47.debtCard(debtSlot, d); } catch (e47) { console.error(e47); }
-    if (money.due.isConnected) { money.due.querySelector('.kpi-value').textContent = fmtMoney(T.client_due); money.paid.querySelector('.kpi-value').textContent = fmtMoney(T.client_paid); money.brig.querySelector('.kpi-value').textContent = fmtMoney(T.brigades_due); money.profit.querySelector('.kpi-value').textContent = fmtMoney(T.expected_profit); }
+    if (money.due.isConnected) { money.due.querySelector('.kpi-value').textContent = fmtMoney(T.client_due); money.paid.querySelector('.kpi-value').textContent = fmtMoney(T.client_paid); money.brig.querySelector('.kpi-value').textContent = fmtMoney(T.brigades_due); var tx = V50.tileText(T); money.profit.querySelector('.kpi-value').textContent = fmtMoney(tx.value); money.profit.querySelector('.kpi-label').textContent = tx.label; var sb = money.profit.querySelector('.page-sub'); if (sb) sb.textContent = tx.sub; }
     (d.objects || []).forEach(function (s) {
       var m = moneyCells[s.object_id]; if (!m) return;
       m[0].textContent = s.contract_total ? fmtMoney(s.contract_total) : '—'; m[1].textContent = fmtMoney(s.client_paid || 0);
@@ -6950,7 +6951,7 @@ function renderCalc(main) {
   }
 }
 
-var SYNC_READONLY_ACTIONS = { previewObjectStatus: 1, getObjectTimeline: 1, getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
+var SYNC_READONLY_ACTIONS = { previewObjectStatus: 1, getProfitSplits: 1, saveProfitSplit: 1, getObjectTimeline: 1, getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
   getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgDiag: 1, tgRelayInfo: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
@@ -7644,6 +7645,7 @@ function renderObjectFinanceTab(container, o) {
     box.appendChild(fh_('div', { 'class': 'grid cols-4', style: 'margin-bottom:8px;' }, kp));
     box.appendChild(fnBar_(s.client_percent));
     if (cost) box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 10px;' }, ['Витрати: ' + fmtMoney(s.expenses_total) + ' · гроші на руках (отримано − виплачено − витрати): ' + fmtMoney(s.cash_on_hand) + ' · очікуваний прибуток по обʼєкту: ' + fmtMoney(s.expected_profit)]));
+    if (cost) { var sb50 = V50.objectBlock(s, o); if (sb50) box.appendChild(sb50); }
     var bar = fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;' });
     if (canDo_('finance', 'create')) {
       bar.appendChild(fnBtn_('⬅ Платіж від клієнта', 'primary small', function () { openPaymentForm({ object_id: o.id, direction: 'in' }); }));
@@ -7701,6 +7703,7 @@ function renderFinance(main) {
     toolbar.appendChild(fnBtn_('+ Додати платіж', 'primary', function () { openPaymentForm({}); }));
     toolbar.appendChild(fnBtn_('+ Витрата', '', function () { openExpenseForm({}); }));
   }
+  if (V50.isOwner() && canSeeCost_()) toolbar.appendChild(fnBtn_('👥 Розподіл прибутку', '', function () { V50.edit('', 'стандартний для всіх обʼєктів'); }));
   toolbar.appendChild(fh_('div', { 'class': 'spacer' }));
   toolbar.appendChild(fnBtn_('⬇ CSV платежів', 'small', function () { downloadText_('BUDNEX_платежі.csv', arrayToCsv_(STATE.db.payments), 'text/csv;charset=utf-8'); }));
   toolbar.appendChild(fnBtn_('⬇ CSV витрат', 'small', function () { downloadText_('BUDNEX_витрати.csv', arrayToCsv_(STATE.db.expenses), 'text/csv;charset=utf-8'); }));
@@ -7717,6 +7720,7 @@ function renderFinance(main) {
     if (!data) return;
     var t = data.totals, k = [kpiCard('Договорів на суму', fmtMoney(t.contract_total), [['лише погоджені й у роботі', '']]), kpiCard('Отримано від клієнтів', fmtMoney(t.client_paid)), kpiCard('Клієнти ще мають доплатити', fmtMoney(t.client_due))];
     if (data.can_see_cost) k.push(kpiCard('Бригадам ще виплатити', fmtMoney(t.brigades_due)), kpiCard('Витрати', fmtMoney(t.expenses)), kpiCard('Гроші на руках', fmtMoney(t.cash_on_hand), [['очікуваний прибуток', fmtMoney(t.expected_profit)]]));
+    if (data.can_see_cost && V50.isOwner() && t.split_active) k.push(kpiCard('Мій прибуток', fmtMoney(t.owner_profit), [['загальний прибуток', fmtMoney(t.expected_profit)]]));
     kpiBox.appendChild(fh_('div', { 'class': 'grid cols-3', style: 'margin-bottom:14px;' }, k));
   }
   function drawTabs() {
@@ -10176,6 +10180,67 @@ V49.open = function (o, target) {
   if (target && target !== o.status) confirmStep(target); else pick();
 };
 
+/* ===== ETAP 50: розподіл прибутку між партнерами (лише власник) ===== */
+var V50 = {};
+V50.isOwner = function () { return currentRole_() === 'ADMIN'; };
+V50.tileText = function (T) {
+  if (V50.isOwner() && T && T.split_active) return { label: 'Мій прибуток', value: T.owner_profit, sub: 'моя частка з ' + fmtMoney(T.expected_profit) + ' загального' };
+  return { label: 'Очікуваний прибуток', value: T && T.expected_profit, sub: 'за договорами в роботі' };
+};
+V50.edit = function (scopeId, title, done) {
+  openModal('👥 Розподіл прибутку' + (title ? ' — ' + title : ''), fh_('div', { 'class': 'page-sub' }, ['⏳ Завантажую…']));
+  apiCall('getProfitSplits', {}).then(function (g) {
+    var cur = scopeId ? ((g.objects || {})[scopeId] || []) : (g.default || []);
+    var seed = cur.length ? cur : (g.default || []);
+    var rows = seed.filter(function (x) { return !x.is_owner; }).map(function (x) { return { name: x.name, percent: x.percent }; });
+    if (!rows.length) rows = [{ name: '', percent: '' }];
+    var body = fh_('div', {}), list = fh_('div'), sumLine = fh_('div', { style: 'margin:10px 0;font-size:15px;' });
+    body.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 8px;' }, [scopeId ? 'Як ділиться прибуток саме цього обʼєкта (підставлено стандартний — зміни, якщо тут інакше). Не збережеш — діє стандартний.' : 'Стандартний розподіл діє на всі обʼєкти, де не задано свій. Твоя частка = 100% мінус частки партнерів.']));
+    body.appendChild(list); body.appendChild(sumLine);
+    function refresh() {
+      var sum = 0; rows.forEach(function (r) { sum += Number(r.percent) || 0; });
+      var mine = Math.round((100 - sum) * 100) / 100;
+      sumLine.innerHTML = ''; sumLine.appendChild(fh_('b', { style: mine < 0 ? 'color:var(--red);' : '' }, ['Моя частка: ' + mine + '%']));
+      sumLine.appendChild(document.createTextNode(mine < 0 ? ' — разом більше 100%!' : ''));
+      sumLine._mine = mine;
+    }
+    function draw() {
+      list.innerHTML = '';
+      rows.forEach(function (r, i) {
+        var nm = fh_('input', { 'class': 'v9-in', placeholder: 'Імʼя партнера', value: r.name || '', style: 'flex:2;min-width:120px;' });
+        var pc = fh_('input', { 'class': 'v9-in', type: 'number', min: '0', max: '100', step: '0.5', placeholder: '%', value: r.percent === '' ? '' : String(r.percent), style: 'width:80px;' });
+        nm.oninput = function () { r.name = nm.value; }; pc.oninput = function () { r.percent = pc.value === '' ? '' : Number(pc.value); refresh(); };
+        var del = fnBtn_('✕', 'small', function () { rows.splice(i, 1); if (!rows.length) rows.push({ name: '', percent: '' }); draw(); refresh(); }, 'Прибрати');
+        list.appendChild(fh_('div', { style: 'display:flex;gap:8px;align-items:center;margin:0 0 6px;' }, [nm, pc, fh_('span', {}, ['%']), del]));
+      });
+      list.appendChild(fnBtn_('+ Додати партнера', 'small', function () { rows.push({ name: '', percent: '' }); draw(); refresh(); }));
+    }
+    draw(); refresh();
+    var bar = fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;' });
+    function save(clear) {
+      var others = clear ? [] : rows.filter(function (r) { return (r.name || '').trim() || Number(r.percent); }).map(function (r) { return { name: (r.name || '').trim(), percent: Number(r.percent) || 0 }; });
+      if (!clear && sumLine._mine < 0) { toast('Разом більше 100%', 'error'); return; }
+      var undo = fnBusy_(okB);
+      apiCall('saveProfitSplit', { object_id: scopeId || '', others: others, clear: !!clear }).then(function () { undo(); closeModal(); Fin.invalidate(); toast(clear ? 'Розподіл скинуто' : 'Розподіл збережено'); if (done) done(); else renderRoute(); }).catch(function (e) { undo(); fnErr_(e); });
+    }
+    var okB = fnBtn_('Зберегти', 'primary', function () { save(false); });
+    bar.appendChild(okB);
+    if (cur.length) bar.appendChild(fnBtn_(scopeId ? 'Прибрати (діятиме стандартний)' : 'Прибрати розподіл (100% мені)', '', function () { save(true); }));
+    bar.appendChild(fnBtn_('Скасувати', '', closeModal));
+    body.appendChild(bar);
+    openModal('👥 Розподіл прибутку' + (title ? ' — ' + title : ''), body);
+  }).catch(function (e) { closeModal(); fnErr_(e); });
+};
+V50.objectBlock = function (s, o) {
+  if (!V50.isOwner() || !s || s.owner_percent == null) return null;
+  var box = fh_('div', { 'class': 'card', style: 'margin:0 0 10px;padding:10px 12px;' });
+  var srcTxt = s.split_source === 'object' ? 'свій розподіл обʼєкта' : (s.split_source === 'default' ? 'стандартний розподіл' : 'розподіл не задано — весь прибуток мій');
+  box.appendChild(fh_('div', { 'class': 'chart-title', style: 'margin-bottom:4px;' }, ['👥 Прибуток обʼєкта: ' + fmtMoney(s.expected_profit) + ' · мій: ' + fmtMoney(s.owner_profit) + ' (' + s.owner_percent + '%)']));
+  box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 6px;font-size:12px;' }, [srcTxt + (s.debt_active === false ? ' · ще не рахується в підсумках (' + (s.debt_reason || '') + ')' : '')]));
+  if (s.split_source !== 'none') (s.split_parts || []).forEach(function (p) { box.appendChild(fh_('div', { style: 'font-size:13px;margin:2px 0;' }, [(p.is_owner ? '⭐ ' : '• ') + p.name + ' — ' + p.percent + '% = ' + fmtMoney(p.amount)])); });
+  box.appendChild(fh_('div', { style: 'margin-top:8px;' }, [fnBtn_('✎ Змінити розподіл', 'small', function () { V50.edit(o.id, o.name); })]));
+  return box;
+};
 function boot() {
   var pubRoute = parsePublicRoute_();
   if (pubRoute) { bootPublicView_(pubRoute); return; }
