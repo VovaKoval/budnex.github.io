@@ -327,6 +327,37 @@ body{padding-bottom:0;}
   table.m-stack td[data-label=""]{justify-content:flex-start;}
   .page-title{margin-top:2px;}
 }
+/* ===== ЕТАП 51: компактніше й зрозуміліше на телефоні ===== */
+@media(max-width:800px){
+  .v44-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 12px;}
+  .kpi{padding:10px 12px;}
+  .kpi .kpi-label{font-size:10.5px;line-height:1.25;letter-spacing:.2px;}
+  .kpi .kpi-value{font-size:19px;margin-top:3px;white-space:nowrap;}
+  .kpi .page-sub{font-size:11px!important;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .grid.cols-4,.grid.cols-3,.grid.cols-2{gap:8px;}
+  .grid.cols-4,.grid.cols-3{grid-template-columns:repeat(2,minmax(0,1fr));}
+  /* списки-таблиці → компактні картки: без ID і порожніх полів, назва зверху */
+  table.m-stack tr{position:relative;padding:10px 12px 8px;margin:0 0 8px;}
+  table.m-stack td[data-label="ID"],table.m-stack td[data-empty="1"]{display:none!important;}
+  table.m-stack td.m-title{display:block;text-align:left!important;font-size:16px;font-weight:700;padding:0 34px 4px 0!important;}
+  table.m-stack td.m-title::before{display:none;}
+  table.m-stack td.m-check{position:absolute;top:8px;right:10px;padding:0!important;display:block;}
+  table.m-stack td.m-check input{width:20px;height:20px;}
+  table.m-stack td{font-size:13.5px;padding:3px 0!important;}
+  table.m-stack td::before{font-size:10.5px;}
+  .toolbar .btn.primary{flex:1 1 100%;}
+  .page-head,.page-header{flex-wrap:wrap;gap:8px;}
+  .card{margin-bottom:10px;}
+  .tab-btn{padding:10px 13px;}
+  .btn,.tab-btn,.nav-item{touch-action:manipulation;}
+  .obj-head{flex-wrap:wrap;gap:8px;margin:6px 0 12px!important;}
+  .obj-head>div:first-child{flex:1 1 100%;min-width:0;}
+  .obj-head>.btn{flex:1 1 0;margin:0!important;white-space:nowrap;padding:8px 6px;font-size:12.5px;}
+  .tabs{-webkit-mask-image:linear-gradient(to right,#000 92%,transparent);mask-image:linear-gradient(to right,#000 92%,transparent);}
+  .stage-strip{flex-wrap:nowrap!important;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px;}
+  .stage-strip::-webkit-scrollbar{display:none;}
+  .stage-strip>span{white-space:nowrap;flex:0 0 auto;}
+}
 @media(display-mode:standalone){#syncBtn{display:inline-flex;}}
 @media print{#tabbar,#sidebar,#topbar,.toolbar,.no-print,#connBanner,#sidebarBackdrop{display:none!important;}#main{margin:0!important;padding:0!important;}body{background:#fff!important;color:#000!important;}.card,.chart-wrap{break-inside:avoid;}}
 </style>
@@ -776,6 +807,16 @@ function wrapTablesForMobile_(root) {
         if (ok) {
           [].forEach.call(t.tBodies, function (b) { [].forEach.call(b.rows, function (r) { [].forEach.call(r.cells, function (c, i) { c.setAttribute('data-label', ths[i]); }); }); });
           t.classList.add('m-stack');
+          [].forEach.call(t.tBodies, function (bd) { [].forEach.call(bd.rows, function (r) {
+            var titled = false;
+            [].forEach.call(r.cells, function (c) {
+              var txt = (c.textContent || '').trim();
+              if (c.querySelector('input[type=checkbox]') && !txt) { c.classList.add('m-check'); return; }
+              if (c.getAttribute('data-label') === 'ID') return;
+              if (!titled && txt && txt !== '—' && !c.querySelector('button,.badge')) { titled = true; c.classList.add('m-title'); return; }
+              if ((!txt || txt === '—') && !c.querySelector('button,input,select,.badge')) c.setAttribute('data-empty', '1');
+            });
+          }); });
         }
       }
     } catch (e) {}
@@ -1701,7 +1742,7 @@ function renderObjectCard(main, objectId) {
   if (!o) { main.appendChild(el('div', { class: 'empty-state' }, ["Об'єкт не знайдено."])); return; }
   var client = byId(STATE.db.clients, o.client_id);
   main.appendChild(el('a', { href: '#/objects', style: 'color:var(--muted);font-size:12px;text-decoration:none;' }, ["← до списку об'єктів"]));
-  var head = el('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin:10px 0 18px;' }, [
+  var head = el('div', { class: 'obj-head', style: 'display:flex;justify-content:space-between;align-items:center;margin:10px 0 18px;' }, [
     el('div', {}, [el('div', { class: 'page-title' }, [o.name]), el('div', { class: 'page-sub' }, [o.id + ' · ' + (client ? client.name : '') + ' · ' + (o.address || '')])])
   ]);
   var editBtn = el('button', { class: 'btn' }, ['Редагувати']); editBtn.onclick = function () { openObjectForm(o); };
@@ -10022,7 +10063,7 @@ V47.nextStep = function (o) {
 };
 V47.stages = function (main, o) {
   var idx = V47.STAGES.indexOf(o.status), db = STATE.db, today = fnToday_();
-  var strip = fh_('div', { style: 'display:flex;gap:4px;flex-wrap:wrap;margin:0 0 8px;' });
+  var strip = fh_('div', { 'class': 'stage-strip', style: 'display:flex;gap:4px;flex-wrap:wrap;margin:0 0 8px;' });
   V47.STAGES.forEach(function (st, i) {
     var cur = i === idx, past = idx > -1 && i < idx;
     var chipEl = fh_('span', { style: 'padding:4px 10px;border-radius:14px;font-size:12px;border:1px solid ' + (cur ? 'var(--gold)' : 'var(--border)') + ';' + (cur ? 'background:var(--gold);color:#000;font-weight:700;' : (past ? 'opacity:.75;' : 'opacity:.45;')) + (V49.canChange() ? 'cursor:pointer;' : '') }, [(past ? '✓ ' : '') + st]);
@@ -10136,7 +10177,7 @@ V49.open = function (o, target) {
     order.forEach(function (st, i) {
       var here = st === o.status, back = cur > -1 && i < cur;
       var b = fh_('button', { 'class': 'btn' + (here ? ' primary' : ''), style: 'display:block;width:100%;text-align:left;margin:0 0 6px;padding:10px 12px;' + (here ? 'cursor:default;' : '') + (back && !here ? 'opacity:.75;' : '') }, [
-        fh_('b', {}, [(here ? '● ' : back ? '↩ ' : '') + st]), fh_('span', { 'class': 'page-sub', style: 'margin-left:8px;font-size:12px;' }, [V49.DESC[st] || ''])]);
+        fh_('b', {}, [(here ? '● ' : back ? '↩ ' : '') + st]), fh_('span', { 'class': 'page-sub', style: 'margin-left:8px;font-size:12px;' + (here ? 'color:#000;opacity:.75;' : '') }, [V49.DESC[st] || ''])]);
       if (!here) b.onclick = function () { confirmStep(st); };
       body.appendChild(b);
     });
