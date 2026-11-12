@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -1098,7 +1098,7 @@ function renderRoute() {
   var hash = location.hash || '#/today';
   var prevRoute_ = STATE.route, mainEl_ = document.getElementById('main');
   if (prevRoute_ && prevRoute_ !== hash && mainEl_) SCROLLMEM_[prevRoute_] = { y: mainEl_.scrollTop, t: Date.now() };
-  var wantY_ = 0;
+  var wantY_ = 0, keepY_ = (prevRoute_ === hash && mainEl_) ? mainEl_.scrollTop : 0;
   if (prevRoute_ && prevRoute_ !== hash) {
     var mem_ = SCROLLMEM_[hash];
     if (mem_ && !SCROLL_SKIP_ && Date.now() - mem_.t < 30 * 60000) wantY_ = mem_.y;
@@ -1150,6 +1150,7 @@ function renderRoute() {
   wrapTablesForMobile_(main);
   try { updateNavBadges_(); } catch (e) {}
   if (wantY_) restoreScroll_(wantY_); else if (prevRoute_ && prevRoute_ !== hash) main.scrollTop = 0;
+  else if (keepY_) restoreScroll_(keepY_);   // та сама сторінка перемалювалась (після збереження) — лишаємось на тому ж місці
 }
 window.addEventListener('hashchange', renderRoute);
 
@@ -2136,7 +2137,7 @@ V44.overview = function (main, isAdmin) {
   var debtSlot = fh_('div'); main.appendChild(debtSlot);
 
   // ---- гроші приходять асинхронно (не гальмують екран)
-  if (canMoney) Fin.load().then(function (d) {
+  if (canMoney) Fin.live(function (d) {
     if (!d || !main.isConnected) return;
     var T = d.totals || {};
     try { V47.debtCard(debtSlot, d); } catch (e47) { console.error(e47); }
@@ -5863,6 +5864,8 @@ V9.openClientDoc = function (estimateId) {
     var inp = type === 'textarea' ? el('textarea', { class: 'v9-in', rows: '3' }) : input_({ type: type || 'text' });
     inp.value = m[key] == null ? '' : m[key];
     inp.oninput = function () { m[key] = type === 'number' ? (Number(inp.value) || 0) : inp.value; refresh(); };
+    var tplKinds = { intro: 'Вступ', notes: 'Примітки', terms: 'Умови', footer: 'Нижній колонтитул' };
+    if (tplKinds[key]) return el('div', { class: 'form-row' }, [el('label', {}, [label]), V51.tplBar(key, tplKinds[key], inp, function () { m[key] = inp.value; refresh(); }), inp]);
     return el('div', { class: 'form-row' }, [el('label', {}, [label]), inp]);
   }
   function check(label, key) {
@@ -6531,7 +6534,7 @@ var SETTING_GROUPS = [
   ['AI: модель, інструкції, веб-пошук', /^ai_(model|max_tokens|use_for_scope|web_search|extra_instructions)$/]
 ];
 var SETTINGS_IN_BASE_UI = ['company_name', 'company_slogan', 'default_markup_value', 'min_margin', 'target_margin', 'fuel_price', 'fuel_consumption',
-  'amortization_rate', 'logistics_coefficient', 'ai_provider', 'ai_api_key', 'ai_workspace_id'];
+  'amortization_rate', 'logistics_coefficient', 'ai_provider', 'ai_api_key', 'ai_workspace_id', 'doc_text_templates'];
 var LONG_SETTINGS = ['doc_intro', 'doc_terms', 'ai_extra_instructions', 'company_legal', 'doc_footer'];
 
 function logoToDataUrl_(file) {
@@ -6653,7 +6656,7 @@ var Auth = (function () {
   var TOKEN_KEY = 'budnex_token', USER_KEY = 'budnex_auth_user';
   function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
   function setSession(token, user) { localStorage.setItem(TOKEN_KEY, token); localStorage.setItem(USER_KEY, JSON.stringify(user)); }
-  function clearSession() { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); }
+  function clearSession() { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); try { if (typeof Fin !== 'undefined') Fin.reset(); } catch (e) {} }
   function cachedUser() { try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch (e) { return null; } }
 
   var _origApiCall = apiCall;
@@ -6992,7 +6995,7 @@ function renderCalc(main) {
   }
 }
 
-var SYNC_READONLY_ACTIONS = { previewObjectStatus: 1, getProfitSplits: 1, saveProfitSplit: 1, getObjectTimeline: 1, getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
+var SYNC_READONLY_ACTIONS = { getOwnerExpenses: 1, createOwnerExpense: 1, updateOwnerExpense: 1, deleteOwnerExpense: 1, saveDocTemplates: 1, previewObjectStatus: 1, getProfitSplits: 1, saveProfitSplit: 1, getObjectTimeline: 1, getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
   getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgDiag: 1, tgRelayInfo: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
@@ -7092,19 +7095,62 @@ var Fin = {
   load: function (force) {
     if (!canDo_('finance', 'view')) return Promise.resolve(null);
     if (!force && Fin.data && Date.now() - Fin.at < 15000) return Promise.resolve(Fin.data);
-    return Promise.resolve().then(function () { return apiCall('getFinanceOverview', {}); }).then(function (d) {
+    if (Fin.inflight) return Fin.inflight;     // уже летить такий самий запит — не дублюємо
+    var gen = Fin.gen = Fin.gen || 0;
+    Fin.inflight = Promise.resolve().then(function () { return apiCall('getFinanceOverview', {}); }).then(function (d) {
       if (!d || !Array.isArray(d.objects)) throw new Error('Некоректна відповідь сервера (оновіть Code.gs і опублікуйте нову версію)');
-      Fin.data = d; Fin.last = d; Fin.at = Date.now(); return d;
-    });
+      if (gen === Fin.gen) { Fin.data = d; Fin.last = d; Fin.at = Date.now(); Fin.inflight = null; }
+      return d;
+    }, function (e) { if (gen === Fin.gen) Fin.inflight = null; throw e; });
+    return Fin.inflight;
   },
-  invalidate: function () { if (Fin.data) Fin.last = Fin.data; Fin.data = null; Fin.at = 0; },
+  // «invalidate» лише позначає дані застарілими: старі цифри лишаються на екрані, поки приїдуть нові
+  invalidate: function () { if (Fin.data) Fin.last = Fin.data; Fin.at = 0; Fin.gen = (Fin.gen || 0) + 1; Fin.inflight = null; },
+  reset: function () { Fin.data = null; Fin.last = null; Fin.at = 0; Fin.gen = (Fin.gen || 0) + 1; Fin.inflight = null; },
+  fresh: function () { return !!Fin.data && Date.now() - Fin.at < 15000; },
+  // показати одразу те, що вже є (навіть застаріле), і оновити, щойно прийдуть свіжі дані
+  live: function (fn) {
+    var shown = false;
+    // fn викликається завжди асинхронно (після того як елемент прикріпили до сторінки)
+    if (Fin.data) {
+      shown = true; var fresh = Fin.fresh();
+      var first = Promise.resolve().then(function () { fn(Fin.data); return Fin.data; });
+      if (fresh) return first;
+      return first.then(function () { return Fin.load().then(function (d) { fn(d); return d; }, function () { return Fin.data; }); });
+    }
+    return Fin.load().then(function (d) { fn(d); return d; });
+  },
+  // миттєва поправка цифр після платежу/витрати, щоб не чекати відповіді сервера
+  patch: function (kind, row, sign) {
+    var d = Fin.data; if (!d || !row) return; sign = sign || 1;
+    var a = (Number(row.amount) || 0) * sign, s = (d.objects || []).filter(function (x) { return x.object_id === row.object_id; })[0];
+    var t = d.totals || {};
+    function add(o, k, v) { if (o && typeof o[k] === 'number') o[k] = Math.round((o[k] + v) * 100) / 100; }
+    if (kind === 'expense') {
+      add(s, 'expenses_total', a); add(s, 'cash_on_hand', -a); add(s, 'expected_profit', -a); add(t, 'expenses', a); add(t, 'cash_on_hand', -a);
+      if (s && s.debt_active) add(t, 'expected_profit', -a);
+    } else if (kind === 'payment_in') {
+      add(s, 'client_paid', a); add(s, 'client_due', -a); add(s, 'cash_on_hand', a); add(t, 'client_paid', a); add(t, 'cash_on_hand', a);
+      if (s && s.debt_active) add(t, 'client_due', -a);
+    } else if (kind === 'payment_out') {
+      add(s, 'brigades_paid', a); add(s, 'brigades_due', -a); add(s, 'cash_on_hand', -a); add(t, 'brigades_paid', a); add(t, 'brigades_due', -a); add(t, 'cash_on_hand', -a);
+    }
+    Fin.last = d;
+  },
   obj: function (id) { return (Fin.data && Fin.data.objects || []).filter(function (s) { return s.object_id === id; })[0] || null; },
   brigade: function (id) { return (Fin.data && Fin.data.brigades || []).filter(function (s) { return s.partner_id === id; })[0] || null; }
 };
 // після будь-якої зміни: скинути кеш, підтягнути свіжі статуси бригад і перемалювати
 function fnAfterChange_() {
+  // 1) одразу перемальовуємо з того, що вже є (нічого не зникає і не блимає)
   Fin.invalidate();
-  return Promise.resolve(syncAll()).catch(function () {}).then(function () { try { renderRoute(); } catch (e) {} });
+  var before = Fin.data ? JSON.stringify(Fin.data.totals) + (Fin.data.objects || []).length : '';
+  try { renderRoute(); } catch (e) {}
+  // 2) у фоні тягнемо свіжі цифри з сервера і перемальовуємо лише якщо вони справді змінились
+  return Promise.all([Fin.load(true).catch(function () {}), Promise.resolve(syncAll()).catch(function () {})]).then(function () {
+    var after = Fin.data ? JSON.stringify(Fin.data.totals) + (Fin.data.objects || []).length : '';
+    if (after !== before) { try { renderRoute(); } catch (e) {} }
+  });
 }
 
 /* ================================ БРИГАДИ ================================== */
@@ -7494,10 +7540,12 @@ function openPaymentForm(arg) {
     call.then(function (row) {
       var isPlanned = String(row.status) === 'planned';
       if (isPlanned) { fnRemove_('payments', row.id); fnUpsert_('plannedPayments', row); } else { fnRemove_('plannedPayments', row.id); fnUpsert_('payments', row); }
-      Storage.saveCache(); closeModal(); Fin.invalidate();
-      if (isPlanned) { toast('Додано в графік платежів', 'success'); return fnAfterChange_(); }
+      Storage.saveCache(); closeModal();
+      if (isPlanned) { Fin.invalidate(); toast('Додано в графік платежів', 'success'); return fnAfterChange_(); }
+      // миттєво: поправити цифри локально й перемалювати без очікування сервера (лише для нового платежу)
+      if (!existing) Fin.patch(dir === 'in' ? 'payment_in' : 'payment_out', row, 1);
       toast(existing ? 'Платіж змінено' : (dir === 'in' ? 'Платіж від клієнта додано' : 'Виплату бригаді додано'), 'success');
-      return Fin.load(true).catch(function () {}).then(function () {
+      return fnAfterChange_().then(function () {
         var s = Fin.obj(row.object_id), b = s && s.brigades.filter(function (x) { return x.partner_id === row.partner_id; })[0];
         var asg = b && (STATE.db.assignments || []).filter(function (x) { return x.id === b.assignment_id; })[0];
         if (dir === 'out' && b && b.price > 0 && b.due <= 0.5 && asg && fnAsgEff_(asg) !== 'done' && canDo_('partners', 'edit')) {
@@ -7505,14 +7553,13 @@ function openPaymentForm(arg) {
             apiCall('completeAssignment', { id: asg.id }).then(function (r) { fnUpsert_('assignments', r); toast('Бригада «' + b.name + '» вільна', 'success'); fnAfterChange_(); }).catch(fnErr_);
           }, 'Ні, ще працює');
         }
-        return fnAfterChange_();
       });
     }).catch(function (e) { done(); fnErr_(e); });
   });
   var actions = fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]);
   if (existing && canDo_('finance', 'delete')) actions.insertBefore(fnBtn_('Видалити', 'danger', function () {
     confirmAction('Видалити цей платіж? Борги перерахуються.', function () {
-      apiCall('deletePayment', { id: existing.id }).then(function () { fnRemove_('payments', existing.id); fnRemove_('plannedPayments', existing.id); toast('Платіж видалено', 'success'); return fnAfterChange_(); }).catch(fnErr_);
+      apiCall('deletePayment', { id: existing.id }).then(function () { if (String(existing.status) !== 'planned') Fin.patch(existing.direction === 'out' ? 'payment_out' : 'payment_in', existing, -1); fnRemove_('payments', existing.id); fnRemove_('plannedPayments', existing.id); toast('Платіж видалено', 'success'); return fnAfterChange_(); }).catch(fnErr_);
     });
   }), actions.firstChild);
   body.appendChild(actions);
@@ -7540,12 +7587,12 @@ function openExpenseForm(arg) {
     var data = { object_id: objSel.value, category: cat.value.trim() || 'інше', amount: a, date: date.value || fnToday_(), description: desc.value.trim() };
     var done = fnBusy_(save);
     (ex ? apiCall('updateExpense', Object.assign({ id: ex.id }, data)) : apiCall('createExpense', data)).then(function (row) {
-      fnUpsert_('expenses', row); Storage.saveCache(); closeModal(); toast('Збережено', 'success'); return fnAfterChange_();
+      fnUpsert_('expenses', row); Storage.saveCache(); closeModal(); if (!ex) Fin.patch('expense', row, 1); toast('Збережено', 'success'); return fnAfterChange_();
     }).catch(function (e) { done(); fnErr_(e); });
   });
   var actions = fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]);
   if (ex && canDo_('finance', 'delete')) actions.insertBefore(fnBtn_('Видалити', 'danger', function () {
-    confirmAction('Видалити цю витрату?', function () { apiCall('deleteExpense', { id: ex.id }).then(function () { fnRemove_('expenses', ex.id); toast('Видалено', 'success'); return fnAfterChange_(); }).catch(fnErr_); });
+    confirmAction('Видалити цю витрату?', function () { apiCall('deleteExpense', { id: ex.id }).then(function () { Fin.patch('expense', ex, -1); fnRemove_('expenses', ex.id); toast('Видалено', 'success'); return fnAfterChange_(); }).catch(fnErr_); });
   }), actions.firstChild);
   body.appendChild(actions);
   openModal(ex ? 'Витрата' : 'Нова витрата', body);
@@ -7670,7 +7717,7 @@ function renderObjectFinanceTab(container, o) {
   if (!canDo_('finance', 'view')) { container.appendChild(fh_('div', { 'class': 'page-sub' }, ['Немає доступу до фінансів.'])); return; }
   var box = fh_('div'); container.appendChild(box);
   box.appendChild(fh_('div', { 'class': 'page-sub' }, ['⏳ Рахую розрахунки…']));
-  Fin.load().then(function () { if (box.isConnected) draw(); }).catch(function (e) {
+  Fin.live(function () { if (box.isConnected) draw(); }).catch(function (e) {
     box.innerHTML = ''; box.appendChild(fh_('div', { 'class': 'margin-warn' }, ['Не вдалося отримати розрахунки: ' + (e && e.message || e) + '. ']));
     box.lastChild.appendChild(fnBtn_('Повторити', 'small', function () { Fin.invalidate(); renderRoute(); }));
   });
@@ -7752,16 +7799,16 @@ function renderFinance(main) {
   var tabsBox = fh_('div', { 'class': 'tabs' }), content = fh_('div');
   main.appendChild(tabsBox); main.appendChild(content);
   var cost = canSeeCost_();
-  var defs = [['debts', 'Розрахунки по обʼєктах'], ['planned', 'Графік платежів'], cost ? ['brigades', 'Бригади'] : null, ['payments', 'Платежі'], cost ? ['expenses', 'Витрати'] : null].filter(Boolean);
+  var defs = [['debts', 'Розрахунки по обʼєктах'], ['planned', 'Графік платежів'], cost ? ['brigades', 'Бригади'] : null, ['payments', 'Платежі'], cost ? ['expenses', 'Витрати'] : null, cost ? ['cash', '💵 Гроші на руках'] : null, (cost && V50.isOwner()) ? ['mine', '👤 Мої витрати'] : null].filter(Boolean);
   if (!STATE.ui.finTab || !defs.some(function (d) { return d[0] === STATE.ui.finTab; })) STATE.ui.finTab = 'debts';
-  var data = null;
+  var data = Fin.data || Fin.last || null;   // старі цифри одразу, свіжі — коли приїдуть
 
   function drawKpis() {
     kpiBox.innerHTML = '';
     if (!data) return;
     var t = data.totals, k = [kpiCard('Договорів на суму', fmtMoney(t.contract_total), [['лише погоджені й у роботі', '']]), kpiCard('Отримано від клієнтів', fmtMoney(t.client_paid)), kpiCard('Клієнти ще мають доплатити', fmtMoney(t.client_due))];
     if (data.can_see_cost) k.push(kpiCard('Бригадам ще виплатити', fmtMoney(t.brigades_due)), kpiCard('Витрати', fmtMoney(t.expenses)), kpiCard('Гроші на руках', fmtMoney(t.cash_on_hand), [['очікуваний прибуток', fmtMoney(t.expected_profit)]]));
-    if (data.can_see_cost && V50.isOwner() && t.split_active) k.push(kpiCard('Мій прибуток', fmtMoney(t.owner_profit), [['загальний прибуток', fmtMoney(t.expected_profit)]]));
+    if (data.can_see_cost && V50.isOwner() && (t.owner_active || t.split_active)) k.push(kpiCard('Мій прибуток', fmtMoney(t.owner_profit), [['загальний прибуток', fmtMoney(t.expected_profit)]]), kpiCard('Мої гроші на руках', fmtMoney(t.owner_cash), [['мої витрати', fmtMoney(t.owner_expenses || 0)]]));
     kpiBox.appendChild(fh_('div', { 'class': 'grid cols-3', style: 'margin-bottom:14px;' }, k));
   }
   function drawTabs() {
@@ -7782,9 +7829,12 @@ function renderFinance(main) {
       var ex = (STATE.db.expenses || []).slice().sort(fnByDateDesc_);
       if (!ex.length) content.appendChild(fh_('div', { 'class': 'empty-state' }, ['Витрат ще немає.']));
       else content.appendChild(Bulk.wrap(fnExpRows_(ex, true), ex, { entity: 'expenses', resource: 'finance', fields: [{ key: 'category', label: 'Категорія' }, { key: 'date', label: 'Дата (РРРР-ММ-ДД)' }] }));
+    } else if (STATE.ui.finTab === 'mine') {
+      V51.minePane(content, data);
     } else if (!data) {
       content.appendChild(fh_('div', { 'class': 'page-sub' }, ['⏳ Рахую розрахунки…']));
-    } else if (STATE.ui.finTab === 'brigades') drawBrigades();
+    } else if (STATE.ui.finTab === 'cash') V51.cashPane(content, data);
+    else if (STATE.ui.finTab === 'brigades') drawBrigades();
     else drawDebts();
     wrapTablesForMobile_(content);
   }
@@ -7843,9 +7893,9 @@ function renderFinance(main) {
     });
     t.appendChild(tb); content.appendChild(t);
   }
-  drawTabs();
+  drawKpis(); drawTabs();
   if (canDo_('finance', 'view')) {
-    Fin.load(true).then(function (d) { data = d; if (!main.isConnected) return; drawKpis(); drawTabs(); })
+    Fin.load(Fin.fresh() ? false : true).then(function (d) { var changed = JSON.stringify(d.totals) !== JSON.stringify(data && data.totals) || (d.objects || []).length !== (data && data.objects || []).length; data = d; if (!main.isConnected) return; if (changed) { drawKpis(); drawTabs(); } })
       .catch(function (e) { if (!main.isConnected) return; kpiBox.innerHTML = ''; kpiBox.appendChild(fh_('div', { 'class': 'margin-warn' }, ['Не вдалося порахувати розрахунки: ' + (e && e.message || e) + ' (список платежів нижче доступний).'])); data = null; if (STATE.ui.finTab !== 'payments' && STATE.ui.finTab !== 'expenses') { content.innerHTML = ''; } });
   }
 }
@@ -8421,7 +8471,7 @@ function renderReports(main) {
     var exS = sum_((db.expenses || []).filter(function (e) { return rpIn_(e.date, r); }), 'amount');
     var debtBox = fh_('div', { 'class': 'page-sub', style: 'margin-top:8px;' }, ['Рахую борги…']);
     grid.appendChild(section('💰 Гроші за період', [['Отримано від клієнтів', fmtMoney(inS)], ['Виплачено бригадам', fmtMoney(outS)], ['Витрати', fmtMoney(exS)], ['Результат', fmtMoney(inS - outS - exS)]], debtBox));
-    Fin.load().then(function (d) { if (!debtBox.isConnected || !d) return; debtBox.textContent = 'Зараз: клієнти ще винні ' + fmtMoney(d.totals.client_due) + ' · бригадам ще виплатити ' + fmtMoney(d.totals.brigades_due); csv.push(['💰 Гроші за період', 'Клієнти ще винні (зараз)', d.totals.client_due], ['💰 Гроші за період', 'Бригадам ще виплатити (зараз)', d.totals.brigades_due]); })
+    Fin.live(function (d) { if (!debtBox.isConnected || !d) return; debtBox.textContent = 'Зараз: клієнти ще винні ' + fmtMoney(d.totals.client_due) + ' · бригадам ще виплатити ' + fmtMoney(d.totals.brigades_due); csv.push(['💰 Гроші за період', 'Клієнти ще винні (зараз)', d.totals.client_due], ['💰 Гроші за період', 'Бригадам ще виплатити (зараз)', d.totals.brigades_due]); })
       .catch(function () { debtBox.textContent = ''; });
   }
 
@@ -9897,7 +9947,7 @@ V47.clientHub = function (main, c) {
   if (canDo_('tasks', 'create')) acts.appendChild(fnBtn_('➕ Завдання по клієнту', 'small', function () { openTaskEditor({ client_id: c.id }); }));
   if (acts.childNodes.length) box.appendChild(acts);
   main.appendChild(box);
-  if (money) Fin.load().then(function (d) {
+  if (money) Fin.live(function (d) {
     if (!box.isConnected) return;
     var mine = (d.objects || []).filter(function (s) { return s.client_id === c.id; });
     var contract = 0, paid = 0, due = 0;
@@ -9923,7 +9973,7 @@ V47.teamSummary = function (container, o) {
   if (!V47.money()) return;
   var ph = fh_('div', { 'class': 'card', style: 'margin:0 0 12px;padding:12px 14px;' }, [fh_('div', { 'class': 'chart-title' }, ['💼 Разом по бригадах на обʼєкті']), fh_('span', { 'class': 'page-sub' }, ['⏳ Рахуємо…'])]);
   container.appendChild(ph);
-  Fin.load().then(function () {
+  Fin.live(function () {
     var s = Fin.obj(o.id); if (!ph.isConnected) return;
     ph.innerHTML = ''; ph.appendChild(fh_('div', { 'class': 'chart-title' }, ['💼 Разом по бригадах на обʼєкті']));
     if (!s) { ph.appendChild(V47.empty('Даних ще немає.')); return; }
@@ -9942,7 +9992,7 @@ V47.brigadeSummary = function (body, p) {
   if (!V47.money()) return;
   var ph = fh_('div', { 'class': 'card', style: 'margin:8px 0;padding:10px 12px;' }, [fh_('span', { 'class': 'page-sub' }, ['⏳ Рахуємо…'])]);
   body.insertBefore(ph, body.childNodes[1] || null);
-  Fin.load().then(function () {
+  Fin.live(function () {
     var b = Fin.brigade(p.id); if (!ph.isConnected) return;
     ph.innerHTML = '';
     if (!b || !b.objects.length) { ph.remove(); return; }
@@ -10101,7 +10151,7 @@ V47.taskContext = function (t) {
     kids.push(ol);
     if (V47.money()) {
       var mo = fh_('div', { 'class': 'page-sub', style: 'margin:3px 0 0;' }, ['⏳ …']); kids.push(mo);
-      Fin.load().then(function () {
+      Fin.live(function () {
         var s = Fin.obj(obj.id); if (!mo.isConnected) return;
         mo.textContent = s ? ('Договір ' + fmtMoney(s.contract_total) + ' · оплачено ' + fmtMoney(s.client_paid) + (s.debt_active === false ? '' : ' · залишилось ' + fmtMoney(s.client_due))) : '';
       }).catch(function () { mo.textContent = ''; });
@@ -10225,7 +10275,7 @@ V49.open = function (o, target) {
 var V50 = {};
 V50.isOwner = function () { return currentRole_() === 'ADMIN'; };
 V50.tileText = function (T) {
-  if (V50.isOwner() && T && T.split_active) return { label: 'Мій прибуток', value: T.owner_profit, sub: 'моя частка з ' + fmtMoney(T.expected_profit) + ' загального' };
+  if (V50.isOwner() && T && (T.owner_active || T.split_active)) return { label: 'Мій прибуток', value: T.owner_profit, sub: 'з ' + fmtMoney(T.expected_profit) + ' загального' + (T.owner_expenses > 0 ? ' · мої витрати ' + fmtMoney(T.owner_expenses) : '') };
   return { label: 'Очікуваний прибуток', value: T && T.expected_profit, sub: 'за договорами в роботі' };
 };
 V50.edit = function (scopeId, title, done) {
@@ -10277,11 +10327,160 @@ V50.objectBlock = function (s, o) {
   var box = fh_('div', { 'class': 'card', style: 'margin:0 0 10px;padding:10px 12px;' });
   var srcTxt = s.split_source === 'object' ? 'свій розподіл обʼєкта' : (s.split_source === 'default' ? 'стандартний розподіл' : 'розподіл не задано — весь прибуток мій');
   box.appendChild(fh_('div', { 'class': 'chart-title', style: 'margin-bottom:4px;' }, ['👥 Прибуток обʼєкта: ' + fmtMoney(s.expected_profit) + ' · мій: ' + fmtMoney(s.owner_profit) + ' (' + s.owner_percent + '%)']));
+  if (s.owner_expenses > 0) box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 4px;font-size:12px;' }, ['моя частка ' + fmtMoney(s.owner_share) + ' − мої витрати ' + fmtMoney(s.owner_expenses)]));
+  box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 6px;font-size:12px;' }, ['💵 Гроші на руках по обʼєкту: ' + fmtMoney(s.cash_on_hand) + ' · мої: ' + fmtMoney(s.owner_cash)]));
   box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 6px;font-size:12px;' }, [srcTxt + (s.debt_active === false ? ' · ще не рахується в підсумках (' + (s.debt_reason || '') + ')' : '')]));
   if (s.split_source !== 'none') (s.split_parts || []).forEach(function (p) { box.appendChild(fh_('div', { style: 'font-size:13px;margin:2px 0;' }, [(p.is_owner ? '⭐ ' : '• ') + p.name + ' — ' + p.percent + '% = ' + fmtMoney(p.amount)])); });
-  box.appendChild(fh_('div', { style: 'margin-top:8px;' }, [fnBtn_('✎ Змінити розподіл', 'small', function () { V50.edit(o.id, o.name); })]));
+  box.appendChild(fh_('div', { style: 'margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;' }, [fnBtn_('✎ Змінити розподіл', 'small', function () { V50.edit(o.id, o.name); }), fnBtn_('+ Моя витрата', 'small', function () { V51.expenseForm(null, o.id); })]));
   return box;
 };
+/* ===== ETAP 51: «Гроші на руках» по обʼєктах, мої особисті витрати, шаблони текстів документа ===== */
+var V51 = { mine: null };
+// миттєва поправка моїх цифр після додавання/видалення особистої витрати
+V51.patchOwner = function (row, sign) {
+  var d = Fin.data; if (!d || !row) return; var a = (Number(row.amount) || 0) * (sign || 1), t = d.totals || {};
+  function add(o, k, v) { if (o && typeof o[k] === 'number') o[k] = Math.round((o[k] + v) * 100) / 100; }
+  var s = row.object_id ? (d.objects || []).filter(function (x) { return x.object_id === row.object_id; })[0] : null;
+  add(s, 'owner_expenses', a); add(s, 'owner_profit', -a); add(s, 'owner_cash', -a);
+  add(t, 'owner_expenses', a); add(t, 'owner_profit', -a); add(t, 'owner_cash', -a);
+  if (!row.object_id) add(t, 'owner_expenses_general', a);
+  if (t) t.owner_active = true;
+  Fin.last = d;
+};
+V51.expenseForm = function (ex, objectId, done) {
+  var objSel = fnSel_([['', '— загальна (без обʼєкта) —']].concat((STATE.db.objects || []).map(function (o) { return [o.id, o.name]; })), ex ? ex.object_id : (objectId || ''), { style: 'width:100%;' });
+  var cat = fnIn_({ value: ex ? (ex.category || '') : '', list: 'v51Cats', placeholder: 'паливо, обід, інструмент, зарплата помічнику…', style: 'width:100%;' });
+  var dl = fh_('datalist', { id: 'v51Cats' }, ['паливо', 'транспорт', 'їжа', 'інструмент', 'зарплата', 'податки', 'інше'].map(function (c) { return fh_('option', { value: c }); }));
+  var amount = fnIn_({ type: 'number', min: '0', step: 'any', value: ex ? ex.amount : '', style: 'font-size:16px;font-weight:700;' });
+  var date = fnIn_({ type: 'date', value: ex ? fnDay_(ex.date) : fnToday_() });
+  var desc = fnIn_({ value: ex ? (ex.description || '') : '', style: 'width:100%;' });
+  var body = fh_('div', {}, [fh_('p', { 'class': 'page-sub' }, ['Це ТВОЯ особиста витрата — бачиш лише ти. Вона віднімається від твого прибутку та твоїх грошей на руках, партнерів не чіпає.']),
+    fnRow_('Обʼєкт (необовʼязково)', objSel), fnRow_('Категорія', cat), dl,
+    fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Сума, грн', amount), fnRow_('Дата', date)]), fnRow_('Опис', desc)]);
+  var save = fnBtn_(ex ? 'Зберегти' : 'Додати', 'primary', function () {
+    var a = fnNum_(amount.value);
+    if (!(a > 0)) { toast('Вкажи суму більшу за 0', 'error'); return; }
+    var data = { object_id: objSel.value, category: cat.value.trim() || 'інше', amount: a, date: date.value || fnToday_(), description: desc.value.trim() };
+    var undo = fnBusy_(save);
+    (ex ? apiCall('updateOwnerExpense', Object.assign({ id: ex.id }, data)) : apiCall('createOwnerExpense', data)).then(function (row) {
+      closeModal();
+      if (ex) { V51.patchOwner(ex, -1); V51.mine = (V51.mine || []).map(function (x) { return x.id === ex.id ? row : x; }); }
+      else V51.mine = [row].concat(V51.mine || []);
+      V51.patchOwner(row, 1); toast('Збережено', 'success');
+      if (done) done(); fnAfterChange_();
+    }).catch(function (e) { undo(); fnErr_(e); });
+  });
+  var actions = fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]);
+  if (ex) actions.insertBefore(fnBtn_('Видалити', 'danger', function () {
+    confirmAction('Видалити цю особисту витрату?', function () {
+      apiCall('deleteOwnerExpense', { id: ex.id }).then(function () { V51.patchOwner(ex, -1); V51.mine = (V51.mine || []).filter(function (x) { return x.id !== ex.id; }); closeModal(); toast('Видалено', 'success'); if (done) done(); fnAfterChange_(); }).catch(fnErr_);
+    });
+  }), actions.firstChild);
+  body.appendChild(actions);
+  openModal(ex ? 'Моя витрата' : 'Нова моя витрата', body);
+};
+// вкладка «Мої витрати»
+V51.minePane = function (content, data) {
+  var box = fh_('div'); content.appendChild(box);
+  function draw() {
+    box.innerHTML = '';
+    var t = (data && data.totals) || {}, list = (V51.mine || []).slice().sort(fnByDateDesc_);
+    box.appendChild(fh_('div', { 'class': 'v44-grid' }, [
+      kpiCard('Мої витрати', fmtMoney(t.owner_expenses || 0), [['з них загальні', fmtMoney(t.owner_expenses_general || 0)]]),
+      kpiCard('Мій прибуток', fmtMoney(t.owner_profit || 0), [['частка мінус витрати', '']]),
+      kpiCard('Мої гроші на руках', fmtMoney(t.owner_cash || 0), [['частка готівки мінус витрати', '']])]));
+    box.appendChild(fh_('div', { style: 'margin:6px 0 10px;' }, [fnBtn_('+ Моя витрата', 'primary', function () { V51.expenseForm(null, '', draw); })]));
+    if (!list.length) { box.appendChild(fh_('div', { 'class': 'empty-state' }, ['Особистих витрат ще немає. Їх бачиш тільки ти.'])); return; }
+    var table = fh_('table', { 'class': 'dt' });
+    table.appendChild(fh_('thead', {}, [fh_('tr', {}, ['Дата', 'Обʼєкт', 'Категорія', 'Сума', 'Опис'].map(function (h) { return fh_('th', {}, [h]); }))]));
+    var tb = fh_('tbody');
+    list.forEach(function (e) {
+      var tr = fh_('tr', { style: 'cursor:pointer;' }, [fh_('td', {}, [fmtDate(e.date)]), fh_('td', {}, [e.object_id ? fnObjName_(e.object_id) : 'загальна']), fh_('td', {}, [e.category || '—']), fh_('td', {}, [fh_('b', {}, [fmtMoney(e.amount)])]), fh_('td', {}, [e.description || '—'])]);
+      tr.onclick = function () { V51.expenseForm(e, '', draw); };
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb); box.appendChild(table); wrapTablesForMobile_(box);
+  }
+  if (V51.mine) draw(); else box.appendChild(fh_('div', { 'class': 'page-sub' }, ['⏳ Завантажую…']));
+  apiCall('getOwnerExpenses', {}).then(function (r) { V51.mine = r || []; if (box.isConnected) draw(); }).catch(function (e) { if (box.isConnected) { box.innerHTML = ''; fnErr_(e); } });
+};
+// вкладка «Гроші на руках» по обʼєктах
+V51.cashPane = function (content, data) {
+  var owner = V50.isOwner() && (data.totals || {}).owner_active !== undefined;
+  var list = (data.objects || []).filter(function (s) { return Math.abs(s.cash_on_hand) > 0.005 || s.client_paid > 0 || s.brigades_paid > 0 || s.expenses_total > 0 || (owner && s.owner_expenses > 0); })
+    .sort(function (a, b) { return b.cash_on_hand - a.cash_on_hand; });
+  content.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 10px;' }, ['На руках = отримано від клієнта − виплачено бригадам − витрати по обʼєкту.' + (owner ? ' «Моя частка» — за твоїм розподілом прибутку, мої особисті витрати віднімаються.' : '')]));
+  if (!list.length) { content.appendChild(fh_('div', { 'class': 'empty-state' }, ['Рухів грошей по обʼєктах ще немає.'])); return; }
+  var heads = ['Обʼєкт', 'Отримано', 'Виплачено бригадам', 'Витрати', 'На руках'];
+  if (owner) heads.push('Моя частка', 'Мої витрати', 'Мені на руках');
+  var t = fh_('table', { 'class': 'dt' });
+  t.appendChild(fh_('thead', {}, [fh_('tr', {}, heads.map(function (h) { return fh_('th', {}, [h]); }))]));
+  var tb = fh_('tbody'), sum = { paid: 0, out: 0, exp: 0, cash: 0, share: 0, oexp: 0, ocash: 0 };
+  function col(v) { return fh_('b', { style: 'color:' + (v < -0.5 ? 'var(--red)' : v > 0.5 ? 'var(--green)' : 'inherit') + ';' }, [fmtMoney(v)]); }
+  list.forEach(function (s) {
+    sum.paid += s.client_paid; sum.out += s.brigades_paid; sum.exp += s.expenses_total; sum.cash += s.cash_on_hand;
+    var cells = [fh_('td', {}, [fh_('b', {}, [s.name || fnObjName_(s.object_id)])]), fh_('td', {}, [fmtMoney(s.client_paid)]), fh_('td', {}, [fmtMoney(s.brigades_paid)]), fh_('td', {}, [fmtMoney(s.expenses_total)]), fh_('td', {}, [col(s.cash_on_hand)])];
+    if (owner) { sum.share += s.owner_cash_share || 0; sum.oexp += s.owner_expenses || 0; sum.ocash += s.owner_cash || 0;
+      cells.push(fh_('td', {}, [fmtMoney(s.owner_cash_share || 0) + ' (' + (s.owner_percent == null ? 100 : s.owner_percent) + '%)']), fh_('td', {}, [fmtMoney(s.owner_expenses || 0)]), fh_('td', {}, [col(s.owner_cash || 0)])); }
+    var tr = fh_('tr', { style: 'cursor:pointer;' }, cells); tr.onclick = function () { location.hash = '#/objects/' + s.object_id; }; tb.appendChild(tr);
+  });
+  var foot = [fh_('td', {}, [fh_('b', {}, ['Разом'])]), fh_('td', {}, [fh_('b', {}, [fmtMoney(sum.paid)])]), fh_('td', {}, [fh_('b', {}, [fmtMoney(sum.out)])]), fh_('td', {}, [fh_('b', {}, [fmtMoney(sum.exp)])]), fh_('td', {}, [col(sum.cash)])];
+  if (owner) foot.push(fh_('td', {}, [fh_('b', {}, [fmtMoney(sum.share)])]), fh_('td', {}, [fh_('b', {}, [fmtMoney(sum.oexp)])]), fh_('td', {}, [col(sum.ocash)]));
+  tb.appendChild(fh_('tr', { style: 'border-top:2px solid var(--gold);' }, foot));
+  t.appendChild(tb); content.appendChild(t);
+  var gen = (data.totals || {}).owner_expenses_general || 0;
+  if (owner && gen > 0) content.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin-top:8px;' }, ['+ мої загальні витрати без обʼєкта: ' + fmtMoney(gen) + ' — враховані в «Мій прибуток» і «Мої гроші на руках» зверху.']));
+};
+// шаблони текстів документа
+V51.tplAll = function () { var raw = (STATE.db.settings || {}).doc_text_templates; var o = {}; try { o = JSON.parse(raw || '{}') || {}; } catch (e) { o = {}; } ['intro', 'notes', 'terms', 'footer'].forEach(function (k) { if (!Array.isArray(o[k])) o[k] = []; }); return o; };
+V51.tplSave = function (all) {
+  return apiCall('saveDocTemplates', { templates: all }).then(function (r) { var st = STATE.db.settings || (STATE.db.settings = {}); st.doc_text_templates = JSON.stringify(r.templates); Storage.saveCache(); return r.templates; });
+};
+// panel над текстовим полем: випадаючий список шаблонів + «зберегти як шаблон»
+V51.tplBar = function (kind, label, inp, onChange) {
+  var bar = el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 4px;' });
+  function draw() {
+    bar.innerHTML = '';
+    var all = V51.tplAll(), list = all[kind] || [];
+    var sel = el('select', { class: 'v9-in', style: 'flex:1;min-width:140px;max-width:100%;' });
+    sel.appendChild(el('option', { value: '' }, [list.length ? '📋 Підставити готовий текст…' : '📋 Шаблонів ще немає']));
+    list.forEach(function (t) { sel.appendChild(el('option', { value: t.id }, [t.name])); });
+    sel.onchange = function () { var t = list.filter(function (x) { return x.id === sel.value; })[0]; if (t) { inp.value = t.text; onChange(); } sel.value = ''; };
+    bar.appendChild(sel);
+    bar.appendChild(fnBtn_('💾', 'small', function () {
+      var txt = inp.value.trim(); if (!txt) { toast('Спочатку напиши текст', 'error'); return; }
+      var nm = prompt('Як назвати цей шаблон? («' + label + '»)', ''); if (!nm || !nm.trim()) return;
+      var a = V51.tplAll(); a[kind].push({ id: 'T' + Date.now().toString(36), name: nm.trim().slice(0, 60), text: txt });
+      V51.tplSave(a).then(function () { toast('Шаблон збережено', 'success'); draw(); }).catch(fnErr_);
+    }, 'Зберегти поточний текст як шаблон'));
+    if (list.length) bar.appendChild(fnBtn_('🗑', 'small', function () { V51.tplManage(kind, label, draw); }, 'Керувати шаблонами'));
+  }
+  draw(); return bar;
+};
+V51.tplManage = function (kind, label, after) {
+  var all = V51.tplAll();
+  var body = fh_('div', {}, [fh_('p', { 'class': 'page-sub' }, ['Збережені шаблони «' + label + '». Можна перейменувати, змінити текст або видалити.'])]);
+  var rows = (all[kind] || []).map(function (t) { return { id: t.id, name: t.name, text: t.text }; });
+  var list = fh_('div'); body.appendChild(list);
+  function draw() {
+    list.innerHTML = '';
+    if (!rows.length) list.appendChild(fh_('div', { 'class': 'empty-state' }, ['Шаблонів немає.']));
+    rows.forEach(function (r, i) {
+      var nm = fnIn_({ value: r.name, style: 'width:100%;font-weight:700;' }), tx = fh_('textarea', { 'class': 'v9-in', rows: '3', style: 'width:100%;margin-top:4px;' }); tx.value = r.text;
+      nm.oninput = function () { r.name = nm.value; }; tx.oninput = function () { r.text = tx.value; };
+      list.appendChild(fh_('div', { 'class': 'card', style: 'padding:10px;margin:0 0 8px;' }, [nm, tx, fh_('div', { style: 'margin-top:6px;' }, [fnBtn_('🗑 Видалити', 'small danger', function () { rows.splice(i, 1); draw(); })])]));
+    });
+  }
+  draw();
+  var save = fnBtn_('Зберегти', 'primary', function () {
+    var a = V51.tplAll(); a[kind] = rows.filter(function (r) { return (r.name || '').trim() && (r.text || '').trim(); });
+    var undo = fnBusy_(save);
+    V51.tplSave(a).then(function () { closeModal(); toast('Шаблони збережено', 'success'); if (after) after(); }).catch(function (e) { undo(); fnErr_(e); });
+  });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]));
+  openModal('Шаблони: ' + label, body);
+};
+
 function boot() {
   var pubRoute = parsePublicRoute_();
   if (pubRoute) { bootPublicView_(pubRoute); return; }
