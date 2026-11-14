@@ -481,6 +481,7 @@ var NAV = [
   { id:'catalogs', label:'Шаблони і норми', icon:'🧩', resource:'catalogs' },
   { id:'prices', label:'Актуалізація цін', icon:'🔎', resource:'price_updates' },
   { id:'finance', label:'Фінанси', icon:'💰', resource:'finance' },
+  { id:'biz', label:'Фінанси власника', icon:'🏦', roles:['ADMIN'] },
   { id:'calc', label:'Скільки матеріалу', icon:'🧮', resource:'materials' },
   { id:'calcrooms', label:'Розрахунок по кімнатах', icon:'📐', resource:'materials', hidden:true },
   { id:'purchases', label:'Закупівлі', icon:'🛒', resource:'materials' },
@@ -1123,7 +1124,7 @@ function renderRoute() {
     dashboard: renderDashboard, clients: function () { renderClients(main, param); },
     requests: renderRequests, objects: function () { renderObjects(main, param); }, archive: function () { V43.renderArchive(main); },
     works: renderWorks, estimates: function () { renderEstimatesList(main, param); },
-    partners: renderPartners, materials: renderMaterialsPage, finance: renderFinance,
+    partners: renderPartners, materials: renderMaterialsPage, finance: renderFinance, biz: function () { V55.render(main); },
     calendar: renderCalendar, tasks: renderTasks, analytics: renderAnalytics, settings: renderSettings,
     auto: function () { V9.renderAutoPage(main, param ? decodeURIComponent(param) : undefined); },
     catalogs: function () { V9.renderCatalogsPage(main); }, prices: function () { V9.renderPricesPage(main); }
@@ -1163,7 +1164,7 @@ var NAV_GROUPS = [
   { id: 'g_sales', label: 'Клієнти і обʼєкти', icon: '👥', items: ['clients', 'requests', 'objects', 'archive'] },
   { id: 'g_est', label: 'Кошторис', icon: '🧾', items: ['calc', 'estimates', 'works'] },
   { id: 'g_mat', label: 'Матеріали і закупівлі', icon: '📦', items: ['materials', 'purchases', 'prices', 'catalogs'] },
-  { id: 'g_money', label: 'Гроші і документи', icon: '💰', items: ['finance', 'invoices', 'analytics', 'reports', 'dashboard'] },
+  { id: 'g_money', label: 'Гроші і документи', icon: '💰', items: ['finance', 'biz', 'invoices', 'analytics', 'reports', 'dashboard'] },
   { id: 'g_people', label: 'Бригади', icon: '👷', items: ['workdays', 'partners'] },
   { id: 'g_sys', label: 'Система', icon: '⚙️', items: ['insights', 'robot', 'activity', 'data', 'settings'] }
 ];
@@ -2630,6 +2631,8 @@ function openEditEstimateItem(it, estimate) {
   };
   var preview = el('div', { class: 'card', style: 'background:var(--panel2);margin-top:4px;' });
   body.appendChild(preview);
+  var trEdit = el('input', { type: 'checkbox' }); trEdit.checked = String(it.transit) === '1';
+  if (showCost && currentRole_() === 'ADMIN') body.appendChild(el('label', { style: 'display:block;margin:8px 0;' }, [trEdit, ' Транзит — гроші клієнта на матеріал (без націнки, не прибуток)']));
   function updatePreview() {
     var qtyEl = document.getElementById('f_eqty'); if (!qtyEl) return;
     var qty = Number(qtyEl.value) || 0;
@@ -2686,6 +2689,7 @@ function openEditEstimateItem(it, estimate) {
       patch.markup_type = modeSel.value; // 'percent' | 'fixed'
       patch.markup_value = Number(document.getElementById('f_emarkup').value) || 0;
     }
+    if (showCost && currentRole_() === 'ADMIN') patch.transit = trEdit.checked ? '1' : '';
     apiCall('updateEstimateItem', patch).then(function (res) {
       var i = STATE.db.estimateItems.findIndex(function (x) { return x.id === it.id; });
       STATE.db.estimateItems[i] = res.item;
@@ -3018,6 +3022,8 @@ function openAddManualMaterial(estimate) {
   drawResults();
   mode = 'catalog'; catalogBlock.style.display = ''; manualBlock.style.display = 'none'; // без updatePreview() — DOM ще не в document
 
+  var trAdd = el('input', { type: 'checkbox' });
+  if (showCost && currentRole_() === 'ADMIN') body.appendChild(el('label', { style: 'display:block;margin:8px 0;' }, [trAdd, ' Транзит — гроші клієнта на матеріал (без націнки, не прибуток)']));
   var actions = el('div', { class: 'form-actions' });
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
   var add = el('button', { class: 'btn primary' }, ['Додати']);
@@ -3048,6 +3054,7 @@ function openAddManualMaterial(estimate) {
         data.markup_type = mModeSel.value === 'fixed' ? 'fixed' : 'percent'; data.markup_value = Number(document.getElementById('f_mmarkup').value) || 0; data.contractor_price = cost;
       }
     }
+    if (trAdd.checked) data.transit = true;
     add.disabled = true;
     apiCall('addEstimateItem', data).then(function (res) {
       if (!STATE.db.estimateItems.some(function (x) { return x.id === res.item.id; })) STATE.db.estimateItems.push(res.item);
@@ -7538,6 +7545,8 @@ function openPaymentForm(arg) {
   var dateRow = fnRow_('Дата', date);
   body.appendChild(fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [dateRow, fnRow_('Спосіб', method)]));
   body.appendChild(fnRow_('Коментар', desc));
+  var accSel = currentRole_() === 'ADMIN' ? V55.accSel(existing ? existing.account_id : '') : null;
+  if (accSel) body.appendChild(fnRow_('Рахунок (куди/звідки гроші)', accSel));
   objSel.onchange = function () { fillPartners(); update(); };
   partnerSel.onchange = update; amount.oninput = update;
   function syncPlanned() { dateRow.querySelector('label').textContent = plannedCb.checked ? 'Очікувана дата' : 'Дата'; save.textContent = existing ? 'Зберегти' : (plannedCb.checked ? 'Додати в графік' : 'Додати платіж'); }
@@ -7550,6 +7559,7 @@ function openPaymentForm(arg) {
     var o = byId(STATE.db.objects, objSel.value) || {};
     var data = { object_id: objSel.value, client_id: o.client_id || '', direction: dir, amount: a, type: typeSel.value, date: date.value || fnToday_(),
       payment_method: method.value, description: desc.value.trim(), partner_id: dir === 'out' ? partnerSel.value : '', status: plannedCb.checked ? 'planned' : 'paid' };
+    if (accSel) data.account_id = accSel.value;
     var done = fnBusy_(save);
     var call = existing ? apiCall('updatePayment', Object.assign({ id: existing.id }, data)) : apiCall('createPayment', data);
     call.then(function (row) {
@@ -7572,9 +7582,9 @@ function openPaymentForm(arg) {
     }).catch(function (e) { done(); fnErr_(e); });
   });
   var actions = fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]);
-  if (existing && canDo_('finance', 'delete')) actions.insertBefore(fnBtn_('Видалити', 'danger', function () {
-    confirmAction('Видалити цей платіж? Борги перерахуються.', function () {
-      apiCall('deletePayment', { id: existing.id }).then(function () { if (String(existing.status) !== 'planned') Fin.patch(existing.direction === 'out' ? 'payment_out' : 'payment_in', existing, -1); fnRemove_('payments', existing.id); fnRemove_('plannedPayments', existing.id); toast('Платіж видалено', 'success'); return fnAfterChange_(); }).catch(fnErr_);
+  if (existing && canDo_('finance', 'delete')) actions.insertBefore(fnBtn_('Скасувати платіж', 'danger', function () {
+    V55.askReason('Скасувати платіж', 'Платіж не зникне — він збережеться в історії як скасований, а борги перерахуються.', function (why) {
+      apiCall('deletePayment', { id: existing.id, reason: why }).then(function () { if (String(existing.status) !== 'planned') Fin.patch(existing.direction === 'out' ? 'payment_out' : 'payment_in', existing, -1); fnRemove_('payments', existing.id); fnRemove_('plannedPayments', existing.id); toast('Платіж скасовано', 'success'); return fnAfterChange_(); }).catch(fnErr_);
     });
   }), actions.firstChild);
   body.appendChild(actions);
@@ -7596,18 +7606,23 @@ function openExpenseForm(arg) {
   var desc = fnIn_({ value: ex ? (ex.description || '') : '', style: 'width:100%;' });
   var body = fh_('div', {}, [fnRow_('Обʼєкт', objSel), fnRow_('Категорія', cat), dl,
     fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Сума, грн', amount), fnRow_('Дата', date)]), fnRow_('Опис', desc)]);
+  var expAcc = currentRole_() === 'ADMIN' ? V55.accSel(ex ? ex.account_id : '') : null;
+  if (expAcc) body.insertBefore(fnRow_('Рахунок', expAcc), body.lastChild);
+  var trCb = fh_('input', { type: 'checkbox' }); trCb.checked = !!(ex && String(ex.transit) === '1');
+  if (currentRole_() === 'ADMIN') body.appendChild(fh_('label', { style: 'display:block;margin:6px 0;' }, [trCb, ' Транзит: це гроші клієнта на матеріали (не моя витрата й не прибуток)']));
   var save = fnBtn_(ex ? 'Зберегти' : 'Додати', 'primary', function () {
     var a = fnNum_(amount.value);
     if (!(a > 0)) { toast('Вкажи суму більшу за 0', 'error'); return; }
     var data = { object_id: objSel.value, category: cat.value.trim() || 'інше', amount: a, date: date.value || fnToday_(), description: desc.value.trim() };
+    if (expAcc) { data.account_id = expAcc.value; data.transit = trCb.checked ? '1' : ''; }
     var done = fnBusy_(save);
     (ex ? apiCall('updateExpense', Object.assign({ id: ex.id }, data)) : apiCall('createExpense', data)).then(function (row) {
       fnUpsert_('expenses', row); Storage.saveCache(); closeModal(); if (!ex) Fin.patch('expense', row, 1); toast('Збережено', 'success'); return fnAfterChange_();
     }).catch(function (e) { done(); fnErr_(e); });
   });
   var actions = fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]);
-  if (ex && canDo_('finance', 'delete')) actions.insertBefore(fnBtn_('Видалити', 'danger', function () {
-    confirmAction('Видалити цю витрату?', function () { apiCall('deleteExpense', { id: ex.id }).then(function () { Fin.patch('expense', ex, -1); fnRemove_('expenses', ex.id); toast('Видалено', 'success'); return fnAfterChange_(); }).catch(fnErr_); });
+  if (ex && canDo_('finance', 'delete')) actions.insertBefore(fnBtn_('Скасувати витрату', 'danger', function () {
+    V55.askReason('Скасувати витрату', 'Витрата збережеться в історії як скасована.', function (why) { apiCall('deleteExpense', { id: ex.id, reason: why }).then(function () { Fin.patch('expense', ex, -1); fnRemove_('expenses', ex.id); toast('Скасовано', 'success'); return fnAfterChange_(); }).catch(fnErr_); });
   }), actions.firstChild);
   body.appendChild(actions);
   openModal(ex ? 'Витрата' : 'Нова витрата', body);
@@ -7748,7 +7763,7 @@ function renderObjectFinanceTab(container, o) {
     box.appendChild(fh_('div', { 'class': 'grid cols-4', style: 'margin-bottom:8px;' }, kp));
     box.appendChild(fnBar_(s.client_percent));
     if (cost) box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 10px;' }, ['Витрати: ' + fmtMoney(s.expenses_total) + ' · гроші на руках (отримано − виплачено − витрати): ' + fmtMoney(s.cash_on_hand) + ' · очікуваний прибуток по обʼєкту: ' + fmtMoney(s.expected_profit)]));
-    if (cost) { var wc53 = V53.card(s); if (wc53) box.appendChild(wc53); }
+    if (cost) { var wc53 = V53.card(s); if (wc53) box.appendChild(wc53); var fb55 = V55.objectBlock(o); if (fb55) box.appendChild(fb55); }
     if (cost) { var sb50 = V50.objectBlock(s, o); if (sb50) box.appendChild(sb50); }
     var bar = fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;' });
     if (canDo_('finance', 'create')) {
@@ -10309,11 +10324,12 @@ V50.edit = function (scopeId, title, done) {
   apiCall('getProfitSplits', {}).then(function (g) {
     var cur = scopeId ? ((g.objects || {})[scopeId] || []) : (g.default || []);
     var seed = cur.length ? cur : (g.default || []);
-    var rows = seed.filter(function (x) { return !x.is_owner; }).map(function (x) { return { name: x.name, percent: x.percent }; });
+    var rows = seed.filter(function (x) { return !x.is_owner; }).map(function (x) { return { name: x.name, percent: x.percent, business: x.kind === 'business' || x.name === 'Бізнес' }; });
+    var pnames = fh_('datalist', { id: 'v55pn' }); apiCall('listBizPartners', {}).then(function (ps) { ps.filter(function (p) { return p.active; }).forEach(function (p) { pnames.appendChild(fh_('option', { value: p.name })); }); }).catch(function () {});
     if (!rows.length) rows = [{ name: '', percent: '' }];
     var body = fh_('div', {}), list = fh_('div'), sumLine = fh_('div', { style: 'margin:10px 0;font-size:15px;' });
     body.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 8px;' }, [scopeId ? 'Як ділиться прибуток саме цього обʼєкта (підставлено стандартний — зміни, якщо тут інакше). Не збережеш — діє стандартний.' : 'Стандартний розподіл діє на всі обʼєкти, де не задано свій. Твоя частка = 100% мінус частки партнерів.']));
-    body.appendChild(list); body.appendChild(sumLine);
+    body.appendChild(pnames); body.appendChild(list); body.appendChild(sumLine);
     function refresh() {
       var sum = 0; rows.forEach(function (r) { sum += Number(r.percent) || 0; });
       var mine = Math.round((100 - sum) * 100) / 100;
@@ -10324,18 +10340,19 @@ V50.edit = function (scopeId, title, done) {
     function draw() {
       list.innerHTML = '';
       rows.forEach(function (r, i) {
-        var nm = fh_('input', { 'class': 'v9-in', placeholder: 'Імʼя партнера', value: r.name || '', style: 'flex:2;min-width:120px;' });
+        var nm = fh_('input', { 'class': 'v9-in', placeholder: 'Імʼя партнера', list: 'v55pn', value: r.business ? 'Бізнес (залишається в компанії)' : (r.name || ''), style: 'flex:2;min-width:120px;' }); if (r.business) nm.readOnly = true;
         var pc = fh_('input', { 'class': 'v9-in', type: 'number', min: '0', max: '100', step: '0.5', placeholder: '%', value: r.percent === '' ? '' : String(r.percent), style: 'width:80px;' });
         nm.oninput = function () { r.name = nm.value; }; pc.oninput = function () { r.percent = pc.value === '' ? '' : Number(pc.value); refresh(); };
         var del = fnBtn_('✕', 'small', function () { rows.splice(i, 1); if (!rows.length) rows.push({ name: '', percent: '' }); draw(); refresh(); }, 'Прибрати');
         list.appendChild(fh_('div', { style: 'display:flex;gap:8px;align-items:center;margin:0 0 6px;' }, [nm, pc, fh_('span', {}, ['%']), del]));
       });
       list.appendChild(fnBtn_('+ Додати партнера', 'small', function () { rows.push({ name: '', percent: '' }); draw(); refresh(); }));
+      if (!rows.some(function (r) { return r.business; })) list.appendChild(fnBtn_('+ Рядок «Бізнес»', 'small', function () { rows.push({ name: 'Бізнес', percent: '', business: true }); draw(); refresh(); }, 'Частка, що лишається в компанії й іде в місячний пул партнерів'));
     }
     draw(); refresh();
     var bar = fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;' });
     function save(clear) {
-      var others = clear ? [] : rows.filter(function (r) { return (r.name || '').trim() || Number(r.percent); }).map(function (r) { return { name: (r.name || '').trim(), percent: Number(r.percent) || 0 }; });
+      var others = clear ? [] : rows.filter(function (r) { return (r.name || '').trim() || Number(r.percent); }).map(function (r) { return r.business ? { business: true, name: 'Бізнес', percent: Number(r.percent) || 0 } : { name: (r.name || '').trim(), percent: Number(r.percent) || 0 }; });
       if (!clear && sumLine._mine < 0) { toast('Разом більше 100%', 'error'); return; }
       var undo = fnBusy_(okB);
       apiCall('saveProfitSplit', { object_id: scopeId || '', others: others, clear: !!clear }).then(function () { undo(); closeModal(); Fin.invalidate(); toast(clear ? 'Розподіл скинуто' : 'Розподіл збережено'); if (done) done(); else renderRoute(); }).catch(function (e) { undo(); fnErr_(e); });
@@ -10615,6 +10632,374 @@ V53.card = function (s) {
   var c = V52.group('💰 Розподіл грошей по обʼєкту', kids);
   c.className += ' v53-wallet'; c.style.marginBottom = '10px';
   return c;
+};
+
+/* =================== ETAP 55–59: BUDNEX FINANCE (лише власник) =================== */
+['listFinAccounts', 'getBizFinance', 'getOwnerMoney', 'listBizPartners', 'getGlobalTerms', 'listProfitPeriods', 'listObligations', 'getFinHistory', 'getFinReport', 'getFinSettings', 'getFinCloseCheck'].forEach(function (a) { SYNC_READONLY_ACTIONS[a] = 1; });
+var V55 = { tab: 'overview', accounts: null, hist: { q: '', type: '', from: '', to: '' } };
+// Підтвердження попереджень сервера (CONFIRM:...) — для будь-якої дії: показуємо причини й, якщо власник згоден, повторюємо з confirm:true
+V55.warn = function (warnings, onYes, onNo) {
+  var body = fh_('div', {}, [fh_('p', { style: 'margin:0 0 8px;' }, ['⚠️ Зверніть увагу:']),
+    fh_('ul', { style: 'margin:0 0 12px 18px;padding:0;' }, warnings.map(function (w) { return fh_('li', { style: 'margin-bottom:4px;' }, [w]); }))]);
+  var act = fh_('div', { 'class': 'form-actions' }, [
+    fnBtn_('Ні, скасувати', '', function () { closeModal(); if (onNo) onNo(); }),
+    fnBtn_('Так, все одно виконати', 'danger', function () { closeModal(); onYes(); })]);
+  body.appendChild(act); openModal('Потрібне підтвердження', body);
+};
+(function () {
+  var _api = apiCall;
+  apiCall = function (action, data) {
+    return _api(action, data).catch(function (e) {
+      var m = e && e.message || '';
+      if (!/^CONFIRM:/.test(m) || (data && data.confirm)) throw e;
+      return new Promise(function (res, rej) {
+        V55.warn(m.slice(8).split(' | '), function () { _api(action, Object.assign({}, data, { confirm: true, _rid: undefined })).then(res, rej); },
+          function () { var c = new Error('Скасовано'); c.cancelled = true; rej(c); });
+      });
+    });
+  };
+  var _fe = fnErr_;
+  fnErr_ = function (e) { if (e && e.cancelled) return; _fe(e); };
+})();
+// діалог «вкажіть причину» (замість видалення платежів/витрат)
+V55.askReason = function (title, hint, onOk, okLabel) {
+  var ta = fh_('textarea', { 'class': 'v9-in', rows: '3', style: 'width:100%;', placeholder: 'Наприклад: помилково внесено, дубль, повернули гроші' });
+  var body = fh_('div', {}, [fh_('p', { 'class': 'page-sub' }, [hint]), fnRow_('Причина *', ta)]);
+  var ok = fnBtn_(okLabel || 'Підтвердити', 'danger', function () {
+    var r = ta.value.trim(); if (r.length < 3) { toast('Вкажіть причину (хоча б кілька слів)', 'error'); return; }
+    closeModal(); onOk(r);
+  });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Назад', '', closeModal), ok]));
+  openModal(title, body);
+};
+V55.loadAccounts = function () { return apiCall('listFinAccounts', {}).then(function (a) { V55.accounts = a || []; return V55.accounts; }); };
+// випадаючий список рахунків для форм платежу/витрати
+V55.accSel = function (value) {
+  var sel = fnSel_([['', '— без рахунку —']], value || '');
+  var fill = function (list) { sel.innerHTML = ''; [['', '— без рахунку —']].concat((list || []).filter(function (a) { return a.active; }).map(function (a) { return [a.id, a.name + (a.personal ? ' (особиста)' : '')]; })).forEach(function (o) { var op = fh_('option', { value: o[0] }, [o[1]]); if (o[0] === (value || '')) op.selected = true; sel.appendChild(op); }); };
+  if (V55.accounts) fill(V55.accounts); else if (currentRole_() === 'ADMIN') V55.loadAccounts().then(fill).catch(function () {});
+  return sel;
+};
+V55.M = function (v) { return fmtMoney(v); };
+V55.card = function (title, kids, style) { return fh_('div', { 'class': 'card', style: 'padding:12px 14px;margin:0 0 10px;' + (style || '') }, [fh_('div', { 'class': 'chart-title', style: 'margin-bottom:6px;' }, [title])].concat(kids)); };
+V55.kpi = function (label, value, sub, color) { return fh_('div', { 'class': 'card', style: 'padding:10px 12px;margin:0;min-width:0;' }, [fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:12px;' }, [label]), fh_('div', { style: 'font-size:20px;font-weight:700;' + (color ? 'color:' + color + ';' : '') }, [value]), sub ? fh_('div', { 'class': 'page-sub', style: 'margin:2px 0 0;font-size:11px;' }, [sub]) : null]); };
+V55.grid = function (kids) { return fh_('div', { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;' }, kids); };
+V55.day = function (v) { return String(v || '').slice(0, 10); };
+V55.reload = function () { var m = document.getElementById('main'); if (m && V55.mount) V55.render(V55.mount); };
+
+V55.render = function (main) {
+  V55.mount = main; main.innerHTML = '';
+  if (currentRole_() !== 'ADMIN') { main.appendChild(fh_('div', { 'class': 'empty-state' }, [fh_('div', { style: 'font-size:40px;' }, ['🔒']), fh_('h3', {}, ['Фінанси власника доступні лише адміністратору'])])); return; }
+  main.appendChild(fh_('h1', { 'class': 'page-title' }, ['🏦 Фінанси власника']));
+  main.appendChild(fh_('p', { 'class': 'page-sub' }, ['Приватний розділ: ці суми бачите лише ви. У групу Telegram вони не потрапляють.']));
+  var tabs = [['overview', '📊 Огляд'], ['mine', '👤 Мої гроші'], ['partners', '🤝 Партнери'], ['accounts', '🏧 Рахунки'], ['obl', '🧾 Зобовʼязання'], ['hist', '📜 Історія'], ['report', '🧮 Звіт'], ['set', '⚙️ Налаштування']];
+  var bar = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;' }, tabs.map(function (t) {
+    return fnBtn_(t[1], 'small' + (V55.tab === t[0] ? ' primary' : ''), function () { V55.tab = t[0]; V55.render(main); });
+  }));
+  main.appendChild(bar);
+  var box = fh_('div', { id: 'v55box' }, [fh_('div', { 'class': 'page-sub' }, ['⏳ Завантаження...'])]); main.appendChild(box);
+  var fn = { overview: V55.tOverview, mine: V55.tMine, partners: V55.tPartners, accounts: V55.tAccounts, obl: V55.tObl, hist: V55.tHist, report: V55.tReport, set: V55.tSet }[V55.tab];
+  fn(box).catch(function (e) { box.innerHTML = ''; box.appendChild(fh_('div', { 'class': 'card', style: 'color:var(--red);' }, ['Не вдалося завантажити: ' + (e && e.message || e)])); });
+};
+
+/* ---------- Огляд ---------- */
+V55.tOverview = function (box) {
+  return apiCall('getBizFinance', {}).then(function (b) {
+    V55.biz = b; box.innerHTML = '';
+    var M = V55.M, R = V52.row;
+    box.appendChild(V55.grid([
+      V55.kpi('Гроші в бізнесі', M(b.business_balance), 'на рахунках, без особистої картки'),
+      V55.kpi('Зарезервовано', M(b.reserve.total), 'майстри, партнери, зобовʼязання…', 'var(--gold)'),
+      V55.kpi('Вільні гроші', M(b.reserve.free), 'після резерву', b.reserve.free < -0.5 ? 'var(--red)' : 'var(--green)'),
+      V55.kpi('Можна забрати мені', M(b.owner.withdrawable), 'без шкоди для бізнесу', 'var(--green)'),
+      V55.kpi('Клієнти ще винні', M(b.clients_owe), 'по обʼєктах у роботі'),
+      V55.kpi('Винні майстрам', M(b.obligations.brigades_due), 'ще не виплачено'),
+      V55.kpi('Винні партнерам', M(b.partners_owed), 'нараховано, не виплачено'),
+      V55.kpi('Прибуток компанії за місяць', M(b.profit.company_month), 'надходжень ' + M(b.income.month))
+    ]));
+    if (b.alerts.length) {
+      box.appendChild(V55.card('⚠️ Що потребує уваги', b.alerts.map(function (a) {
+        var col = a.level === 'red' ? 'var(--red)' : a.level === 'yellow' ? 'var(--gold)' : 'var(--text)';
+        var row = fh_('div', { style: 'padding:6px 0;border-bottom:1px solid var(--border);color:' + col + ';cursor:pointer;' }, [(a.level === 'red' ? '🔴 ' : a.level === 'yellow' ? '🟡 ' : 'ℹ️ ') + a.text]);
+        row.onclick = function () { if (a.hash && a.hash !== '#/biz') location.hash = a.hash; };
+        return row;
+      })));
+    } else box.appendChild(V55.card('✅ Проблем не видно', [fh_('div', { 'class': 'page-sub' }, ['Резерв, борги й обʼєкти в нормі.'])]));
+    if (b.ready_to_close.length) {
+      box.appendChild(V55.card('🏁 Готові до фінансового закриття', b.ready_to_close.map(function (r) {
+        return fh_('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);' }, [fh_('span', {}, [r.name + ' · прогноз ' + M(r.expected_profit)]), fnBtn_('Закрити фінансово', 'small primary', function () { V55.closeDialog(r.object_id); })]);
+      })));
+    }
+    box.appendChild(V55.card('🛡 З чого складається резерв', b.reserve.items.map(function (i) { return R(i.label, M(i.amount), { dim: !i.amount }); }).concat([R('Разом резерв', M(b.reserve.total), { top: true, big: true }), R('Гроші в бізнесі', M(b.business_balance), {}), R('Вільно', M(b.reserve.free), { top: true, big: true, color: b.reserve.free < -0.5 ? 'var(--red)' : 'var(--green)' })]).concat(b.reserve.items.filter(function (i) { return i.note; }).map(function (i) { return fh_('div', { 'class': 'page-sub', style: 'font-size:11px;margin:2px 0;' }, [i.label + ': ' + i.note]); }))));
+    box.appendChild(V55.card('🏧 По рахунках', b.accounts.map(function (a) { return R(a.name + (a.personal ? ' (особиста, не в бізнесі)' : ''), M(a.balance), { dim: a.personal }); }).concat(b.unassigned.count ? [R('Операції без рахунку (' + b.unassigned.count + ')', M(b.unassigned.balance), { dim: true })] : [])));
+    var mx = Math.max.apply(null, b.series.map(function (s) { return Math.max(s.income, s.spend, Math.abs(s.profit), 1); }));
+    box.appendChild(V55.card('📈 Останні 6 місяців', b.series.map(function (s) {
+      var w = function (v) { return Math.max(1, Math.round(Math.abs(v) / mx * 100)) + '%'; };
+      return fh_('div', { style: 'margin:6px 0;font-size:12px;' }, [fh_('div', {}, [s.m + ' · надійшло ' + M(s.income) + ' · витрачено ' + M(s.spend) + ' · результат ' + M(s.profit)]),
+        fh_('div', { style: 'height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;' }, [fh_('div', { style: 'height:6px;width:' + w(s.income) + ';background:var(--green);' })]),
+        fh_('div', { style: 'height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin-top:2px;' }, [fh_('div', { style: 'height:6px;width:' + w(s.spend) + ';background:var(--gold);' })])]);
+    })));
+    box.appendChild(V55.card('🏆 Найприбутковіші обʼєкти', b.top_objects.length ? b.top_objects.map(function (o) { return fh_('div', { style: 'padding:5px 0;cursor:pointer;', onclick: function () { location.hash = '#/objects/' + o.object_id; } }, [o.name + ' — ' + M(o.closed ? o.actual_profit : o.expected_profit) + (o.closed ? ' (закрито)' : ' (прогноз)')]); }) : [fh_('div', { 'class': 'page-sub' }, ['Поки немає обʼєктів у роботі.'])]));
+    if (b.problem_objects.length) box.appendChild(V55.card('🚨 Проблемні обʼєкти', b.problem_objects.map(function (o) { return fh_('div', { style: 'padding:5px 0;color:var(--red);cursor:pointer;', onclick: function () { location.hash = '#/objects/' + o.object_id; } }, [o.name + ' — ' + o.why]); })));
+    var acts = fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;' }, [
+      fnBtn_('+ Загальна витрата бізнесу', '', function () { V55.bizExpenseForm(); }),
+      fnBtn_('⇄ Перемістити між рахунками', '', function () { V55.transferForm(); })]);
+    box.appendChild(acts);
+  });
+};
+V55.bizExpenseForm = function () {
+  var cat = fnIn_({ list: 'v55cats', placeholder: 'реклама, звʼязок, ПЗ, авто…', style: 'width:100%;' });
+  var dl = fh_('datalist', { id: 'v55cats' }, ['реклама', 'звʼязок', 'програмне забезпечення', 'авто', 'оренда', 'адміністративні', 'інше'].map(function (c) { return fh_('option', { value: c }); }));
+  var amount = fnIn_({ type: 'number', min: '0', step: 'any', style: 'font-size:16px;font-weight:700;' }), date = fnIn_({ type: 'date', value: fnToday_() }), desc = fnIn_({ style: 'width:100%;' }), acc = V55.accSel('');
+  var body = fh_('div', {}, [fh_('p', { 'class': 'page-sub' }, ['Витрата бізнесу, не привʼязана до обʼєкта. Зменшує пул «Бізнес» за місяць.']), fnRow_('Категорія *', cat), dl, fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Сума, грн *', amount), fnRow_('Дата', date)]), fnRow_('Рахунок', acc), fnRow_('Опис', desc)]);
+  var save = fnBtn_('Додати', 'primary', function () {
+    var a = fnNum_(amount.value); if (!(a > 0)) { toast('Вкажіть суму більшу за 0', 'error'); return; } if (!cat.value.trim()) { toast('Оберіть категорію', 'error'); return; }
+    var done = fnBusy_(save);
+    apiCall('createBizExpense', { category: cat.value.trim(), amount: a, date: date.value, description: desc.value.trim(), account_id: acc.value }).then(function () { closeModal(); toast('Додано', 'success'); V55.reload(); }).catch(function (e) { done(); fnErr_(e); });
+  });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save])); openModal('Загальна витрата бізнесу', body);
+};
+V55.transferForm = function () {
+  V55.loadAccounts().then(function (list) {
+    var opts = list.filter(function (a) { return a.active; }).map(function (a) { return [a.id, a.name + ' · ' + V55.M(a.balance)]; });
+    if (opts.length < 2) { toast('Спершу створіть щонайменше два рахунки (вкладка «Рахунки»)', 'error'); return; }
+    var from = fnSel_(opts, opts[0][0]), to = fnSel_(opts, opts[1][0]), amount = fnIn_({ type: 'number', min: '0', step: 'any' }), note = fnIn_({ style: 'width:100%;' });
+    var body = fh_('div', {}, [fnRow_('Звідки', from), fnRow_('Куди', to), fnRow_('Сума, грн *', amount), fnRow_('Примітка', note)]);
+    var save = fnBtn_('Перемістити', 'primary', function () {
+      var a = fnNum_(amount.value); if (!(a > 0)) { toast('Вкажіть суму', 'error'); return; }
+      var done = fnBusy_(save);
+      apiCall('createTransfer', { from_id: from.value, to_id: to.value, amount: a, note: note.value.trim() }).then(function () { closeModal(); toast('Переміщено', 'success'); V55.reload(); }).catch(function (e) { done(); fnErr_(e); });
+    });
+    body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save])); openModal('Переміщення між рахунками', body);
+  }).catch(fnErr_);
+};
+
+/* ---------- Закриття обʼєкта ---------- */
+V55.closeDialog = function (objectId) {
+  apiCall('getFinCloseCheck', { object_id: objectId }).then(function (c) {
+    var M = V55.M, f = c.fin, R = V52.row;
+    var body = fh_('div', {}, [fh_('p', { 'class': 'page-sub' }, ['Після закриття нарахується ваша винагорода та частки, а обʼєкт перестане змінювати прибуток. Це можна відкотити з причиною.'])]);
+    body.appendChild(V55.card('Результат обʼєкта «' + c.name + '»', [
+      R('Фактичний прибуток', M(f.actual_profit), { color: f.actual_profit < 0 ? 'var(--red)' : '' }), R('Винагорода власника (до розподілу)', M(c.fee), { dim: true }),
+      R('Прибуток до розподілу', M(f.pool), { top: true, big: true, color: f.pool < 0 ? 'var(--red)' : 'var(--green)' })]
+      .concat((c.parts || []).map(function (p) { return R('   ' + p.name + ' ' + p.percent + '%', M(f.pool > 0 ? f.pool * p.percent / 100 : 0), { dim: true }); }))));
+    var feeIn = fnIn_({ type: 'number', min: '0', step: 'any', value: c.fee, style: 'width:140px;' });
+    body.appendChild(fnRow_('Винагорода власника за цей обʼєкт, грн', fh_('div', { style: 'display:flex;gap:6px;' }, [feeIn, fnBtn_('Змінити', 'small', function () { apiCall('setObjectFee', { object_id: objectId, amount: feeIn.value, note: 'змінено при закритті' }).then(function () { closeModal(); V55.closeDialog(objectId); }).catch(fnErr_); })]), 'Загальне значення задається в налаштуваннях.'));
+    c.blockers.forEach(function (b) { body.appendChild(fh_('div', { style: 'color:var(--red);margin:4px 0;' }, ['⛔ ' + b])); });
+    c.issues.forEach(function (b) { body.appendChild(fh_('div', { style: 'color:var(--gold);margin:4px 0;' }, ['⚠️ ' + b])); });
+    var reason = fh_('textarea', { 'class': 'v9-in', rows: '2', style: 'width:100%;', placeholder: 'Причина закриття попри зауваження' });
+    if (c.issues.length && c.can_close) body.appendChild(fnRow_('Причина закриття з зауваженнями *', reason));
+    var go = fnBtn_('Закрити фінансово', 'primary', function () {
+      if (c.issues.length && reason.value.trim().length < 3) { toast('Вкажіть причину закриття', 'error'); return; }
+      var done = fnBusy_(go);
+      apiCall('finCloseObject', { object_id: objectId, force: c.issues.length > 0, reason: reason.value.trim() }).then(function (r) { closeModal(); toast('Закрито. Нараховано власнику: ' + V55.M(r.accrued.filter(function (x) { return x.party === 'owner'; }).reduce(function (s, x) { return s + x.amount; }, 0)), 'success'); fnAfterChange_().then(V55.reload); }).catch(function (e) { done(); fnErr_(e); });
+    });
+    if (!c.can_close) go.disabled = true;
+    body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), go]));
+    openModal('Фінансове закриття', body, { wide: true });
+  }).catch(fnErr_);
+};
+V55.reopenDialog = function (objectId) { V55.askReason('Повернути обʼєкт у роботу', 'Нарахування за цим обʼєктом буде сторновано (історія збережеться).', function (r) { apiCall('finReopenObject', { object_id: objectId, reason: r }).then(function () { toast('Обʼєкт повернуто в роботу', 'success'); fnAfterChange_().then(V55.reload); }).catch(fnErr_); }, 'Повернути'); };
+
+/* ---------- Мої гроші ---------- */
+V55.tMine = function (box) {
+  return apiCall('getOwnerMoney', {}).then(function (m) {
+    box.innerHTML = ''; var M = V55.M, R = V52.row, o = m.owner;
+    box.appendChild(V55.grid([V55.kpi('Зароблено', M(o.earned), 'винагороди + частки'), V55.kpi('Отримано', M(o.paid)), V55.kpi('Нараховано, не виплачено', M(o.unpaid), '', 'var(--gold)'), V55.kpi('Можна забрати зараз', M(m.withdrawable), m.limit_note, 'var(--green)')]));
+    box.appendChild(V55.card('Звідки мій дохід', [R('Винагороди за обʼєкти', M(o.fee || 0)), R('Частка прибутку з обʼєктів', M(o.object_share || 0)), R('Частка глобального пулу', M(o.global_share || 0)), R('Мої особисті витрати (окремо)', M(m.personal_expenses), { dim: true }),
+      R('Ще не зароблено (обʼєкти в роботі, прогноз)', M(m.not_yet_earned_forecast), { dim: true }), R('Стандартна винагорода за обʼєкт', M(m.fee_default), { dim: true })]));
+    var amount = fnIn_({ type: 'number', min: '0', step: 'any', placeholder: 'сума' }), acc = V55.accSel(''), note = fnIn_({ placeholder: 'примітка', style: 'width:100%;' });
+    V55.loadAccounts().catch(function () {});
+    var pay = fnBtn_('Виплатити собі', 'primary', function () {
+      var a = fnNum_(amount.value); if (!(a > 0)) { toast('Вкажіть суму', 'error'); return; }
+      var done = fnBusy_(pay);
+      apiCall('createPayout', { party: 'owner', amount: a, account_id: acc.value, note: note.value.trim() }).then(function () { toast('Виплату записано', 'success'); V55.reload(); }).catch(function (e) { done(); fnErr_(e); });
+    });
+    box.appendChild(V55.card('💸 Взяти гроші', [fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Сума, грн', amount), fnRow_('З якого рахунку', acc)]), fnRow_('Примітка', note), fh_('div', { 'class': 'page-sub' }, ['Якщо сума більша за дозволену — система попередить, але ви зможете підтвердити.']), pay]));
+    box.appendChild(V55.card('Мої виплати', m.payouts.length ? m.payouts.map(function (p) {
+      var row = fh_('div', { style: 'display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);' + (p.status === 'cancelled' ? 'text-decoration:line-through;opacity:.6;' : '') }, [fh_('span', {}, [V55.day(p.date) + ' · ' + M(p.amount) + (p.note ? ' · ' + p.note : '')])]);
+      if (p.status !== 'cancelled') row.appendChild(fnBtn_('Скасувати', 'small', function () { V55.askReason('Скасувати виплату', 'Виплата ' + M(p.amount) + ' від ' + V55.day(p.date) + '.', function (r) { apiCall('voidPayout', { id: p.id, reason: r }).then(function () { V55.reload(); }).catch(fnErr_); }); }));
+      return row;
+    }) : [fh_('div', { 'class': 'page-sub' }, ['Виплат ще не було.'])]));
+    box.appendChild(V55.card('Нарахування мені', m.ledger.length ? m.ledger.map(function (l) { return fh_('div', { style: 'padding:4px 0;font-size:13px;' }, [V55.day(l.date) + ' · ' + ({ fee: 'винагорода', object_share: 'частка з обʼєкта', global_share: 'глобальна частка', reversal: 'сторно' }[l.kind] || l.kind) + ' · ' + M(l.amount) + (l.object_id ? ' · ' + ((STATE.db.objects || []).filter(function (x) { return x.id === l.object_id; })[0] || {}).name : '')]); }) : [fh_('div', { 'class': 'page-sub' }, ['Нарахувань ще немає — вони зʼявляться після фінансового закриття обʼєктів.'])]));
+  });
+};
+
+/* ---------- Партнери ---------- */
+V55.tPartners = function (box) {
+  return Promise.all([apiCall('listBizPartners', {}), apiCall('getGlobalTerms', {}), apiCall('listProfitPeriods', { period: V55.prevMonth() })]).then(function (r) {
+    var list = r[0], terms = r[1], per = r[2]; box.innerHTML = ''; var M = V55.M;
+    box.appendChild(fnBtn_('+ Додати бізнес-партнера', 'primary', function () { V55.partnerForm(); }));
+    list.forEach(function (p) {
+      var kids = [fh_('div', {}, [fh_('b', {}, [p.name + (p.active ? '' : ' (неактивний)')]), p.phone ? ' · ' + p.phone : '']),
+        fh_('div', { 'class': 'page-sub', style: 'margin:3px 0;' }, ['Глобальна частка зараз: ' + p.global_percent + '% · з обʼєктів ' + M(p.object_share) + ' · з пулу ' + M(p.global_share)]),
+        fh_('div', {}, ['Нараховано ' + M(p.earned) + ' · виплачено ' + M(p.paid) + ' · ', fh_('b', { style: 'color:' + (p.unpaid > 0.5 ? 'var(--gold)' : 'inherit') + ';' }, ['винні ' + M(p.unpaid)])])];
+      var acts = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;' }, [fnBtn_('💸 Виплатити', 'small', function () { V55.partnerPayout(p); }), fnBtn_('Змінити', 'small', function () { V55.partnerForm(p); }),
+        fnBtn_('Видалити', 'small danger', function () { confirmAction('Видалити партнера «' + p.name + '»? Якщо за ним є історія — він лише стане неактивним.', function () { apiCall('deleteBizPartner', { id: p.id }).then(function (x) { toast(x && x.archived ? 'Партнер архівований (є історія)' : 'Видалено', 'success'); V55.reload(); }).catch(fnErr_); }); })]);
+      kids.push(acts); box.appendChild(V55.card('', kids, 'margin-top:10px;'));
+    });
+    if (!list.length) box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:10px 0;' }, ['Партнерів ще немає. Додайте — і призначайте їм відсотки на обʼєктах або в загальному пулі.']));
+    // глобальні умови
+    var act = list.filter(function (p) { return p.active; });
+    var inputs = {}, kids2 = [fh_('p', { 'class': 'page-sub' }, ['Частка кожного партнера в місячному пулі «Бізнес». Решта — ваша. Нові відсотки діють з вибраної дати, старі нарахування не змінюються.'])];
+    act.forEach(function (p) { var cur = (terms.partners.filter(function (t) { return t.partner_id === p.id; })[0] || {}).percent || 0; inputs[p.id] = fnIn_({ type: 'number', min: '0', max: '100', step: 'any', value: cur, style: 'width:90px;' }); kids2.push(fh_('div', { style: 'display:flex;gap:8px;align-items:center;margin:4px 0;' }, [fh_('span', { style: 'min-width:120px;' }, [p.name]), inputs[p.id], '%'])); });
+    var from = fnIn_({ type: 'date', value: fnToday_() });
+    kids2.push(fh_('div', { 'class': 'page-sub' }, ['Власник отримує: ' + terms.owner_percent + '% (зараз)']));
+    kids2.push(fnRow_('Діє з дати', from));
+    if (act.length) kids2.push(fnBtn_('Зберегти відсотки', 'primary', function () {
+      apiCall('saveGlobalTerms', { valid_from: from.value, terms: act.map(function (p) { return { partner_id: p.id, percent: fnNum_(inputs[p.id].value) }; }) }).then(function () { toast('Збережено', 'success'); V55.reload(); }).catch(fnErr_);
+    }));
+    box.appendChild(V55.card('📐 Глобальні відсотки партнерів', kids2, 'margin-top:12px;'));
+    // місячний розподіл
+    var pv = per.preview, pk = [fh_('p', { 'class': 'page-sub' }, ['Пул = «Бізнес»-частки обʼєктів за місяць − загальні витрати бізнесу − ручний резерв.'])];
+    var ms = fnIn_({ type: 'month', value: pv.period }), reserve = fnIn_({ type: 'number', min: '0', step: 'any', value: '0', style: 'width:120px;' }), rnote = fnIn_({ placeholder: 'причина резерву', style: 'width:100%;' });
+    pk.push(fnRow_('Місяць', ms));
+    pk.push(V52.row('«Бізнес»-частки за ' + pv.period, M(pv.profit_business))); pk.push(V52.row('Загальні витрати бізнесу', M(pv.biz_expenses)));
+    pk.push(fnRow_('Ручний резерв, грн', reserve)); pk.push(fnRow_('Причина резерву', rnote));
+    ms.onchange = function () { apiCall('listProfitPeriods', { period: ms.value }).then(function (x) { V55.prevMonthVal = ms.value; V55.reloadWith(ms.value); }); };
+    if (pv.existing) pk.push(fh_('div', { style: 'color:var(--green);' }, ['✅ Цей місяць уже розподілено ' + V55.day(pv.existing.approved_at) + ' (пул ' + M(pv.existing.pool) + ')']));
+    else pk.push(fnBtn_('Розподілити місяць', 'primary', function () { apiCall('approveProfitPeriod', { period: pv.period, reserve: fnNum_(reserve.value), note: rnote.value.trim() }).then(function (x) { toast('Розподілено. Пул ' + M(x.period.pool), 'success'); V55.reload(); }).catch(fnErr_); }));
+    box.appendChild(V55.card('📅 Розподіл місяця', pk));
+    var hist = (per && per.periods) || [];
+    if (hist.length) box.appendChild(V55.card('Розподілені місяці', hist.map(function (p) { return fh_('div', { style: 'padding:4px 0;' }, [p.period + ' · пул ' + M(p.pool) + ' · ' + (p.status === 'no_profit' ? 'без прибутку' : 'розподілено')]); })));
+  });
+};
+V55.prevMonth = function () { if (V55.prevMonthVal) return V55.prevMonthVal; var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); };
+V55.reloadWith = function (ym) { V55.prevMonthVal = ym; V55.reload(); };
+V55.partnerForm = function (p) {
+  p = p || {}; var name = fnIn_({ value: p.name || '', style: 'width:100%;' }), phone = fnIn_({ value: p.phone || '', style: 'width:100%;' }), note = fnIn_({ value: p.note || '', style: 'width:100%;' });
+  var act = fh_('input', { type: 'checkbox' }); act.checked = p.active !== false;
+  var body = fh_('div', {}, [fnRow_('Імʼя *', name), fnRow_('Телефон', phone), fnRow_('Примітка', note), fh_('label', {}, [act, ' Активний']),
+    fh_('p', { 'class': 'page-sub' }, ['Входу в систему партнер поки не має — лише облік його часток і виплат.'])]);
+  var save = fnBtn_('Зберегти', 'primary', function () { if (!name.value.trim()) { toast('Вкажіть імʼя', 'error'); return; } apiCall('saveBizPartner', { id: p.id, name: name.value.trim(), phone: phone.value.trim(), note: note.value.trim(), active: act.checked }).then(function () { closeModal(); V55.reload(); }).catch(fnErr_); });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save])); openModal(p.id ? 'Партнер' : 'Новий бізнес-партнер', body);
+};
+V55.partnerPayout = function (p) {
+  var amount = fnIn_({ type: 'number', min: '0', step: 'any', value: p.unpaid > 0 ? p.unpaid : '' }), acc = V55.accSel(''), note = fnIn_({ style: 'width:100%;' });
+  var body = fh_('div', {}, [fh_('p', { 'class': 'page-sub' }, ['Зараз винні: ' + V55.M(p.unpaid)]), fnRow_('Сума, грн *', amount), fnRow_('З рахунку', acc), fnRow_('Примітка', note)]);
+  var save = fnBtn_('Виплатити', 'primary', function () { var a = fnNum_(amount.value); if (!(a > 0)) { toast('Вкажіть суму', 'error'); return; } var done = fnBusy_(save);
+    apiCall('createPayout', { party: p.id, amount: a, account_id: acc.value, note: note.value.trim() }).then(function () { closeModal(); toast('Виплату записано', 'success'); V55.reload(); }).catch(function (e) { done(); fnErr_(e); }); });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save])); openModal('Виплата: ' + p.name, body);
+};
+
+/* ---------- Рахунки ---------- */
+V55.tAccounts = function (box) {
+  return V55.loadAccounts().then(function (list) {
+    box.innerHTML = ''; var kinds = { cash: '💵 Готівка', bank: '🏦 Банк', card: '💳 Картка', other: 'Інше' };
+    box.appendChild(fh_('p', { 'class': 'page-sub' }, ['Рахунки показують, де фізично лежать гроші. Особиста картка не входить у баланс бізнесу й у суму, яку можна забрати. Касу можна додати як ще один рахунок.']));
+    box.appendChild(fnBtn_('+ Новий рахунок', 'primary', function () { V55.accountForm(); }));
+    list.filter(function (a) { return !a.virtual; }).forEach(function (a) {
+      box.appendChild(V55.card('', [fh_('div', { style: 'display:flex;justify-content:space-between;gap:8px;' }, [fh_('b', {}, [(kinds[a.kind] || '') + ' ' + a.name + (a.personal ? ' · особиста' : '') + (a.active ? '' : ' · неактивний')]), fh_('b', {}, [V55.M(a.balance)])]),
+        fh_('div', { 'class': 'page-sub', style: 'margin:3px 0;' }, ['Початковий залишок ' + V55.M(a.opening) + ' · надійшло ' + V55.M(a.inflow) + ' · вийшло ' + V55.M(a.outflow)]),
+        fh_('div', { style: 'display:flex;gap:6px;' }, [fnBtn_('Змінити', 'small', function () { V55.accountForm(a); }), fnBtn_('Видалити', 'small danger', function () { confirmAction('Видалити рахунок «' + a.name + '»? Якщо по ньому були операції — він стане неактивним.', function () { apiCall('deleteFinAccount', { id: a.id }).then(function () { V55.accounts = null; V55.reload(); }).catch(fnErr_); }); })])], 'margin-top:10px;'));
+    });
+    if (!list.filter(function (a) { return !a.virtual; }).length) box.appendChild(fnBtn_('Створити типові: Готівка, Рахунок ФОП, Картка (особиста)', '', function () {
+      [{ name: 'Готівка', kind: 'cash' }, { name: 'Рахунок ФОП', kind: 'bank' }, { name: 'Картка (особиста)', kind: 'card', personal: true }].reduce(function (p, a) { return p.then(function () { return apiCall('saveFinAccount', a); }); }, Promise.resolve()).then(function () { V55.accounts = null; V55.reload(); }).catch(fnErr_);
+    }));
+    box.appendChild(fnBtn_('⇄ Перемістити між рахунками', '', function () { V55.transferForm(); }));
+  });
+};
+V55.accountForm = function (a) {
+  a = a || {}; var name = fnIn_({ value: a.name || '', style: 'width:100%;' }), kind = fnSel_([['cash', 'Готівка'], ['bank', 'Банк / рахунок ФОП'], ['card', 'Картка'], ['other', 'Інше']], a.kind || 'cash'), open = fnIn_({ type: 'number', step: 'any', value: a.opening || 0 });
+  var pers = fh_('input', { type: 'checkbox' }); pers.checked = !!a.personal; var act = fh_('input', { type: 'checkbox' }); act.checked = a.active !== false;
+  var body = fh_('div', {}, [fnRow_('Назва *', name), fnRow_('Тип', kind), fnRow_('Початковий залишок, грн', open), fh_('label', {}, [pers, ' Особистий (не входить у баланс бізнесу)']), fh_('br', {}), fh_('label', {}, [act, ' Активний'])]);
+  var save = fnBtn_('Зберегти', 'primary', function () { if (!name.value.trim()) { toast('Вкажіть назву', 'error'); return; } apiCall('saveFinAccount', { id: a.id, name: name.value.trim(), kind: kind.value, opening_balance: fnNum_(open.value), personal: pers.checked, active: act.checked }).then(function () { closeModal(); V55.accounts = null; V55.reload(); }).catch(fnErr_); });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save])); openModal(a.id ? 'Рахунок' : 'Новий рахунок', body);
+};
+
+/* ---------- Зобовʼязання і резерв ---------- */
+V55.tObl = function (box) {
+  return Promise.all([apiCall('listObligations', {}), apiCall('getOwnerMoney', {}), apiCall('getBizFinance', {})]).then(function (r) {
+    var list = r[0], b = r[2]; box.innerHTML = ''; var M = V55.M;
+    box.appendChild(fnBtn_('+ Нове зобовʼязання', 'primary', function () { V55.oblForm(); }));
+    var pl = list.filter(function (o) { return o.status === 'planned'; });
+    box.appendChild(V55.card('Заплановані', pl.length ? pl.map(function (o) {
+      return fh_('div', { style: 'padding:6px 0;border-bottom:1px solid var(--border);' }, [fh_('div', { style: o.overdue ? 'color:var(--red);' : '' }, [(o.overdue ? '⏰ ' : '') + o.title + ' · ' + M(o.amount) + (o.due_date ? ' · до ' + V55.day(o.due_date) : '')]),
+        fh_('div', { style: 'display:flex;gap:6px;margin-top:4px;' }, [fnBtn_('Оплатити', 'small primary', function () { V55.oblPay(o); }), fnBtn_('Змінити', 'small', function () { V55.oblForm(o); }), fnBtn_('Скасувати', 'small', function () { V55.askReason('Скасувати зобовʼязання', o.title, function (rr) { apiCall('cancelObligation', { id: o.id, reason: rr }).then(V55.reload).catch(fnErr_); }); })])]);
+    }) : [fh_('div', { 'class': 'page-sub' }, ['Немає запланованих зобовʼязань.'])], 'margin-top:10px;'));
+    var done = list.filter(function (o) { return o.status !== 'planned'; });
+    if (done.length) box.appendChild(V55.card('Виконані й скасовані', done.map(function (o) { return fh_('div', { style: 'padding:3px 0;opacity:.7;' }, [o.title + ' · ' + M(o.amount) + ' · ' + (o.status === 'paid' ? 'оплачено' : 'скасовано')]); })));
+    var amt = fnIn_({ type: 'number', step: 'any', style: 'width:140px;' }), why = fnIn_({ placeholder: 'причина (обовʼязково)', style: 'width:100%;' });
+    box.appendChild(V55.card('🛡 Ручне коригування резерву', [fh_('div', { 'class': 'page-sub' }, ['Резерв зараз ' + M(b.reserve.total) + '. Додайте або відніміть суму (зі знаком «−») з причиною — вона збережеться в історії.']), fnRow_('Сума, грн', amt), fnRow_('Причина', why),
+      fnBtn_('Додати коригування', '', function () { apiCall('addReserveAdjust', { amount: fnNum_(amt.value), reason: why.value.trim() }).then(function () { toast('Збережено', 'success'); V55.reload(); }).catch(fnErr_); })]));
+  });
+};
+V55.oblForm = function (o) {
+  o = o || {}; var title = fnIn_({ value: o.title || '', style: 'width:100%;' }), kind = fnIn_({ value: o.kind || '', list: 'v55k', placeholder: 'податок, оренда, кредит…', style: 'width:100%;' }), amount = fnIn_({ type: 'number', step: 'any', value: o.amount || '' }), due = fnIn_({ type: 'date', value: V55.day(o.due_date) }), note = fnIn_({ value: o.note || '', style: 'width:100%;' });
+  var dl = fh_('datalist', { id: 'v55k' }, ['податок', 'оренда', 'кредит', 'постачальник', 'зарплата', 'інше'].map(function (c) { return fh_('option', { value: c }); }));
+  var body = fh_('div', {}, [fnRow_('Що платити *', title), fnRow_('Тип', kind), dl, fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Сума, грн *', amount), fnRow_('Оплатити до', due)]), fnRow_('Примітка', note)]);
+  var save = fnBtn_('Зберегти', 'primary', function () { if (!title.value.trim()) { toast('Вкажіть, що платити', 'error'); return; } apiCall('saveObligation', { id: o.id, title: title.value.trim(), kind: kind.value.trim(), amount: fnNum_(amount.value), due_date: due.value, note: note.value.trim() }).then(function () { closeModal(); V55.reload(); }).catch(fnErr_); });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save])); openModal(o.id ? 'Зобовʼязання' : 'Нове зобовʼязання', body);
+};
+V55.oblPay = function (o) {
+  var acc = V55.accSel(''), date = fnIn_({ type: 'date', value: fnToday_() });
+  var body = fh_('div', {}, [fh_('p', { 'class': 'page-sub' }, [o.title + ' · ' + V55.M(o.amount) + '. Буде записано як витрату бізнесу.']), fnRow_('З рахунку', acc), fnRow_('Дата', date)]);
+  var save = fnBtn_('Оплатити', 'primary', function () { var done = fnBusy_(save); apiCall('payObligation', { id: o.id, account_id: acc.value, date: date.value }).then(function () { closeModal(); toast('Оплачено', 'success'); V55.reload(); }).catch(function (e) { done(); fnErr_(e); }); });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save])); openModal('Оплата зобовʼязання', body);
+};
+
+/* ---------- Історія ---------- */
+V55.tHist = function (box) {
+  var h = V55.hist;
+  var q = fnIn_({ value: h.q, placeholder: 'пошук…' }), type = fnSel_([['', 'Усі типи'], ['pay_in', 'Від клієнтів'], ['pay_out', 'Виплати майстрам'], ['exp_obj', 'Витрати обʼєктів'], ['exp_biz', 'Загальні витрати'], ['payout_owner', 'Мої виплати'], ['payout_partner', 'Виплати партнерам'], ['transfer', 'Переміщення'], ['ledger', 'Нарахування']], h.type), from = fnIn_({ type: 'date', value: h.from }), to = fnIn_({ type: 'date', value: h.to });
+  var res = fh_('div', {});
+  var run = function () { h.q = q.value; h.type = type.value; h.from = from.value; h.to = to.value;
+    return apiCall('getFinHistory', { q: h.q, type: h.type, from: h.from, to: h.to, limit: 300 }).then(function (d) {
+      res.innerHTML = ''; res.appendChild(fh_('div', { 'class': 'page-sub' }, ['Показано ' + d.rows.length + ' з ' + d.total]));
+      d.rows.forEach(function (r) {
+        var cancelled = r.status === 'cancelled';
+        res.appendChild(fh_('div', { style: 'padding:6px 0;border-bottom:1px solid var(--border);' + (cancelled ? 'opacity:.55;' : '') }, [
+          fh_('div', { style: 'display:flex;justify-content:space-between;gap:8px;' + (cancelled ? 'text-decoration:line-through;' : '') }, [fh_('span', {}, [V55.day(r.date) + ' · ' + r.title + (r.object_name ? ' · ' + r.object_name : '') + (r.account_name ? ' · ' + r.account_name : '')]), fh_('b', { style: 'color:' + (r.sign > 0 ? 'var(--green)' : r.sign < 0 ? 'var(--gold)' : 'inherit') + ';' }, [(r.sign > 0 ? '+' : r.sign < 0 ? '−' : '') + V55.M(Math.abs(r.amount))])]),
+          (cancelled ? fh_('div', { 'class': 'page-sub', style: 'font-size:11px;margin:0;' }, ['Скасовано: ' + (r.reason || '—')]) : null), (r.note && !cancelled ? fh_('div', { 'class': 'page-sub', style: 'font-size:11px;margin:0;' }, [r.note]) : null)]));
+      });
+    }); };
+  box.innerHTML = '';
+  box.appendChild(fh_('div', { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px;' }, [q, type, from, to, fnBtn_('Знайти', 'primary', run)]));
+  box.appendChild(res); return run();
+};
+
+/* ---------- Звіт ---------- */
+V55.tReport = function (box) {
+  var d = new Date(), first = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-01';
+  var from = fnIn_({ type: 'date', value: V55.rFrom || first }), to = fnIn_({ type: 'date', value: V55.rTo || fnToday_() }), res = fh_('div', {});
+  var run = function () { V55.rFrom = from.value; V55.rTo = to.value; return apiCall('getFinReport', { from: from.value, to: to.value }).then(function (r) {
+    res.innerHTML = ''; var M = V55.M, R = V52.row;
+    res.appendChild(V55.card('Підсумок ' + r.from + ' — ' + r.to, [R('Надійшло від клієнтів', M(r.income), { color: 'var(--green)' }), R('Виплачено майстрам', M(r.brigades)), R('Витрати по обʼєктах', M(r.expenses_objects)), R('Загальні витрати бізнесу', M(r.expenses_business)),
+      R('Результат закритих обʼєктів компанії', M(r.company_result), { top: true }), R('Нараховано винагород власнику', M(r.fees_accrued)), R('Нараховано часток з обʼєктів', M(r.shares_accrued)), R('Нараховано з глобального пулу', M(r.global_accrued)), R('Виплачено власнику', M(r.payouts_owner)), R('Виплачено партнерам', M(r.payouts_partners))]));
+    res.appendChild(V55.card('По обʼєктах', r.by_object.length ? r.by_object.map(function (o) { return R(o.object, M(o.result)); }) : [fh_('div', { 'class': 'page-sub' }, ['Немає даних за період.'])]));
+    var csv = [['Дата', 'Тип', 'Опис', 'Обʼєкт', 'Сума']].concat(r.rows.map(function (x) { return [V55.day(x.date), x.type, x.title, x.object_name || '', (x.sign < 0 ? -x.amount : x.amount)]; }));
+    res.appendChild(fh_('div', { style: 'display:flex;gap:8px;' }, [fnBtn_('⬇ CSV', '', function () { downloadText_('BUDNEX_фінанси_' + r.from + '_' + r.to + '.csv', arrayToCsv_(csv.slice(1).map(function (c) { var o = {}; csv[0].forEach(function (k, i) { o[k] = c[i]; }); return o; })), 'text/csv;charset=utf-8'); }), fnBtn_('🖨 Друк', '', function () { window.print(); })]));
+  }); };
+  box.innerHTML = ''; box.appendChild(fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;' }, [from, to, fnBtn_('Показати', 'primary', run)])); box.appendChild(res); return run();
+};
+
+/* ---------- Налаштування ---------- */
+V55.tSet = function (box) {
+  return apiCall('getFinSettings', {}).then(function (s) {
+    box.innerHTML = ''; var f = {};
+    var def = [['owner_fee_default', 'Стандартна винагорода власника за обʼєкт, грн', 'Віднімається від прибутку обʼєкта до розподілу; нараховується після фінансового закриття. На конкретному обʼєкті можна змінити.'],
+      ['reserve_min', 'Мінімальна подушка ліквідності, грн', 'Сума, яку не можна «проїсти».'], ['reserve_horizon_days', 'Горизонт прогнозу витрат, днів', 'Скільки днів загальних витрат тримати в резерві (0 — вимкнено).'],
+      ['reserve_contingency_pct', 'Непередбачені витрати, %', 'Відсоток від зобовʼязань (0 — вимкнено).'], ['tax_rate', 'Податковий резерв, % від надходжень місяця', 'Поки 0 — податки в резерв не рахуються.']];
+    var kids = def.map(function (d) { f[d[0]] = fnIn_({ type: 'number', min: '0', step: 'any', value: s[d[0]], style: 'width:150px;' }); return fnRow_(d[1], f[d[0]], d[2]); });
+    kids.push(fh_('p', { 'class': 'page-sub' }, ['Жодних відсотків і резервів система не вигадує — усе задаєте ви.']));
+    kids.push(fnBtn_('Зберегти', 'primary', function () { var p = {}; def.forEach(function (d) { p[d[0]] = fnNum_(f[d[0]].value); }); apiCall('saveFinSettings', p).then(function () { toast('Збережено', 'success'); }).catch(fnErr_); }));
+    box.appendChild(V55.card('Параметри фінансів', kids));
+    return Promise.resolve();
+  });
+};
+
+/* ---------- на картці обʼєкта: фінансове закриття ---------- */
+V55.objectBlock = function (o) {
+  if (currentRole_() !== 'ADMIN' || !o) return null;
+  var box = fh_('div', { 'class': 'card', style: 'padding:12px 14px;margin:0 0 10px;' }, [fh_('div', { 'class': 'chart-title' }, ['🏁 Фінансове закриття'])]);
+  if (o.fin_closed_at) {
+    box.appendChild(fh_('div', {}, ['✅ Закрито фінансово ' + V55.day(o.fin_closed_at) + (o.fin_note ? ' · ' + o.fin_note : '')]));
+    box.appendChild(fnBtn_('Повернути в роботу', 'small', function () { V55.reopenDialog(o.id); }));
+  } else {
+    box.appendChild(fh_('div', { 'class': 'page-sub' }, ['Коли обʼєкт завершено й розраховано — закрийте його: нарахується ваша винагорода та частки партнерів.']));
+    box.appendChild(fnBtn_('Закрити фінансово', 'small primary', function () { V55.closeDialog(o.id); }));
+  }
+  return box;
 };
 
 function boot() {
