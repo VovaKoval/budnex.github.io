@@ -7513,6 +7513,8 @@ function openPaymentForm(arg) {
         fillBtn.onclick = function () {};
       }
       var cash = s.cash_on_hand + old - amt;
+      try { var w53 = V53.wallet({ client_paid: s.client_paid, brigades_paid: s.brigades_paid - old + amt, expenses_total: s.expenses_total, contract_total: s.contract_total, brigades_price: s.brigades_price, brigades_due: Math.max(0, s.brigades_due + old - amt), brigades_unallocated: s.brigades_unallocated, brigades_suggested: s.brigades_suggested });
+        if (amt) lines.push('Після виплати: на руках ' + fmtMoney(w53.cash) + ' · майстрам ще належить ' + fmtMoney(w53.owed) + ' · мені з усього лишиться ' + fmtMoney(w53.mine_total)); } catch (e53) {}
       lines.push('У вас на руках по обʼєкту (отримано − виплачено − витрати): ' + fmtMoney(s.cash_on_hand + old) + (amt ? ' → ' + fmtMoney(cash) : ''));
       if (amt && cash < 0) warn.push('⚠ Ви виплачуєте більше, ніж отримали від клієнта по цьому обʼєкту.');
     }
@@ -7746,6 +7748,7 @@ function renderObjectFinanceTab(container, o) {
     box.appendChild(fh_('div', { 'class': 'grid cols-4', style: 'margin-bottom:8px;' }, kp));
     box.appendChild(fnBar_(s.client_percent));
     if (cost) box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 10px;' }, ['Витрати: ' + fmtMoney(s.expenses_total) + ' · гроші на руках (отримано − виплачено − витрати): ' + fmtMoney(s.cash_on_hand) + ' · очікуваний прибуток по обʼєкту: ' + fmtMoney(s.expected_profit)]));
+    if (cost) { var wc53 = V53.card(s); if (wc53) box.appendChild(wc53); }
     if (cost) { var sb50 = V50.objectBlock(s, o); if (sb50) box.appendChild(sb50); }
     var bar = fh_('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;' });
     if (canDo_('finance', 'create')) {
@@ -10565,6 +10568,53 @@ V52.triple = function (total, paid, label) {
   var left = Math.max(0, (Number(total) || 0) - (Number(paid) || 0));
   return fh_('div', {}, [fh_('b', { style: 'color:' + (left > 0.5 ? 'var(--gold)' : 'var(--green)') + ';' }, [fmtMoney(left)]),
     fh_('div', { 'class': 'page-sub', style: 'margin:0;font-size:11px;' }, ['з ' + fmtMoney(total) + ' · ' + (label || 'виплачено') + ' ' + fmtMoney(paid)])]);
+};
+
+/* ===== ETAP 53: «Розподіл грошей по обʼєкту» — скільки дали, що на руках, кому скільки, що ще взяти ===== */
+var V53 = {};
+V53.n_ = function (v) { v = Number(v); return isFinite(v) ? v : 0; };
+V53.r2_ = function (v) { return Math.round(v * 100) / 100; };
+// чиста функція: приймає зведення обʼєкта (Fin.obj) і повертає всі числа. Рахується в браузері → оновлюється миттєво після платежу.
+V53.wallet = function (s) {
+  var n = V53.n_, r2 = V53.r2_;
+  s = s || {};
+  var received = n(s.client_paid), paidMasters = n(s.brigades_paid), exp = n(s.expenses_total);
+  var cash = r2(received - paidMasters - exp);
+  var price = n(s.brigades_price), sugg = n(s.brigades_suggested);
+  // скільки ще належить майстрам: за домовленістю з бригадами, а якщо бригад не розподілено — за собівартістю кошторису
+  var owed = price > 0 ? n(s.brigades_due) + n(s.brigades_unallocated) : Math.max(0, sugg - paidMasters);
+  owed = r2(Math.max(0, owed));
+  var toReceive = r2(Math.max(0, n(s.contract_total) - received));
+  var giveNow = r2(Math.min(Math.max(cash, 0), owed));
+  var mineNow = r2(cash - giveNow);                       // може бути < 0, якщо вже виплатили більше, ніж отримали
+  var masterIncoming = r2(Math.min(toReceive, Math.max(0, owed - giveNow)));
+  var shortfall = r2(Math.max(0, owed - giveNow - masterIncoming));   // майстрам не вистачає навіть після всіх доплат клієнта
+  var mineIncoming = r2(toReceive - masterIncoming);
+  return { received: r2(received), paid_masters: r2(paidMasters), expenses: r2(exp), cash: cash, owed: owed,
+    give_now: giveNow, mine_now: mineNow, to_receive: toReceive, master_incoming: masterIncoming, mine_incoming: mineIncoming,
+    shortfall: shortfall, unallocated: price > 0 ? r2(n(s.brigades_unallocated)) : owed, mine_total: r2(mineNow + mineIncoming - shortfall), masters_total: r2(giveNow + masterIncoming) };
+};
+V53.card = function (s) {
+  var w = V53.wallet(s), M = fmtMoney, R = V52.row;
+  if (!(w.received > 0 || w.owed > 0 || w.to_receive > 0 || w.paid_masters > 0)) return null;
+  var kids = [
+    R('Клієнт вже дав', M(w.received), { color: 'var(--green)' }),
+    R('− виплачено майстрам', M(w.paid_masters), { dim: true }),
+    R('− витрати по обʼєкту', M(w.expenses), { dim: true }),
+    R('На руках зараз', M(w.cash), { top: true, big: true, color: w.cash < -0.5 ? 'var(--red)' : '' }),
+    R('   з них майстрам віддати', M(w.give_now), { color: w.give_now > 0.5 ? 'var(--gold)' : '' }),
+    R('   з них мої', M(w.mine_now), { color: w.mine_now < -0.5 ? 'var(--red)' : 'var(--green)' }),
+    R('Клієнт ще має дати', M(w.to_receive), { top: true, big: true, color: w.to_receive > 0.5 ? 'var(--gold)' : 'var(--green)' }),
+    R('   з них майстрам', M(w.master_incoming)),
+    R('   з них мої', M(w.mine_incoming), { color: 'var(--green)' })
+  ];
+  if (w.shortfall > 0.5) kids.push(R('⚠ Майстрам не вистачає навіть після всіх доплат', M(w.shortfall), { color: 'var(--red)' }));
+  kids.push(R('Разом майстрам (ще належить)', M(w.owed), { top: true, dim: true }));
+  if (w.unallocated > 0.5) kids.push(R('   з них ще не віддано бригадам у роботу', M(w.unallocated), { dim: true }));
+  kids.push(R('Разом мені, коли все розрахується', M(w.mine_total), { color: w.mine_total < -0.5 ? 'var(--red)' : 'var(--green)', big: true }));
+  var c = V52.group('💰 Розподіл грошей по обʼєкту', kids);
+  c.className += ' v53-wallet'; c.style.marginBottom = '10px';
+  return c;
 };
 
 function boot() {
