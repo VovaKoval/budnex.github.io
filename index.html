@@ -2764,7 +2764,7 @@ function openAddEstimateItem(estimate) {
   manualBlock.appendChild(wCatList);
   manualBlock.appendChild(formField('Одиниця', '<input id="f_wunit" value="шт.">'));
   var wModeSel = el('select', { id: 'f_wmode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
-    el('option', { value: 'markup' }, ['Собівартість + націнка']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
+    el('option', { value: 'markup' }, ['Собівартість + націнка, %']), el('option', { value: 'fixed' }, ['Собівартість + націнка, грн (сума)']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
   ]);
   if (showCost) { manualBlock.appendChild(formField('Як рахувати ціну', '')); manualBlock.lastChild.appendChild(wModeSel); }
   var wMarkupWrap = el('div', { class: 'form-grid-2' }, [
@@ -2777,6 +2777,8 @@ function openAddEstimateItem(estimate) {
   wModeSel.onchange = function () {
     var direct = wModeSel.value === 'direct';
     wMarkupWrap.style.display = direct ? 'none' : ''; wDirectWrap.style.display = direct ? '' : 'none';
+    var lb = wMarkupWrap.querySelectorAll('label')[1]; if (lb) lb.textContent = wModeSel.value === 'fixed' ? 'Націнка, грн за од.' : 'Націнка, %';
+    var wmk = document.getElementById('f_wmarkup'); if (wmk && wModeSel.value !== 'direct') wmk.value = wModeSel.value === 'fixed' ? '' : (Number((STATE.db.settings || {}).default_markup_value) || 25);
     updatePreview();
   };
   body.appendChild(manualBlock);
@@ -2820,7 +2822,7 @@ function openAddEstimateItem(estimate) {
       var unit = unitEl.value.trim() || 'шт.';
       var cost, client;
       if (!showCost || wModeSel.value === 'direct') { cost = 0; client = Number(document.getElementById('f_wdirect').value) || 0; }
-      else { cost = Number(document.getElementById('f_wcost').value) || 0; var mk = Number(document.getElementById('f_wmarkup').value) || 0; client = cost * (1 + mk / 100); }
+      else { cost = Number(document.getElementById('f_wcost').value) || 0; var mk = Number(document.getElementById('f_wmarkup').value) || 0; client = wModeSel.value === 'fixed' ? cost + mk : cost * (1 + mk / 100); }
       if (!cost && !client) { preview.style.display = 'none'; return; }
       drawPreviewBox(null, cost, client, unit, qty);
     }
@@ -2840,6 +2842,7 @@ function openAddEstimateItem(estimate) {
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
   var add = el('button', { class: 'btn primary' }, ['Додати']);
   add.onclick = function () {
+    if (add.disabled) return;
     var qty = Number(document.getElementById('f_qty').value) || 1;
     var data;
     if (mode === 'catalog') {
@@ -2858,15 +2861,16 @@ function openAddEstimateItem(estimate) {
       } else {
         var cost = Number(document.getElementById('f_wcost').value) || 0;
         if (!(cost > 0)) { toast('Вкажи собівартість роботи', 'error'); return; }
-        data.markup_type = 'percent'; data.markup_value = Number(document.getElementById('f_wmarkup').value) || 0; data.contractor_price = cost;
+        data.markup_type = wModeSel.value === 'fixed' ? 'fixed' : 'percent'; data.markup_value = Number(document.getElementById('f_wmarkup').value) || 0; data.contractor_price = cost;
       }
     }
+    add.disabled = true;
     apiCall('addEstimateItem', data).then(function (res) {
-      STATE.db.estimateItems.push(res.item);
+      if (!STATE.db.estimateItems.some(function (x) { return x.id === res.item.id; })) STATE.db.estimateItems.push(res.item);
       var ei = STATE.db.estimates.findIndex(function (x) { return x.id === res.estimate.id; });
       STATE.db.estimates[ei] = res.estimate;
       Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success');
-    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+    }).catch(function (e) { add.disabled = false; toast('Помилка: ' + e.message, 'error'); });
   };
   actions.appendChild(cancel); actions.appendChild(add);
   body.appendChild(actions);
@@ -2942,7 +2946,7 @@ function openAddManualMaterial(estimate) {
     formField('Одиниця', '<input id="f_munit" value="шт.">'),
   ]));
   var mModeSel = el('select', { id: 'f_mmode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
-    el('option', { value: 'markup' }, ['Собівартість + націнка']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
+    el('option', { value: 'markup' }, ['Собівартість + націнка, %']), el('option', { value: 'fixed' }, ['Собівартість + націнка, грн (сума)']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
   ]);
   if (showCost) { manualBlock.appendChild(formField('Як рахувати ціну', '')); manualBlock.lastChild.appendChild(mModeSel); }
   var markupWrap = el('div', { class: 'form-grid-2' }, [
@@ -2955,6 +2959,8 @@ function openAddManualMaterial(estimate) {
   mModeSel.onchange = function () {
     var direct = mModeSel.value === 'direct';
     markupWrap.style.display = direct ? 'none' : ''; directWrap.style.display = direct ? '' : 'none';
+    var lb = markupWrap.querySelectorAll('label')[1]; if (lb) lb.textContent = mModeSel.value === 'fixed' ? 'Націнка, грн за од.' : 'Націнка, %';
+    var mmk = document.getElementById('f_mmarkup'); if (mmk && mModeSel.value !== 'direct') mmk.value = mModeSel.value === 'fixed' ? '' : defMarkup;
     updatePreview();
   };
   body.appendChild(manualBlock);
@@ -2996,7 +3002,7 @@ function openAddManualMaterial(estimate) {
       var unit = unitEl.value.trim() || 'шт.';
       var cost, client;
       if (!showCost || mModeSel.value === 'direct') { cost = 0; client = Number(document.getElementById('f_mdirect').value) || 0; }
-      else { cost = Number(document.getElementById('f_mcost').value) || 0; var mk = Number(document.getElementById('f_mmarkup').value) || 0; client = cost * (1 + mk / 100); }
+      else { cost = Number(document.getElementById('f_mcost').value) || 0; var mk = Number(document.getElementById('f_mmarkup').value) || 0; client = mModeSel.value === 'fixed' ? cost + mk : cost * (1 + mk / 100); }
       if (!cost && !client) { preview.style.display = 'none'; return; }
       drawPreviewBox(null, cost, client, unit, qty);
     }
@@ -3016,6 +3022,7 @@ function openAddManualMaterial(estimate) {
   var cancel = el('button', { class: 'btn' }, ['Скасувати']); cancel.onclick = closeModal;
   var add = el('button', { class: 'btn primary' }, ['Додати']);
   add.onclick = function () {
+    if (add.disabled) return;
     var qty = Number(document.getElementById('f_mqty').value) || 0;
     if (!(qty > 0)) { toast('Вкажи кількість більше нуля', 'error'); return; }
     var data;
@@ -3038,15 +3045,16 @@ function openAddManualMaterial(estimate) {
       } else {
         var cost = Number(document.getElementById('f_mcost').value) || 0;
         if (!(cost > 0)) { toast('Вкажи собівартість матеріалу', 'error'); return; }
-        data.markup_type = 'percent'; data.markup_value = Number(document.getElementById('f_mmarkup').value) || 0; data.contractor_price = cost;
+        data.markup_type = mModeSel.value === 'fixed' ? 'fixed' : 'percent'; data.markup_value = Number(document.getElementById('f_mmarkup').value) || 0; data.contractor_price = cost;
       }
     }
+    add.disabled = true;
     apiCall('addEstimateItem', data).then(function (res) {
-      STATE.db.estimateItems.push(res.item);
+      if (!STATE.db.estimateItems.some(function (x) { return x.id === res.item.id; })) STATE.db.estimateItems.push(res.item);
       var ei = STATE.db.estimates.findIndex(function (x) { return x.id === res.estimate.id; });
       STATE.db.estimates[ei] = res.estimate;
       Storage.saveCache(); closeModal(); renderRoute(); toast('Матеріал додано', 'success');
-    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+    }).catch(function (e) { add.disabled = false; toast('Помилка: ' + e.message, 'error'); });
   };
   actions.appendChild(cancel); actions.appendChild(add);
   body.appendChild(actions);
@@ -3933,7 +3941,7 @@ function openPackageItemForm(pkg) {
   save.onclick = function () {
     apiCall('addPackageItem', { package_id: pkg.id, work_id: document.getElementById('f_pi_work').value, default_quantity: Number(document.getElementById('f_pi_qty').value) || 1, quantity_formula: document.getElementById('f_pi_formula').value.trim() }).then(function (res) {
       STATE.db.packageItems.push(res); Storage.saveCache(); closeModal(); renderRoute(); toast('Додано', 'success');
-    }).catch(function (e) { toast('Помилка: ' + e.message, 'error'); });
+    }).catch(function (e) { add.disabled = false; toast('Помилка: ' + e.message, 'error'); });
   };
   actions.appendChild(cancel); actions.appendChild(save); body.appendChild(actions);
   openModal('Позиція пакета', body);
@@ -5617,14 +5625,15 @@ V9.estimateBar = function (estimate) {
     el('span', { class: 'page-sub', style: 'margin:0;' }, ['Робіт: ' + (items.length - mats) + ' · матеріалів: ' + mats + ' · логістика: ' + fmtMoney(estimate.logistics_total)])
   ]));
   var row = el('div', { class: 'v9-row' }, [
+    ].concat(estimate.kind === 'addendum' ? [] : [
     btn_('⚡ Автокошторис', 'small', function () { V9.newWiz(estimate.object_id, ''); location.hash = '#/auto/' + estimate.object_id; }, 'Визначити / перерахувати роботи за описом'),
     btn_('↻ Матеріали', 'small', function () { V9.recalcMaterials(estimate.id); }, 'Перерахувати матеріали з поточних робіт за нормами'),
-    btn_('🚚 Логістика', 'small', function () { V9.openLogistics(estimate.id); }),
+    btn_('🚚 Логістика', 'small', function () { V9.openLogistics(estimate.id); })]).concat([
     btn_('✅ Перевірити', 'small', function () { V9.showCheck(estimate.id); }),
     btn_('📄 Документ клієнту', 'small primary', function () { V9.openClientDoc(estimate.id); }),
     btn_('+ Матеріал', 'small', function () { V9.addLine(estimate.id, 'material'); }, 'Додати матеріал у кошторис так само, як роботу'),
     btn_('+ Своя позиція', 'small', function () { V9.addLine(estimate.id, 'work'); }, 'Робота, якої немає в прайсі')
-  ]);
+  ]));
   if (isFinal) row.appendChild(btn_('🔓 Повернути в чернетку', 'small', function () {
     if (!confirm('Повернути затверджений кошторис у чернетку для змін?')) return;
     apiCall('reopenEstimate', { id: estimate.id }).then(function (r) { refreshEstimateState_({ estimate: r }); V9.rerender(); }).catch(errToast_);
