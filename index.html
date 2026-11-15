@@ -11750,6 +11750,69 @@ V64.card = function (container, estimate, items) {
   card.appendChild(bar); container.appendChild(card);
 };
 
+/* Тихе оновлення карток кошторису: стара картка лишається на екрані, поки нова рахується; потім підміна без миготіння */
+V64.keep = {};
+V64.silent = function (cardFn, key, loadingRe) {
+  return function (container, estimate, items) {
+    var tmp = document.createElement('div');
+    cardFn(tmp, estimate, items);
+    var neu = tmp.firstElementChild; if (!neu) return;
+    var k = key + (estimate && estimate.id), old = V64.keep[k];       // old — остання картка, яку реально було видно
+    V64.seq = (V64.seq || 0) + 1; var my = V64.seq; neu.__seq = my; V64.last = V64.last || {}; V64.last[k] = my;
+    if (!old) { container.appendChild(neu); V64.keep[k] = neu; return; }
+    container.appendChild(old);
+    var swapped = false, obs = null, swap = function () {
+      if (swapped) return; swapped = true; try { obs.disconnect(); } catch (e) {}
+      if (V64.last[k] !== my) return;                                   // уже є новіший запит — цей застарів
+      if (old.parentNode) { old.parentNode.replaceChild(neu, old); V64.keep[k] = neu; }
+    };
+    obs = new MutationObserver(function () { if (!loadingRe.test(neu.textContent || '')) swap(); });
+    obs.observe(neu, { childList: true, subtree: true, characterData: true });
+    setTimeout(swap, 10000);
+  };
+};
+V60.card = V64.silent(V60.card, 's', /Завантажую етапи/);
+V62.card = V64.silent(V62.card, 'e', /Рахую…/);
+
+/* ===== ТИХЕ ОНОВЛЕННЯ ВСЮДИ =====
+   Коли поточна сторінка перемальовується (після збереження, синхронізації, дії), стара картинка лишається на екрані
+   як «привид», поки нова збирається й дочекається даних; тоді підміна без миготіння й без стрибка прокрутки. */
+var V65 = { inflight: 0 };
+(function () {
+  var o = apiCall;
+  apiCall = function (a, d) {
+    V65.inflight++;
+    return o(a, d).then(function (r) { V65.inflight--; return r; }, function (e) { V65.inflight--; throw e; });
+  };
+  var bgOf = function (n) { while (n) { var c = getComputedStyle(n).backgroundColor; if (c && c !== 'transparent' && !/rgba\(\s*0,\s*0,\s*0,\s*0\)/.test(c)) return c; n = n.parentElement; } return '#fff'; };
+  var rr = renderRoute;
+  renderRoute = function () {
+    var main = document.getElementById('main'), ghost = null, oldPos = '';
+    try {
+      var hash = location.hash || '#/today';
+      if (main && STATE.route === hash && main.childElementCount && !document.querySelector('.ghost-refresh') && !(window.V65_OFF)) {
+        ghost = document.createElement('div'); ghost.className = 'ghost-refresh'; ghost.setAttribute('aria-hidden', 'true');
+        for (var i = 0; i < main.children.length; i++) ghost.appendChild(main.children[i].cloneNode(true));
+        ghost.__h = main.scrollHeight;
+      }
+    } catch (e) { ghost = null; }
+    rr.apply(this, arguments);
+    if (!ghost) return;
+    try {
+      var cs = getComputedStyle(main); oldPos = main.style.position; if (cs.position === 'static') main.style.position = 'relative';
+      var pad = parseFloat(cs.paddingTop) || 0;
+      ghost.style.cssText = 'position:absolute;left:0;right:0;top:0;z-index:50;overflow:hidden;box-sizing:border-box;padding:' + cs.padding + ';height:' + ghost.__h + 'px;background:' + bgOf(main) + ';';
+      main.appendChild(ghost);
+      var done = false, quiet = null, obs = null;
+      var finish = function () { if (done) return; done = true; try { obs.disconnect(); } catch (e) {} if (ghost.parentNode) ghost.parentNode.removeChild(ghost); main.style.position = oldPos; };
+      var check = function () { clearTimeout(quiet); quiet = setTimeout(function () { if (V65.inflight > 0) check(); else finish(); }, 160); };
+      obs = new MutationObserver(function (m) { if (m.some(function (x) { return !ghost.contains(x.target); })) check(); });
+      obs.observe(main, { childList: true, subtree: true, characterData: true });
+      check(); setTimeout(finish, 4000);
+    } catch (e) { try { if (ghost.parentNode) ghost.parentNode.removeChild(ghost); } catch (x) {} }
+  };
+})();
+
 function boot() {
   var pubRoute = parsePublicRoute_();
   if (pubRoute) { bootPublicView_(pubRoute); return; }
