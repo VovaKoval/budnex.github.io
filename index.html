@@ -2386,6 +2386,7 @@ function renderEstimateEditor(container, estimate) {
     toolbar.appendChild(dupBtn);
   }
   container.appendChild(toolbar);
+  try { addItemBtn.addEventListener('click', function () { V60.nextStage = null; }, true); addMatBtn.addEventListener('click', function () { V60.nextStage = null; }, true); V60.card(container, estimate, items); V62.card(container, estimate, items); V64.card(container, estimate, items); } catch (e60) { console.error(e60); }
 
   // ЕТАП 41: роботи і матеріали — ОКРЕМО (окремі таблиці та окремі підсумки)
   var workItems = items.filter(function (x) { return x.item_type !== 'material'; });
@@ -2605,7 +2606,7 @@ function openEditEstimateItem(it, estimate) {
   var showCost = canSeeCost_();
   body.appendChild(formField((isWork ? 'Назва роботи' : 'Назва матеріалу') + ' *', '<input id="f_ename" value="' + esc(it.name || '') + '">'));
   body.appendChild(el('div', { class: 'form-grid-2' }, [
-    formField('Одиниця', '<input id="f_eunit" value="' + esc(it.unit || '') + '">'),
+    formField('Одиниця', '<input id="f_eunit" list="v60units" value="' + esc(it.unit || '') + '">'),
     formField('Кількість *', '<input type="number" id="f_eqty" value="' + esc(it.quantity) + '" step="any">')
   ]));
   var startMode = it.markup_type === 'manual' ? 'direct' : (it.markup_type === 'fixed' ? 'fixed' : 'percent');
@@ -2947,7 +2948,7 @@ function openAddManualMaterial(estimate) {
   STATE.db.materials.forEach(function (m) { dl.appendChild(el('option', { value: m.name })); });
   manualBlock.appendChild(dl);
   manualBlock.appendChild(el('div', { class: 'form-grid-2' }, [
-    formField('Одиниця', '<input id="f_munit" value="шт.">'),
+    formField('Одиниця', '<input id="f_munit" list="v60units" value="шт.">'),
   ]));
   var mModeSel = el('select', { id: 'f_mmode', style: 'padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-bottom:10px;' }, [
     el('option', { value: 'markup' }, ['Собівартість + націнка, %']), el('option', { value: 'fixed' }, ['Собівартість + націнка, грн (сума)']), el('option', { value: 'direct' }, ['Ціна для клієнта напряму'])
@@ -7015,7 +7016,7 @@ function renderCalc(main) {
   }
 }
 
-var SYNC_READONLY_ACTIONS = { getOwnerExpenses: 1, createOwnerExpense: 1, updateOwnerExpense: 1, deleteOwnerExpense: 1, saveDocTemplates: 1, previewObjectStatus: 1, getProfitSplits: 1, saveProfitSplit: 1, getObjectTimeline: 1, getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
+var SYNC_READONLY_ACTIONS = { getClientDocument: 1, getEstimateSheets: 1, listEstimateVersions: 1, compareVersions: 1, getPlanFact: 1, getOwnerExpenses: 1, createOwnerExpense: 1, updateOwnerExpense: 1, deleteOwnerExpense: 1, saveDocTemplates: 1, previewObjectStatus: 1, getProfitSplits: 1, saveProfitSplit: 1, getObjectTimeline: 1, getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
   getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgDiag: 1, tgRelayInfo: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
@@ -10697,6 +10698,8 @@ V55.render = function (main) {
     return fnBtn_(t[1], 'small' + (V55.tab === t[0] ? ' primary' : ''), function () { V55.tab = t[0]; V55.render(main); });
   }));
   main.appendChild(bar);
+  var hints = { overview: 'Тут усе головне: скільки грошей, скільки з них ваші й що зробити далі. Натискайте кнопки в блоці «Що робити далі».', mine: 'Ваш дохід: винагорода за обʼєкти + частки прибутку. Гроші можна забрати, коли обʼєкт закрито й у бізнесі вистачає після резерву.', partners: 'Хто бере участь у прибутку. Відсотки на обʼєкті задаються в картці обʼєкта («Розподіл прибутку»), загальні — тут.', accounts: 'Де лежать гроші: готівка, рахунок ФОП, картка. Додайте рахунки й при кожному платежі обирайте, куди/звідки гроші.', obl: 'Майбутні платежі, які треба не забути: податки, оренда, борги. Вони автоматично враховуються в резерві.', hist: 'Усі операції в одному місці. Скасовані платежі не зникають — видно причину.', report: 'Підсумок за період; можна завантажити в CSV або роздрукувати.', set: 'Тут задаєте свої правила. Система нічого не вигадує сама — усі відсотки й суми ваші.' };
+  main.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:-4px 0 10px;' }, ['💡 ' + hints[V55.tab]]));
   var box = fh_('div', { id: 'v55box' }, [fh_('div', { 'class': 'page-sub' }, ['⏳ Завантаження...'])]); main.appendChild(box);
   var fn = { overview: V55.tOverview, mine: V55.tMine, partners: V55.tPartners, accounts: V55.tAccounts, obl: V55.tObl, hist: V55.tHist, report: V55.tReport, set: V55.tSet }[V55.tab];
   fn(box).catch(function (e) { box.innerHTML = ''; box.appendChild(fh_('div', { 'class': 'card', style: 'color:var(--red);' }, ['Не вдалося завантажити: ' + (e && e.message || e)])); });
@@ -10704,8 +10707,10 @@ V55.render = function (main) {
 
 /* ---------- Огляд ---------- */
 V55.tOverview = function (box) {
-  return apiCall('getBizFinance', {}).then(function (b) {
+  return Promise.all([apiCall('getBizFinance', {}), apiCall('getFinSettings', {}), apiCall('listBizPartners', {})]).then(function (rr) {
+    var b = rr[0], st = rr[1], pl = rr[2];
     V55.biz = b; box.innerHTML = '';
+    box.appendChild(V55.nextSteps(b, st, pl));
     var M = V55.M, R = V52.row;
     box.appendChild(V55.grid([
       V55.kpi('Гроші в бізнесі', M(b.business_balance), 'на рахунках, без особистої картки'),
@@ -10730,7 +10735,7 @@ V55.tOverview = function (box) {
         return fh_('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);' }, [fh_('span', {}, [r.name + ' · прогноз ' + M(r.expected_profit)]), fnBtn_('Закрити фінансово', 'small primary', function () { V55.closeDialog(r.object_id); })]);
       })));
     }
-    box.appendChild(V55.card('🛡 З чого складається резерв', b.reserve.items.map(function (i) { return R(i.label, M(i.amount), { dim: !i.amount }); }).concat([R('Разом резерв', M(b.reserve.total), { top: true, big: true }), R('Гроші в бізнесі', M(b.business_balance), {}), R('Вільно', M(b.reserve.free), { top: true, big: true, color: b.reserve.free < -0.5 ? 'var(--red)' : 'var(--green)' })]).concat(b.reserve.items.filter(function (i) { return i.note; }).map(function (i) { return fh_('div', { 'class': 'page-sub', style: 'font-size:11px;margin:2px 0;' }, [i.label + ': ' + i.note]); }))));
+    var rc55 = V55.card('🛡 З чого складається резерв', b.reserve.items.map(function (i) { return R(i.label, M(i.amount), { dim: !i.amount }); }).concat([R('Разом резерв', M(b.reserve.total), { top: true, big: true }), R('Гроші в бізнесі', M(b.business_balance), {}), R('Вільно', M(b.reserve.free), { top: true, big: true, color: b.reserve.free < -0.5 ? 'var(--red)' : 'var(--green)' })]).concat(b.reserve.items.filter(function (i) { return i.note; }).map(function (i) { return fh_('div', { 'class': 'page-sub', style: 'font-size:11px;margin:2px 0;' }, [i.label + ': ' + i.note]); }))); rc55.id = 'v55reserve'; box.appendChild(rc55);
     box.appendChild(V55.card('🏧 По рахунках', b.accounts.map(function (a) { return R(a.name + (a.personal ? ' (особиста, не в бізнесі)' : ''), M(a.balance), { dim: a.personal }); }).concat(b.unassigned.count ? [R('Операції без рахунку (' + b.unassigned.count + ')', M(b.unassigned.balance), { dim: true })] : [])));
     var mx = Math.max.apply(null, b.series.map(function (s) { return Math.max(s.income, s.spend, Math.abs(s.profit), 1); }));
     box.appendChild(V55.card('📈 Останні 6 місяців', b.series.map(function (s) {
@@ -10746,6 +10751,25 @@ V55.tOverview = function (box) {
       fnBtn_('⇄ Перемістити між рахунками', '', function () { V55.transferForm(); })]);
     box.appendChild(acts);
   });
+};
+// «Що робити далі»: система сама підказує наступні кроки з кнопкою в один клік
+V55.nextSteps = function (b, st, partners) {
+  var M = V55.M, steps = [], go = function (tab) { return function () { V55.tab = tab; V55.render(V55.mount); }; };
+  if (!b.accounts.length) steps.push(['🏧 Створіть рахунки (Готівка, Рахунок ФОП, Картка), щоб бачити, де лежать гроші', 'Створити типові', function () {
+    [{ name: 'Готівка', kind: 'cash' }, { name: 'Рахунок ФОП', kind: 'bank' }, { name: 'Картка (особиста)', kind: 'card', personal: true }].reduce(function (p, a) { return p.then(function () { return apiCall('saveFinAccount', a); }); }, Promise.resolve()).then(function () { V55.accounts = null; toast('Рахунки створено', 'success'); V55.reload(); }).catch(fnErr_); }]);
+  if (b.accounts.length && b.unassigned.count > 0) {
+    var biz = b.accounts.filter(function (a) { return !a.personal; })[0] || b.accounts[0];
+    steps.push(['📎 ' + b.unassigned.count + ' операцій ще без рахунку. Призначити їх рахунку «' + biz.name + '»? (потім можна змінити в кожній операції)', 'Так, призначити', function () { apiCall('assignUnassigned', { account_id: biz.id }).then(function (r) { toast('Призначено: ' + r.assigned, 'success'); V55.reload(); }).catch(fnErr_); }]);
+  }
+  if (!(st.owner_fee_default > 0)) steps.push(['💼 Вкажіть вашу стандартну винагороду за обʼєкт (можна 0 — тоді її не буде)', 'Відкрити налаштування', go('set')]);
+  b.ready_to_close.forEach(function (r) { steps.push(['🏁 Обʼєкт «' + r.name + '» завершено — закрийте його фінансово, і нарахується ваша винагорода та частки', 'Закрити', function () { V55.closeDialog(r.object_id); }]); });
+  if (b.partners_owed > 0.5) steps.push(['🤝 Партнерам належить ' + M(b.partners_owed) + ' — виплатіть, коли буде зручно', 'До партнерів', go('partners')]);
+  if (!partners.length) steps.push(['👥 Якщо ділите прибуток з партнерами — додайте їх (необовʼязково)', 'Додати партнера', function () { V55.tab = 'partners'; V55.render(V55.mount); setTimeout(function () { V55.partnerForm(); }, 400); }]);
+  if (b.reserve.free < -0.5) steps.push(['🛡 У бізнесі не вистачає ' + M(-b.reserve.free) + ' до потрібного резерву. Дочекайтеся оплат клієнтів або перегляньте резерв (кнопка нижче)', 'Що входить у резерв', function () { var e = document.getElementById('v55reserve'); if (e) e.scrollIntoView({ behavior: 'smooth' }); }]);
+  var card = V55.card(steps.length ? '👉 Що робити далі' : '✅ Усе під контролем', steps.length ? steps.map(function (s) {
+    return fh_('div', { style: 'display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;' }, [fh_('span', { style: 'flex:1;min-width:200px;' }, [s[0]]), fnBtn_(s[1], 'small primary', s[2])]);
+  }) : [fh_('div', { 'class': 'page-sub' }, ['Немає справ, які чекають на вас. Система сповістить, коли зʼявиться щось нове.'])]);
+  card.style.borderLeft = '4px solid var(--gold)'; return card;
 };
 V55.bizExpenseForm = function () {
   var cat = fnIn_({ list: 'v55cats', placeholder: 'реклама, звʼязок, ПЗ, авто…', style: 'width:100%;' });
@@ -11000,6 +11024,730 @@ V55.objectBlock = function (o) {
     box.appendChild(fnBtn_('Закрити фінансово', 'small primary', function () { V55.closeDialog(o.id); }));
   }
   return box;
+};
+
+/* ==================== ЕТАП 60: КАЛЬКУЛЯТОР БУДІВНИЦТВА — ОСНОВА ====================
+   Етапи всередині кошторису, сценарії, параметри будівлі за потребою, розрахунок фундаменту.
+   Усе живе в картці «Етапи будівництва» всередині кошторису — окремих пунктів меню немає. */
+var V60 = { nextStage: null, units: [] };
+['listEstimateStages', 'getBuildingParams', 'listUnits', 'previewCalc'].forEach(function (a) { SYNC_READONLY_ACTIONS[a] = 1; });
+(function () {      // позиція, додана кнопкою «+ позиція» біля етапу, одразу потрапляє в цей етап
+  var orig = apiCall;
+  apiCall = function (action, data) {
+    if (action === 'addEstimateItem' && V60.nextStage && data && !data.stage_id) { data.stage_id = V60.nextStage; V60.nextStage = null; }
+    return orig.apply(this, arguments);
+  };
+  var origClose = closeModal;
+  closeModal = function () { V60.nextStage = null; return origClose.apply(this, arguments); };
+})();
+V60.err = function (e) { toast('Помилка: ' + (e && e.message || e), 'error'); };
+V60.refresh = function () { return syncAll().catch(function () {}).then(function () { renderRoute(); }); };
+V60.loadUnits = function () {
+  return apiCall('listUnits', {}).then(function (u) {
+    V60.units = u || [];
+    var dl = document.getElementById('v60units');
+    if (!dl) { dl = document.createElement('datalist'); dl.id = 'v60units'; document.body.appendChild(dl); }
+    dl.innerHTML = '';
+    V60.units.forEach(function (x) { var o = document.createElement('option'); o.value = x.name; dl.appendChild(o); });
+  }).catch(function () {});
+};
+// позначка біля позиції: з розрахунку / введено вручну
+(function () {
+  var orig = V9.itemTags;
+  V9.itemTags = function (it) {
+    var box = orig(it);
+    try {
+      if (it && it.calc_key) {
+        var manual = it.qty_manual === '1' || it.qty_manual === 1 || it.qty_manual === true;
+        var tag = el('span', { class: 'badge ' + (manual ? 'gold' : 'blue'), title: manual ? 'Кількість введена вручну — перерахунок її не змінює' : 'Кількість пораховано з параметрів будівлі' },
+          [manual ? '✋ вручну' + (it.calc_qty !== '' && it.calc_qty != null ? ' (розрахунок: ' + it.calc_qty + ')' : '') : '🧮 розрахунок']);
+        if (box && box.appendChild) box.appendChild(tag);
+      }
+    } catch (e) { /* не критично */ }
+    return box;
+  };
+})();
+
+V60.card = function (container, estimate, items) {
+  var card = el('div', { class: 'card v60-card', style: 'margin-top:14px;' });
+  var body = el('div', {}, [el('div', { class: 'page-sub' }, ['Завантажую етапи…'])]);
+  card.appendChild(el('div', { class: 'chart-title' }, ['🏗 Етапи будівництва']));
+  card.appendChild(body);
+  container.appendChild(card);
+  var canEdit = canDo_('estimates', 'edit') && estimate.status !== 'final';
+  if (!V60.unitsLoaded) { V60.unitsLoaded = true; V60.loadUnits(); }
+  apiCall('listEstimateStages', { estimate_id: estimate.id }).then(function (res) {
+    body.innerHTML = '';
+    V60.draw(body, estimate, items, res, canEdit);
+  }).catch(function (e) { body.innerHTML = ''; body.appendChild(el('div', { class: 'page-sub' }, ['Етапи тимчасово недоступні: ' + (e && e.message || e)])); });
+};
+V60.draw = function (body, estimate, items, res, canEdit) {
+  var stages = res.stages || [];
+  var head = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;' });
+  if (canEdit) {
+    head.appendChild(fnBtn_('＋ Додати етапи', 'small primary', function () { V60.openAddStages(estimate, res); }, 'Сценарій «Будинок з нуля», «Коробка» або окремий етап'));
+    head.appendChild(fnBtn_('⚙ Одиниці виміру', 'small', function () { V60.openUnits(); }));
+    head.appendChild(fnBtn_('📋 Шаблони', 'small', function () { V63.openTemplates(estimate); }));
+    head.appendChild(V63.levelSelect(estimate));
+  }
+  if (!stages.length) {
+    body.appendChild(head);
+    body.appendChild(el('div', { class: 'page-sub' }, ['Етапи не обовʼязкові. Натисни «Додати етапи», щоб розбити кошторис на частини (земляні, фундамент, стіни…) — або працюй як раніше, без етапів.']));
+    return;
+  }
+  body.appendChild(head);
+  var byStage = {};
+  items.forEach(function (it) { if (it.stage_id) (byStage[it.stage_id] = byStage[it.stage_id] || []).push(it); });
+  stages.forEach(function (s, idx) {
+    var box = el('div', { class: 'v60-stage', 'data-stage': s.id, style: 'border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;' });
+    var top = el('div', { style: 'display:flex;gap:6px;align-items:center;padding:8px 10px;background:var(--panel2);flex-wrap:wrap;' });
+    var tgl = el('button', { class: 'btn small', type: 'button', title: s.collapsed ? 'Розгорнути' : 'Згорнути' }, [s.collapsed ? '▸' : '▾']);
+    tgl.onclick = function () { apiCall('updateEstimateStage', { id: s.id, collapsed: !s.collapsed }).then(V60.refresh).catch(V60.err); };
+    top.appendChild(tgl);
+    top.appendChild(el('b', { style: 'flex:1;min-width:120px;' }, [(idx + 1) + '. ' + s.name]));
+    top.appendChild(el('span', { class: 'page-sub', style: 'margin:0;' }, [s.count + ' поз. · ' + fmtMoney(s.client_total)]));
+    if (canEdit) {
+      if (idx > 0) top.appendChild(fnBtn_('▲', 'small', function () { apiCall('moveEstimateStage', { id: s.id, dir: 'up' }).then(V60.refresh).catch(V60.err); }, 'Вище'));
+      if (idx < stages.length - 1) top.appendChild(fnBtn_('▼', 'small', function () { apiCall('moveEstimateStage', { id: s.id, dir: 'down' }).then(V60.refresh).catch(V60.err); }, 'Нижче'));
+      top.appendChild(fnBtn_('＋ позиція', 'small', function () { V60.nextStage = s.id; openAddEstimateItem(estimate); V60.nextStage = s.id; }, 'Додати роботу в цей етап'));
+      if ((res.calc_keys || []).indexOf(s.stage_key) !== -1) top.appendChild(fnBtn_('📐 Розрахувати', 'small primary', function () { V60.openCalc(estimate, s); }, 'Параметри та обсяги цього етапу'));
+      top.appendChild(fnBtn_('✎', 'small', function () { V60.renameStage(s); }, 'Перейменувати'));
+      top.appendChild(fnBtn_('✕', 'small danger', function () { V60.deleteStage(s); }, 'Видалити етап'));
+    }
+    box.appendChild(top);
+    if (!s.collapsed) {
+      var list = byStage[s.id] || [];
+      var inner = el('div', { style: 'padding:6px 10px;' });
+      if (!list.length) inner.appendChild(el('div', { class: 'page-sub', style: 'margin:4px 0;' }, ['У цьому етапі ще немає позицій.']));
+      list.forEach(function (it) {
+        var row = el('div', { style: 'display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;' });
+        var nm = el('span', { style: 'flex:1;min-width:140px;cursor:pointer;' }, [it.name, V9.itemTags(it)]);
+        nm.onclick = function () { openEditEstimateItem(it, estimate); };
+        row.appendChild(nm);
+        row.appendChild(el('span', { class: 'page-sub', style: 'margin:0;' }, [(it.quantity || 0) + ' ' + (it.unit || '')]));
+        row.appendChild(el('span', { style: 'min-width:80px;text-align:right;' }, [fmtMoney((Number(it.client_total) || 0) + (Number(it.materials_total) || 0))]));
+        if (canEdit && it.calc_key && (it.qty_manual === '1' || it.qty_manual === 1) && it.calc_qty !== '' && it.calc_qty != null) {
+          row.appendChild(fnBtn_('↺ ' + it.calc_qty, 'small', function () { apiCall('resetItemCalc', { id: it.id }).then(V60.refresh).catch(V60.err); }, 'Повернути розрахункову кількість'));
+        }
+        if (canEdit && String(it.calc_key || '').indexOf('mat:') === 0) row.appendChild(fnBtn_('↔ аналоги', 'small', function () { V63.openAnalogs(it); }, 'Замінити на аналог'));
+        if (canEdit) row.appendChild(V60.stageSelect(it, stages));
+        inner.appendChild(row);
+      });
+      box.appendChild(inner);
+    }
+    body.appendChild(box);
+  });
+  var loose = items.filter(function (it) { return !it.stage_id || !stages.some(function (s) { return s.id === it.stage_id; }); });
+  if (loose.length) {
+    var lb = el('div', { style: 'border:1px dashed var(--border);border-radius:8px;padding:8px 10px;' });
+    lb.appendChild(el('b', {}, ['Без етапу (' + loose.length + ')']));
+    lb.appendChild(el('div', { class: 'page-sub', style: 'margin:2px 0 6px;' }, ['Ці позиції не віднесені до жодного етапу. Можна перенести їх у потрібний.']));
+    loose.forEach(function (it) {
+      var row = el('div', { style: 'display:flex;gap:8px;align-items:center;padding:3px 0;flex-wrap:wrap;' });
+      row.appendChild(el('span', { style: 'flex:1;min-width:140px;' }, [it.name]));
+      row.appendChild(el('span', { class: 'page-sub', style: 'margin:0;' }, [(it.quantity || 0) + ' ' + (it.unit || '')]));
+      if (canEdit) row.appendChild(V60.stageSelect(it, stages));
+      lb.appendChild(row);
+    });
+    body.appendChild(lb);
+  }
+};
+V60.stageSelect = function (it, stages) {
+  var sel = el('select', { style: 'padding:4px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);max-width:150px;', title: 'Перенести в етап' });
+  sel.appendChild(el('option', { value: '' }, [it.stage_id ? '— без етапу —' : 'у етап…']));
+  stages.forEach(function (s) { var o = el('option', { value: s.id }, [s.name]); if (s.id === it.stage_id) o.selected = true; sel.appendChild(o); });
+  sel.onchange = function () { apiCall('assignItemStage', { item_id: it.id, stage_id: sel.value }).then(V60.refresh).catch(V60.err); };
+  return sel;
+};
+V60.renameStage = function (s) {
+  var inp = fnIn_({ value: s.name, style: 'width:100%;' });
+  var b = el('div', {}, [fnRow_('Назва етапу', inp), fnBtn_('Зберегти', 'primary', function () {
+    apiCall('updateEstimateStage', { id: s.id, name: inp.value }).then(function () { closeModal(); V60.refresh(); toast('Збережено', 'success'); }).catch(V60.err);
+  })]);
+  openModal('Назва етапу', b);
+};
+V60.deleteStage = function (s) {
+  apiCall('deleteEstimateStage', { id: s.id }).then(function (r) {
+    if (!r.need_choice) { toast('Етап видалено', 'success'); return V60.refresh(); }
+    var b = el('div', {}, [
+      el('p', {}, ['В етапі «' + s.name + '» є позиції: ' + r.count + '. Що з ними зробити?']),
+      fnBtn_('Залишити позиції в кошторисі («Без етапу»)', 'primary', function () {
+        apiCall('deleteEstimateStage', { id: s.id, mode: 'keep_items' }).then(function () { closeModal(); V60.refresh(); toast('Етап видалено, позиції залишено', 'success'); }).catch(V60.err);
+      }), ' ',
+      fnBtn_('Видалити етап разом з позиціями', 'danger', function () {
+        if (!confirm('Видалити етап і ' + r.count + ' позицій? Це не можна скасувати.')) return;
+        apiCall('deleteEstimateStage', { id: s.id, mode: 'with_items' }).then(function () { closeModal(); V60.refresh(); toast('Видалено', 'success'); }).catch(V60.err);
+      })]);
+    openModal('Видалити етап?', b);
+  }).catch(V60.err);
+};
+V60.openAddStages = function (estimate, res) {
+  var have = (res.stages || []).map(function (s) { return s.stage_key; });
+  var defs = res.defs || [], scen = res.scenarios || [];
+  var checks = {};
+  var list = el('div', { style: 'columns:2;column-gap:16px;margin:8px 0;' });
+  defs.forEach(function (d) {
+    var cb = el('input', { type: 'checkbox' }); cb.disabled = have.indexOf(d.key) !== -1; checks[d.key] = cb;
+    list.appendChild(el('label', { style: 'display:block;padding:2px 0;' }, [cb, ' ' + d.icon + ' ' + d.name + (cb.disabled ? ' (вже є)' : '')]));
+  });
+  var pick = function (keys) { defs.forEach(function (d) { if (!checks[d.key].disabled) checks[d.key].checked = keys.indexOf(d.key) !== -1; }); };
+  var sc = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;' });
+  scen.forEach(function (s) {
+    if (s.key === 'stage') return;
+    sc.appendChild(fnBtn_((s.key === 'house' ? '🏠 ' : '📦 ') + s.name + ' (' + s.stages.length + ')', 'small', function () { pick(s.stages); }));
+  });
+  sc.appendChild(fnBtn_('Очистити', 'small', function () { pick([]); }));
+  var custom = fnIn_({ placeholder: 'Свій етап, напр. «Демонтаж»', style: 'width:100%;' });
+  var go = fnBtn_('Додати вибране', 'primary', function () {
+    var keys = defs.filter(function (d) { return checks[d.key].checked && !checks[d.key].disabled; }).map(function (d) { return d.key; });
+    var cname = custom.value.trim();
+    if (!keys.length && !cname) { toast('Оберіть етапи або введіть назву свого', 'error'); return; }
+    var p = Promise.resolve();
+    if (keys.length) p = apiCall('applyScenario', { estimate_id: estimate.id, scenario: 'house', stage_keys: keys });
+    p.then(function () { return cname ? apiCall('addEstimateStage', { estimate_id: estimate.id, name: cname }) : null; })
+      .then(function () { closeModal(); V60.refresh(); toast('Етапи додано', 'success'); }).catch(V60.err);
+  });
+  openModal('Додати етапи', el('div', {}, [
+    el('p', { class: 'page-sub' }, ['Обери готовий сценарій або познач потрібні етапи. Етапи, які вже є, не дублюються. Далі їх можна переставляти, перейменовувати й видаляти.']),
+    sc, list, fnRow_('Свій етап', custom), go]), { wide: true });
+};
+V60.openUnits = function () {
+  var box = el('div'); var draw = function () {
+    box.innerHTML = '';
+    box.appendChild(el('p', { class: 'page-sub' }, ['Словник одиниць виміру. «Знаків» — до скількох знаків після коми округлюється кількість (0 = цілі, завжди вгору).']));
+    V60.units.forEach(function (u) {
+      var row = el('div', { style: 'display:flex;gap:8px;align-items:center;padding:3px 0;' }, [el('span', { style: 'flex:1;' }, [u.name]), el('span', { class: 'page-sub', style: 'margin:0;' }, [u.decimals + ' зн.' + (u.kind === 'custom' ? ' · своя' : '')])]);
+      if (u.kind === 'custom') row.appendChild(fnBtn_('✕', 'small danger', function () { apiCall('deleteUnit', { id: u.id }).then(function () { return V60.loadUnits(); }).then(draw).catch(V60.err); }));
+      box.appendChild(row);
+    });
+    var nm = fnIn_({ placeholder: 'Нова одиниця, напр. «пог. сходинка»' }), dc = fnIn_({ type: 'number', value: '2', min: '0', max: '4', style: 'width:70px;' });
+    box.appendChild(el('div', { style: 'display:flex;gap:8px;margin-top:10px;' }, [nm, dc, fnBtn_('＋', 'primary', function () {
+      apiCall('saveUnit', { name: nm.value, decimals: dc.value }).then(function () { return V60.loadUnits(); }).then(draw).catch(V60.err);
+    })]));
+  };
+  V60.loadUnits().then(function () { draw(); openModal('Одиниці виміру', box); });
+};
+// параметри + розрахунок етапу (форма будується зі схеми полів, яку віддає сервер)
+V60.openCalc = function (estimate, stage) {
+  apiCall('getBuildingParams', { estimate_id: estimate.id }).then(function (r) {
+    var p = r.params || {}, sch = (r.schemas || {})[stage.stage_key];
+    if (!sch) { toast('Для цього етапу розрахунку немає — додай позиції вручну', 'error'); return; }
+    var inputs = {}, body = el('div'), out = el('div', { style: 'margin-top:10px;' });
+    var visWatchers = [];
+    body.appendChild(el('p', { class: 'page-sub' }, ['Введи дані — система порахує обсяги. Нічого не вигадується: якщо даних бракує, напишемо, що саме ввести. Ручні значення в кошторисі не перезаписуються.']));
+    sch.fields.forEach(function (f) {
+      var node, row;
+      if (f.type === 'rows') { node = V60.rowsEditor(f, p[f.k]); inputs[f.k] = { get: node.get }; row = fnRow_(f.label, node.el, f.hint); }
+      else if (f.type === 'bool') {
+        var cb = el('input', { type: 'checkbox' }); cb.checked = p[f.k] === '1' || p[f.k] === true; inputs[f.k] = { get: function () { return cb.checked; } };
+        row = el('label', { style: 'display:flex;gap:8px;align-items:center;padding:3px 0;' }, [cb, f.label]);
+      } else if (f.type === 'select') {
+        node = fnSel_(f.options, p[f.k] || f.options[0][0]); inputs[f.k] = { get: function () { return node.value; }, el: node }; row = fnRow_(f.label, node, f.hint);
+      } else {
+        node = fnIn_(f.type === 'number' ? { type: 'number', step: 'any', min: '0', value: p[f.k] != null ? p[f.k] : '', style: 'width:100%;' } : { value: p[f.k] || '', style: 'width:100%;' });
+        inputs[f.k] = { get: function () { return node.value; } }; row = fnRow_(f.label, node, f.hint);
+      }
+      row.setAttribute('data-when', f.when || ''); body.appendChild(row);
+    });
+    var vis = function () {
+      var t = inputs.found_type ? inputs.found_type.get() : '';
+      [].forEach.call(body.querySelectorAll('[data-when]'), function (n) { var w = n.getAttribute('data-when'); n.style.display = (!w || w === t) ? '' : 'none'; });
+    };
+    if (inputs.found_type) inputs.found_type.el.onchange = vis; vis();
+    var collect = function () { var o = {}; Object.keys(inputs).forEach(function (k) { o[k] = inputs[k].get(); }); return o; };
+    var LAB = { 'new': 'буде додано', update: 'буде оновлено', same: 'без змін', manual: '✋ у кошторисі введено вручну — не змінюється', missing: '❓ бракує даних', info: 'довідково' };
+    var showPlan = function (plan) {
+      out.innerHTML = '';
+      plan = (plan || []).filter(function (l) { return l.stage_id === stage.id; });
+      if (!plan.length) { out.appendChild(el('div', { class: 'page-sub' }, ['Поки нічого рахувати: познач потрібні роботи або введи розміри.'])); return; }
+      var t = el('table', { class: 'dt' }); t.appendChild(el('thead', {}, [el('tr', {}, ['Позиція', 'К-сть', 'Формула / статус'].map(function (h) { return el('th', {}, [h]); }))]));
+      var tb = el('tbody'), any = false;
+      plan.forEach(function (l) {
+        if (l.status === 'new' || l.status === 'update') any = true;
+        var st = LAB[l.status] || l.status;
+        if (l.status === 'manual') st += ' (у кошторисі ' + l.current_qty + ', розрахунок ' + l.qty + ')';
+        if ((l.status === 'missing' || (l.status === 'info' && l.qty == null)) && l.missing && l.missing.length) st = '❓ введи: ' + l.missing.join(', ');
+        tb.appendChild(el('tr', {}, [el('td', {}, [l.name]), el('td', {}, [l.qty == null ? '—' : l.qty + ' ' + l.unit]), el('td', {}, [el('div', { class: 'page-sub', style: 'margin:0;' }, [l.formula]), el('div', {}, [st])])]));
+      });
+      t.appendChild(tb); out.appendChild(t);
+      if (any) out.appendChild(fnBtn_('✔ Застосувати до кошторису', 'primary', function () {
+        apiCall('applyCalc', { estimate_id: estimate.id }).then(function (res) {
+          var m = res.result;
+          closeModal(); V60.refresh(); toast('Додано: ' + m.created.length + ', оновлено: ' + m.updated.length + (m.kept_manual.length ? ', ручних збережено: ' + m.kept_manual.length : '') + (m.created.length ? '. Перевір ціни — якщо їх немає в прайсі, система покаже попередження.' : ''), 'success');
+        }).catch(V60.err);
+      }));
+    };
+    body.appendChild(fnBtn_('Порахувати', 'primary', function () {
+      apiCall('saveBuildingParams', { estimate_id: estimate.id, params: collect() })
+        .then(function () { return apiCall('previewCalc', { estimate_id: estimate.id }); })
+        .then(function (r2) { showPlan(r2.plan); }).catch(V60.err);
+    }));
+    body.appendChild(fnBtn_('📏 Норми матеріалів', '', function () {
+      apiCall('previewCalc', { estimate_id: estimate.id }).then(function (r3) { V63.openNorms(estimate, stage, r3.plan); }).catch(V60.err);
+    }));
+    body.appendChild(out);
+    openModal('Розрахунок: ' + stage.name, body, { wide: true });
+  }).catch(V60.err);
+};
+// редактор таблиці рядків (скати, прорізи, ділянки…)
+V60.rowsEditor = function (f, rows) {
+  var box = el('div', { style: 'overflow-x:auto;' }), data = (Array.isArray(rows) && rows.length ? rows : [{}]).map(function (r) { return Object.assign({}, r); });
+  var draw = function () {
+    box.innerHTML = '';
+    var t = el('table', { class: 'dt' });
+    t.appendChild(el('thead', {}, [el('tr', {}, f.cols.map(function (c) { return el('th', {}, [c.label]); }).concat([el('th')]))]));
+    var tb = el('tbody');
+    data.forEach(function (r, i) {
+      var tds = f.cols.map(function (c) {
+        var inp;
+        if (c.select) { inp = fnSel_(c.select, r[c.k] || c.select[0][0]); inp.onchange = function () { r[c.k] = inp.value; }; r[c.k] = inp.value; }
+        else if (c.bool) { inp = el('input', { type: 'checkbox' }); inp.checked = r[c.k] === '1' || r[c.k] === true; inp.onchange = function () { r[c.k] = inp.checked; }; }
+        else if (c.text) { inp = fnIn_({ value: r[c.k] || '', style: 'min-width:90px;' }); inp.oninput = function () { r[c.k] = inp.value; }; }
+        else { inp = fnIn_({ type: 'number', step: 'any', min: '0', value: r[c.k] != null ? r[c.k] : '', style: 'min-width:64px;width:84px;' }); inp.oninput = function () { r[c.k] = inp.value; }; }
+        return el('td', {}, [inp]);
+      });
+      tds.push(el('td', {}, [fnBtn_('✕', 'small danger', function () { data.splice(i, 1); if (!data.length) data.push({}); draw(); })]));
+      tb.appendChild(el('tr', {}, tds));
+    });
+    t.appendChild(tb); box.appendChild(t);
+    box.appendChild(fnBtn_('＋ рядок', 'small', function () { data.push({}); draw(); }));
+  };
+  draw();
+  return { el: box, get: function () { return data.map(function (r) { var o = {}; f.cols.forEach(function (c) { o[c.k] = c.bool ? !!r[c.k] : (r[c.k] == null ? '' : r[c.k]); }); return o; }); } };
+};
+/* ==================== ЕТАП 62: ЦІНИ Й ФІНАНСИ (ітерація 3) ====================
+   Картка «Ціни та економіка» в кошторисі — лише для ролей, що бачать собівартість. */
+var V62 = {};
+['listPartnerPrices', 'listMarketPrices', 'comparePartners', 'listMarkupRules', 'listExtraCosts', 'getEstimateEconomics', 'previewPrices', 'previewMarkup'].forEach(function (a) { SYNC_READONLY_ACTIONS[a] = 1; });
+V62.money = function (n) { return (Number(n) || 0).toLocaleString('uk-UA', { maximumFractionDigits: 2 }) + ' грн'; };
+V62.table = function (heads, rows) {
+  var t = el('table', { class: 'dt' }); t.appendChild(el('thead', {}, [el('tr', {}, heads.map(function (h) { return el('th', {}, [h]); }))]));
+  var tb = el('tbody'); rows.forEach(function (r) { tb.appendChild(el('tr', {}, r.map(function (c) { return el('td', {}, [c]); }))); }); t.appendChild(tb);
+  var w = el('div', { style: 'overflow-x:auto;' }, [t]); return w;
+};
+// перемикач «хто купує матеріал» біля матеріалу
+(function () {
+  var prev = V9.itemTags;
+  V9.itemTags = function (it) {
+    var box = prev(it);
+    try {
+      if (it && it.item_type === 'material' && canSeeCost_() && canDo_('estimates', 'edit')) {
+        var client = it.supplied_by === 'client';
+        var b = fnBtn_(client ? '👤 купує замовник' : '🛒 купує BUDNEX', 'small', function (e) {
+          if (e && e.stopPropagation) e.stopPropagation();
+          apiCall('setMaterialsSupply', { estimate_id: it.estimate_id, supplied_by: client ? 'budnex' : 'client', item_ids: [it.id] }).then(V60.refresh).catch(V60.err);
+        }, client ? 'Матеріал купує замовник — не входить у договір. Клікни, щоб купував BUDNEX' : 'Матеріал купує BUDNEX — входить у договір. Клікни, щоб купував замовник');
+        b.style.padding = '2px 7px'; b.style.fontSize = '11px';
+        if (box && box.appendChild) box.appendChild(b);
+      }
+    } catch (e) { /* не критично */ }
+    return box;
+  };
+})();
+V62.card = function (container, estimate, items) {
+  if (!canSeeCost_()) return;
+  var card = el('div', { class: 'card v62-card', style: 'margin-top:14px;' });
+  card.appendChild(el('div', { class: 'chart-title' }, ['💰 Ціни та економіка']));
+  var body = el('div', {}, [el('div', { class: 'page-sub' }, ['Рахую…'])]); card.appendChild(body); container.appendChild(card);
+  var canEdit = canDo_('estimates', 'edit') && estimate.status !== 'final';
+  apiCall('getEstimateEconomics', { estimate_id: estimate.id }).then(function (ec) {
+    body.innerHTML = '';
+    var P = ec.plan, M = V62.money;
+    var bar = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;' });
+    if (canEdit) {
+      bar.appendChild(fnBtn_('👷 Ціни партнера', 'small primary', function () { V62.openPartnerPrices(estimate); }, 'Підставити ціни обраного партнера'));
+      bar.appendChild(fnBtn_('⚖ Порівняти партнерів', 'small', function () { V62.openCompare(estimate); }));
+      bar.appendChild(fnBtn_('％ Націнка / маржа', 'small', function () { V62.openMarkup(estimate, items); }));
+      bar.appendChild(fnBtn_('🧾 Витрати, логістика, резерв', 'small', function () { V62.openCosts(estimate); }));
+      bar.appendChild(fnBtn_('📚 Довідник цін', 'small', function () { V62.openCatalog(); }, 'Ціни партнерів і ринкові орієнтири'));
+      bar.appendChild(fnBtn_('🛒 Усі матеріали → замовник', 'small', function () { apiCall('setMaterialsSupply', { estimate_id: estimate.id, supplied_by: 'client' }).then(V60.refresh).catch(V60.err); }));
+      bar.appendChild(fnBtn_('🛒 Усі матеріали → BUDNEX', 'small', function () { apiCall('setMaterialsSupply', { estimate_id: estimate.id, supplied_by: 'budnex' }).then(V60.refresh).catch(V60.err); }));
+    }
+    body.appendChild(bar);
+    var rows = [
+      ['Роботи партнерів (собівартість)', M(P.works_cost), M(P.works_client)],
+      ['Матеріали BUDNEX', M(P.materials_budnex_cost), M(P.materials_client)],
+      ['Логістика', M(P.logistics), M(P.logistics)]];
+    if (P.extras_cost || P.extras_client) rows.push(['Додаткові витрати', M(P.extras_cost), M(P.extras_client)]);
+    rows.push(['РАЗОМ', M(P.total_cost), M(P.total_client)]);
+    body.appendChild(V62.table(['', 'Собівартість', 'Ціна клієнту'], rows));
+    var lines = [
+      ['Очікуваний прибуток', M(P.expected_profit) + ' (націнка ' + P.markup_pct.toFixed(1) + '% · маржа ' + P.margin_pct.toFixed(1) + '%)'],
+      ['Резерв (окремо від прибутку)', P.reserve_pct == null ? 'не задано' : M(P.reserve) + ' (' + P.reserve_pct + '%)'],
+      ['Прибуток після резерву', M(P.profit_after_reserve)]];
+    if (P.tax != null) lines.push(['Податки/комісії ' + P.tax_pct + '%', M(P.tax)], ['Після податків', M(P.profit_after_tax)]);
+    if (ec.customer_materials.count) lines.push(['Матеріали замовника (орієнтовно, поза договором)', M(ec.customer_materials.estimate) + ' · ' + ec.customer_materials.count + ' поз.']);
+    lines.push(['Факт по обʼєкту: отримано / виплачено партнерам / витрати', M(ec.actual.received) + ' / ' + M(ec.actual.partner_payouts) + ' / ' + M(ec.actual.expenses)]);
+    lines.push(['Факт: результат каси · ще має дати клієнт', M(ec.actual.cash_result) + ' · ' + M(ec.actual.receivable)]);
+    body.appendChild(el('div', { style: 'margin-top:8px;' }, lines.map(function (l) { return el('div', { style: 'display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--border);' }, [el('span', { class: 'page-sub', style: 'margin:0;' }, [l[0]]), el('b', {}, [l[1]])]); })));
+    if (ec.warnings.length) body.appendChild(el('div', { class: 'margin-warn', style: 'margin-top:8px;' }, ['⚠ ' + ec.warnings.slice(0, 6).join(' · ') + (ec.warnings.length > 6 ? ' … ще ' + (ec.warnings.length - 6) : '')]));
+    body.appendChild(el('div', { class: 'page-sub', style: 'margin-top:6px;' }, ['Кошторисні суми — це план. Фактичні платежі й виплати показано окремо й не змішуються з кошторисом.']));
+  }).catch(function (e) { body.innerHTML = ''; body.appendChild(el('div', { class: 'page-sub' }, ['Економіка недоступна: ' + (e && e.message || e)])); });
+};
+V62.changesTable = function (res) {
+  var box = el('div');
+  if (res.changed.length) box.appendChild(V62.table(['Позиція', 'Було', 'Стане', 'Джерело'], res.changed.map(function (c) { return [c.name, V62.money(c.from), V62.money(c.to), { partner: 'партнер', budnex: 'BUDNEX', market: '⚠ ринок' }[c.source] || c.source || '']; })));
+  else box.appendChild(el('div', { class: 'page-sub' }, ['Змін немає.']));
+  if (res.no_price && res.no_price.length) box.appendChild(el('div', { class: 'margin-warn', style: 'margin-top:8px;' }, ['⚠ Немає ціни (введи вручну): ' + res.no_price.map(function (x) { return x.name; }).join(', ')]));
+  return box;
+};
+V62.openPartnerPrices = function (estimate) {
+  var sel = fnSel_([['', '— без партнера (прайс BUDNEX) —']].concat((STATE.db.partners || []).map(function (p) { return [p.id, p.name]; })), '');
+  var out = el('div', { style: 'margin-top:10px;' }), conf = el('input', { type: 'checkbox' });
+  var go = function (dry) {
+    apiCall(dry ? 'previewPrices' : 'applyPrices', { estimate_id: estimate.id, partner_id: sel.value, confirm_manual: conf.checked }).then(function (res) {
+      if (!dry) { closeModal(); V60.refresh(); toast('Ціни застосовано: ' + res.changed.length, 'success'); return; }
+      out.innerHTML = ''; out.appendChild(V62.changesTable(res));
+      if (res.skipped_manual.length) out.appendChild(el('div', { class: 'page-sub', style: 'margin-top:8px;' }, ['✋ Ручні ціни не змінюються: ' + res.skipped_manual.map(function (x) { return x.name + ' (' + V62.money(x.manual) + ' → ' + V62.money(x.proposed) + ')'; }).join(', ') + '. Постав галочку нижче і перерахуй, щоб замінити.']));
+      if (res.changed.length) out.appendChild(fnBtn_('✔ Застосувати', 'primary', function () { go(false); }));
+    }).catch(V60.err);
+  };
+  openModal('Ціни партнера для кошторису', el('div', {}, [
+    el('p', { class: 'page-sub' }, ['Пріоритет ціни: партнер → прайс BUDNEX → затверджений ринковий орієнтир. Якщо ціни немає — ціну не вигадуємо, а показуємо попередження.']),
+    fnRow_('Партнер', sel), el('label', { style: 'display:flex;gap:8px;align-items:center;margin:6px 0;' }, [conf, 'Замінити й ручні ціни (з підтвердженням)']),
+    fnBtn_('Переглянути зміни', '', function () { go(true); }), out]), { wide: true });
+};
+V62.openCompare = function (estimate) {
+  apiCall('comparePartners', { estimate_id: estimate.id }).then(function (r) {
+    var box = el('div');
+    if (!r.rows.length) { box.appendChild(el('div', { class: 'page-sub' }, ['У кошторисі немає робіт.'])); }
+    else {
+      box.appendChild(el('p', { class: 'page-sub' }, ['Найдешевша ціна по кожній роботі виділена. «Обрати» ставить ціну цього партнера на позицію.']));
+      box.appendChild(V62.table(['Робота', 'К-сть', 'Зараз', 'Прайс BUDNEX', 'Пропозиції партнерів'], r.rows.map(function (x) {
+        return [x.name, x.quantity + ' ' + x.unit, V62.money(x.current), x.base == null ? '—' : V62.money(x.base),
+          x.offers.length ? el('div', {}, x.offers.map(function (o) {
+            var b = fnBtn_((o.cheapest ? '★ ' : '') + o.name + ': ' + V62.money(o.price), 'small' + (o.cheapest ? ' primary' : ''), function () {
+              apiCall('applyPrices', { estimate_id: estimate.id, partner_id: o.partner_id, item_ids: [x.item_id], confirm_manual: true }).then(function () { closeModal(); V60.refresh(); toast('Ціну партнера застосовано', 'success'); }).catch(V60.err);
+            }, 'Обрати'); b.style.margin = '2px'; return b; })) : '—'];
+      })));
+      box.appendChild(el('h4', { style: 'margin:12px 0 4px;' }, ['Разом по партнерах']));
+      box.appendChild(V62.table(['Партнер', 'Сума', 'Покриває робіт'], r.totals.map(function (t) { return [t.name, V62.money(t.total), t.covered + ' з ' + r.items_count + (t.full ? ' ✔' : ' — порівнювати некоректно')]; })));
+      box.appendChild(el('div', { class: 'page-sub', style: 'margin-top:6px;' }, [r.note]));
+    }
+    openModal('Порівняння партнерів', box, { wide: true });
+  }).catch(V60.err);
+};
+V62.openMarkup = function (estimate, items) {
+  apiCall('listMarkupRules', { estimate_id: estimate.id }).then(function (r) {
+    var box = el('div'), SC = { item: 'Позиція', stage: 'Етап', category: 'Категорія', type: 'Тип', estimate: 'Весь кошторис', object: 'Обʼєкт' };
+    var stages = []; apiCall('listEstimateStages', { estimate_id: estimate.id }).then(function (s) { stages = s.stages; }).catch(function () {});
+    var name = function (rule) {
+      if (rule.scope === 'item') { var it = items.filter(function (i) { return i.id === rule.target; })[0]; return it ? it.name : rule.target; }
+      if (rule.scope === 'stage') { var st = stages.filter(function (s) { return s.id === rule.target; })[0]; return st ? st.name : rule.target; }
+      if (rule.scope === 'type') return rule.target === 'work' ? 'Роботи' : 'Матеріали';
+      if (rule.scope === 'category') return rule.target; return '';
+    };
+    box.appendChild(el('p', { class: 'page-sub' }, ['Націнка: ціна = собівартість × (1 + %). Маржа: ціна = собівартість / (1 − %). Це різні моделі. Пріоритет: позиція → етап → категорія → тип → кошторис → обʼєкт → налаштування (зараз ' + (r.default.mode === 'margin' ? 'маржа ' : 'націнка ') + r.default.value + '%). Націнка не нараховується двічі: кожне перерахування йде від собівартості.']));
+    var list = el('div');
+    if (!r.rules.length) list.appendChild(el('div', { class: 'page-sub' }, ['Своїх правил ще немає — діє налаштування за замовчуванням.']));
+    r.rules.forEach(function (ru) {
+      list.appendChild(el('div', { style: 'display:flex;gap:8px;align-items:center;padding:3px 0;' }, [el('span', { style: 'flex:1;' }, [SC[ru.scope] + (name(ru) ? ': ' + name(ru) : '') + ' — ' + (ru.mode === 'margin' ? 'маржа ' : 'націнка ') + ru.value + '%']),
+        fnBtn_('✕', 'small danger', function () { apiCall('deleteMarkupRule', { id: ru.id }).then(function () { closeModal(); V62.openMarkup(estimate, items); }).catch(V60.err); })]));
+    });
+    box.appendChild(list);
+    var scope = fnSel_([['estimate', 'Весь кошторис'], ['type', 'Тип: роботи / матеріали'], ['stage', 'Етап'], ['category', 'Категорія прайсу'], ['item', 'Окрема позиція']], 'estimate');
+    var target = el('div'), tgtVal = function () { return null; };
+    var drawTarget = function () {
+      target.innerHTML = ''; var v = scope.value;
+      if (v === 'estimate') { tgtVal = function () { return estimate.id; }; }
+      else if (v === 'type') { var s1 = fnSel_([['work', 'Роботи'], ['material', 'Матеріали']], 'work'); tgtVal = function () { return s1.value; }; target.appendChild(s1); }
+      else if (v === 'stage') { var s2 = fnSel_(stages.map(function (s) { return [s.id, s.name]; }), ''); tgtVal = function () { return s2.value; }; target.appendChild(s2); }
+      else if (v === 'category') { var cats = {}; (STATE.db.works || []).forEach(function (w) { if (w.category) cats[w.category] = 1; }); var s3 = fnSel_(Object.keys(cats).map(function (c) { return [c, c]; }), ''); tgtVal = function () { return s3.value; }; target.appendChild(s3); }
+      else { var s4 = fnSel_(items.map(function (i) { return [i.id, i.name]; }), ''); tgtVal = function () { return s4.value; }; target.appendChild(s4); }
+    };
+    scope.onchange = drawTarget; drawTarget();
+    var mode = fnSel_([['markup', 'Націнка'], ['margin', 'Маржа']], 'markup'), val = fnIn_({ type: 'number', step: 'any', min: '0', value: '25', style: 'width:90px;' });
+    box.appendChild(el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;' }, [scope, target, mode, val, el('span', {}, ['%']),
+      fnBtn_('＋ Зберегти правило', 'primary', function () { apiCall('saveMarkupRule', { scope: scope.value, target: tgtVal(), mode: mode.value, value: val.value }).then(function () { closeModal(); V62.openMarkup(estimate, items); }).catch(V60.err); })]));
+    var out = el('div', { style: 'margin-top:12px;' }), conf = el('input', { type: 'checkbox' });
+    var go = function (dry) {
+      apiCall(dry ? 'previewMarkup' : 'applyMarkupRules', { estimate_id: estimate.id, confirm_manual: conf.checked }).then(function (res) {
+        if (!dry) { closeModal(); V60.refresh(); toast('Ціни перераховано: ' + res.changed.length + ' поз.', 'success'); return; }
+        out.innerHTML = '';
+        out.appendChild(res.changed.length ? V62.table(['Позиція', 'Було', 'Стане', 'Правило'], res.changed.map(function (c) { return [c.name, V62.money(c.from), V62.money(c.to), (c.mode === 'margin' ? 'маржа ' : 'націнка ') + c.value + '% (' + ({ item: 'позиція', stage: 'етап', category: 'категорія', type: 'тип', estimate: 'кошторис', object: 'обʼєкт', 'default': 'налаштування' }[c.scope]) + ')']; })) : el('div', { class: 'page-sub' }, ['Змін немає.']));
+        if (res.skipped_manual.length) out.appendChild(el('div', { class: 'page-sub', style: 'margin-top:6px;' }, ['✋ Ручна націнка не змінюється: ' + res.skipped_manual.map(function (x) { return x.name; }).join(', ') + '. Постав галочку нижче, щоб замінити.']));
+        if (res.changed.length) out.appendChild(fnBtn_('✔ Перерахувати ціни', 'primary', function () { go(false); }));
+      }).catch(V60.err);
+    };
+    box.appendChild(el('label', { style: 'display:flex;gap:8px;align-items:center;margin-top:10px;' }, [conf, 'Замінити й ручні націнки (з підтвердженням)']));
+    box.appendChild(fnBtn_('Переглянути перерахунок', '', function () { go(true); })); box.appendChild(out);
+    openModal('Націнка і маржа', box, { wide: true });
+  }).catch(V60.err);
+};
+V62.openCosts = function (estimate) {
+  Promise.all([apiCall('listExtraCosts', { estimate_id: estimate.id })]).then(function (res) {
+    var rows = res[0], box = el('div'), KINDS = [['delivery', 'Доставка'], ['equipment', 'Оренда техніки'], ['tools', 'Оренда обладнання'], ['lodging', 'Проживання працівників'], ['org', 'Організаційні витрати'], ['other', 'Інші витрати']];
+    var kn = {}; KINDS.forEach(function (k) { kn[k[0]] = k[1]; });
+    box.appendChild(el('h4', { style: 'margin:0 0 4px;' }, ['Додаткові витрати']));
+    box.appendChild(el('div', { class: 'page-sub' }, ['«Витрата» — скільки це коштує BUDNEX. «Для клієнта» — скільки додається в ціну клієнту (0 = BUDNEX бере на себе).']));
+    rows.forEach(function (x) { box.appendChild(el('div', { style: 'display:flex;gap:8px;align-items:center;padding:3px 0;' }, [el('span', { style: 'flex:1;' }, [kn[x.kind] + ': ' + x.title + ' — ' + V62.money(x.amount) + ' / клієнту ' + V62.money(x.client_amount)]), fnBtn_('✕', 'small danger', function () { apiCall('deleteExtraCost', { id: x.id }).then(function () { V60.refresh(); closeModal(); V62.openCosts(estimate); }).catch(V60.err); })])); });
+    var kind = fnSel_(KINDS, 'delivery'), ttl = fnIn_({ placeholder: 'Опис (необовʼязково)' }), am = fnIn_({ type: 'number', min: '0', step: 'any', placeholder: 'Витрата, грн', style: 'width:110px;' }), ca = fnIn_({ type: 'number', min: '0', step: 'any', placeholder: 'Для клієнта', style: 'width:110px;' });
+    box.appendChild(el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;' }, [kind, ttl, am, ca, fnBtn_('＋', 'primary', function () { apiCall('saveExtraCost', { estimate_id: estimate.id, kind: kind.value, title: ttl.value, amount: am.value, client_amount: ca.value }).then(function () { V60.refresh(); closeModal(); V62.openCosts(estimate); }).catch(V60.err); })]));
+    box.appendChild(el('h4', { style: 'margin:16px 0 4px;' }, ['Логістика']));
+    box.appendChild(el('div', { class: 'page-sub' }, ['Пальне = км × витрата/100 × ціна пального; амортизація = км × ставка. Вкажи, чи відстань в один бік (подвоїмо) чи вже загальний маршрут.']));
+    var km = fnIn_({ type: 'number', min: '0', step: 'any', placeholder: 'Відстань, км', style: 'width:110px;' }), trips = fnIn_({ type: 'number', min: '1', value: '1', style: 'width:80px;' }), route = fnSel_([['one_way', 'в один бік'], ['total', 'загальний маршрут']], 'one_way'), ex = fnIn_({ type: 'number', min: '0', step: 'any', placeholder: 'Інші транспортні', style: 'width:120px;' });
+    var lo = el('span', { class: 'page-sub' });
+    box.appendChild(el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;' }, [km, trips, route, ex, fnBtn_('Порахувати й застосувати', '', function () {
+      apiCall('calcLogisticsV2', { estimate_id: estimate.id, distance_km: km.value, trips: trips.value, route: route.value, extra: ex.value }).then(function (r) { lo.textContent = 'Пальне ' + V62.money(r.fuel) + ' + амортизація ' + V62.money(r.amortization) + ' + інше ' + V62.money(r.extra) + ' = ' + V62.money(r.logistics_total) + ' (' + r.total_km + ' км)'; V60.refresh(); }).catch(V60.err); }), lo]));
+    box.appendChild(el('h4', { style: 'margin:16px 0 4px;' }, ['Резерв']));
+    box.appendChild(el('div', { class: 'page-sub' }, ['Резерв показується окремо й не вважається прибутком. Відсоток задаєш ти — за замовчуванням його немає.']));
+    var rp = fnIn_({ type: 'number', min: '0', max: '100', step: 'any', value: estimate.reserve_pct != null ? estimate.reserve_pct : '', placeholder: '%', style: 'width:90px;' }), rn = fnIn_({ placeholder: 'Для чого (напр. непередбачене)', value: estimate.reserve_note || '' });
+    box.appendChild(el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;' }, [rp, rn, fnBtn_('Зберегти резерв', '', function () { apiCall('setEstimateReserve', { estimate_id: estimate.id, reserve_pct: rp.value, reserve_note: rn.value }).then(function () { closeModal(); V60.refresh(); toast('Збережено', 'success'); }).catch(V60.err); })]));
+    openModal('Витрати, логістика, резерв', box, { wide: true });
+  }).catch(V60.err);
+};
+V62.openCatalog = function () {
+  var box = el('div'), partners = STATE.db.partners || [], works = STATE.db.works || [];
+  var tabs = el('div', { style: 'display:flex;gap:6px;margin-bottom:8px;' }), area = el('div');
+  var drawPartner = function () {
+    area.innerHTML = '';
+    var ps = fnSel_(partners.map(function (p) { return [p.id, p.name]; }), partners[0] && partners[0].id), list = el('div');
+    var load = function () { apiCall('listPartnerPrices', { partner_id: ps.value }).then(function (rows) {
+      list.innerHTML = ''; if (!rows.length) list.appendChild(el('div', { class: 'page-sub' }, ['Для цього партнера цін ще немає.']));
+      rows.forEach(function (r) { list.appendChild(el('div', { style: 'display:flex;gap:8px;align-items:center;padding:3px 0;' }, [el('span', { style: 'flex:1;' }, [r.work_name + ' — ' + V62.money(r.price) + (r.unit ? '/' + r.unit : '')]), fnBtn_('✕', 'small danger', function () { apiCall('deletePartnerPrice', { id: r.id }).then(load).catch(V60.err); })])); }); }).catch(V60.err); };
+    ps.onchange = load;
+    var ws = fnSel_(works.map(function (w) { return [w.id, w.name + ' (' + w.unit + ')']; }), ''), pr = fnIn_({ type: 'number', min: '0', step: 'any', placeholder: 'Ціна, грн', style: 'width:110px;' });
+    area.appendChild(fnRow_('Партнер', ps)); area.appendChild(list);
+    area.appendChild(el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;' }, [ws, pr, fnBtn_('＋ Зберегти ціну', 'primary', function () { apiCall('savePartnerPrice', { partner_id: ps.value, work_id: ws.value, price: pr.value }).then(function () { pr.value = ''; load(); toast('Збережено', 'success'); }).catch(V60.err); })]));
+    if (partners.length) load(); else area.appendChild(el('div', { class: 'page-sub' }, ['Спочатку додай партнера в розділі «Партнери».']));
+  };
+  var drawMarket = function () {
+    area.innerHTML = ''; var list = el('div');
+    var load = function () { apiCall('listMarketPrices', {}).then(function (rows) {
+      list.innerHTML = ''; if (!rows.length) list.appendChild(el('div', { class: 'page-sub' }, ['Ринкових орієнтирів ще немає.']));
+      rows.forEach(function (r) { list.appendChild(el('div', { style: 'display:flex;gap:8px;align-items:center;padding:3px 0;' }, [el('span', { style: 'flex:1;' }, [(r.approved ? '✔ ' : '○ ') + r.work_name + ' — ' + V62.money(r.price) + ' · ' + (r.region || '—') + ' · ' + String(r.date || '').slice(0, 10) + ' · ' + (r.source || 'без джерела')]), fnBtn_('✕', 'small danger', function () { apiCall('deleteMarketPrice', { id: r.id }).then(load).catch(V60.err); })])); }); }).catch(V60.err); };
+    var ws = fnSel_(works.map(function (w) { return [w.id, w.name + ' (' + w.unit + ')']; }), ''), pr = fnIn_({ type: 'number', min: '0', step: 'any', placeholder: 'Ціна', style: 'width:90px;' }), rg = fnIn_({ placeholder: 'Регіон', style: 'width:100px;' }), src = fnIn_({ placeholder: 'Джерело' }), cm = fnIn_({ placeholder: 'Коментар' }), ap = el('input', { type: 'checkbox' });
+    area.appendChild(el('div', { class: 'page-sub' }, ['Ринкова ціна використовується лише якщо затверджена (і має джерело). Незатверджені орієнтири автоматично ніколи не підставляються.']));
+    area.appendChild(list);
+    area.appendChild(el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;' }, [ws, pr, rg, src, cm, el('label', {}, [ap, ' затверджено']), fnBtn_('＋ Зберегти', 'primary', function () { apiCall('saveMarketPrice', { work_id: ws.value, price: pr.value, region: rg.value, source: src.value, comment: cm.value, approved: ap.checked }).then(function () { pr.value = ''; load(); toast('Збережено', 'success'); }).catch(V60.err); })]));
+    load();
+  };
+  tabs.appendChild(fnBtn_('Ціни партнерів', 'small primary', drawPartner)); tabs.appendChild(fnBtn_('Ринкові орієнтири', 'small', drawMarket));
+  tabs.appendChild(fnBtn_('⬆ Імпорт з Excel', 'small', function () { closeModal(); V63.openImport(); })); tabs.appendChild(fnBtn_('🕘 Історія цін', 'small', function () { closeModal(); V63.openHistory(); }));
+  box.appendChild(tabs); box.appendChild(area); drawPartner();
+  openModal('Довідник цін', box, { wide: true });
+};
+
+/* ==================== ЕТАП 63: КАТАЛОГИ Й НОРМИ (ітерація 4) ==================== */
+var V63 = {};
+['listNorms', 'listAnalogs', 'listObjectTemplates', 'listPriceHistory', 'exportPrices'].forEach(function (a) { SYNC_READONLY_ACTIONS[a] = 1; });
+V63.LEVELS = [['', '— не вибрано —'], ['econom', 'Економ'], ['standard', 'Стандарт'], ['premium', 'Преміум']];
+V63.levelSelect = function (estimate) {
+  var sel = fnSel_(V63.LEVELS, estimate.finish_level || '');
+  sel.title = 'Рівень комплектації: норми з відповідним рівнем замінюють загальні';
+  sel.onchange = function () { apiCall('setFinishLevel', { estimate_id: estimate.id, level: sel.value }).then(V60.refresh).catch(V60.err); };
+  return el('label', { style: 'display:flex;gap:6px;align-items:center;' }, [el('span', { class: 'page-sub', style: 'margin:0;' }, ['Комплектація:']), sel]);
+};
+// ---- норми матеріалів до етапу
+V63.openNorms = function (estimate, stage, plan) {
+  apiCall('listNorms', { estimate_id: estimate.id }).then(function (norms) {
+    var lines = (plan || []).filter(function (l) { return l.stage_id === stage.id && !l.from_norm && /^[a-z0-9_]+$/.test(l.calc_key); });
+    var box = el('div');
+    box.appendChild(el('p', { class: 'page-sub' }, ['Норма — скільки матеріалу іде на 1 одиницю рядка розрахунку. До розрахунку потрапляють лише ПІДТВЕРДЖЕНІ норми (вказано джерело). Ніяких «типових» норм система не підставляє.']));
+    var mats = (STATE.db.materials || []);
+    var dl = el('datalist', { id: 'v63mats' }); mats.forEach(function (m) { dl.appendChild(el('option', { value: m.name })); }); box.appendChild(dl);
+    var keys = lines.map(function (l) { return l.calc_key; });
+    var mine = norms.filter(function (n) { return keys.indexOf(n.calc_key) !== -1; });
+    if (!mine.length) box.appendChild(el('div', { class: 'page-sub' }, ['Норм для цього етапу ще немає.']));
+    mine.forEach(function (n) {
+      var ln = lines.filter(function (l) { return l.calc_key === n.calc_key; })[0];
+      box.appendChild(el('div', { style: 'display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;' }, [
+        el('span', { style: 'flex:1;min-width:200px;' }, [(n.confirmed ? '✔ ' : '○ чернетка · ') + n.material_name + ': ' + n.consumption + ' ' + n.unit + ' на 1 ' + (ln ? ln.unit : '') + ' «' + (ln ? ln.name : n.work_name) + '»' + (n.waste_pct ? ' +' + n.waste_pct + '%' : '') + (n.pack_size ? ' · упак. ' + n.pack_size : '') + (n.level ? ' · ' + n.level : '') + (n.object_id ? ' · цей обʼєкт' : '') + (n.source ? ' · ' + n.source : '')]),
+        fnBtn_('✕', 'small danger', function () { if (!confirm('Видалити норму?')) return; apiCall('deleteNorm', { id: n.id }).then(function () { closeModal(); V63.openNorms(estimate, stage, plan); V60.refresh(); }).catch(V60.err); })]));
+    });
+    box.appendChild(el('h4', { style: 'margin:14px 0 4px;' }, ['Додати норму']));
+    var line = fnSel_(lines.map(function (l) { return [l.calc_key, l.name + ' (' + l.unit + ')']; }), lines[0] && lines[0].calc_key);
+    var mat = fnIn_({ placeholder: 'Матеріал', list: 'v63mats', style: 'width:100%;' }), unit = fnIn_({ placeholder: 'Од. матеріалу (кг, шт.…)', style: 'width:130px;' }), cons = fnIn_({ type: 'number', step: 'any', min: '0', placeholder: 'Норма на 1 од.', style: 'width:120px;' });
+    mat.onchange = function () { var m = mats.filter(function (x) { return x.name === mat.value; })[0]; if (m && !unit.value) unit.value = m.unit || ''; };
+    var waste = fnIn_({ type: 'number', step: 'any', min: '0', placeholder: 'Запас, %', style: 'width:90px;' }), pack = fnIn_({ type: 'number', step: 'any', min: '0', placeholder: 'Упаковка', style: 'width:90px;' }), packU = fnIn_({ placeholder: 'од. упак.', style: 'width:90px;' });
+    var lvl = fnSel_(V63.LEVELS, ''), src = fnIn_({ placeholder: 'Джерело норми (обовʼязково для підтвердження)', style: 'width:100%;' }), an = fnIn_({ placeholder: 'Аналоги через кому', style: 'width:100%;' });
+    var objOnly = el('input', { type: 'checkbox' }), conf = el('input', { type: 'checkbox' });
+    box.appendChild(fnRow_('До якого рядка', line)); box.appendChild(fnRow_('Матеріал', mat));
+    box.appendChild(el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;' }, [unit, cons, waste, pack, packU, lvl]));
+    box.appendChild(fnRow_('Джерело', src)); box.appendChild(fnRow_('Аналоги', an));
+    box.appendChild(el('label', { style: 'display:flex;gap:8px;align-items:center;margin:6px 0;' }, [objOnly, 'Лише для цього обʼєкта']));
+    box.appendChild(el('label', { style: 'display:flex;gap:8px;align-items:center;margin:6px 0;' }, [conf, 'Підтверджую норму (інакше збережеться як чернетка і не діятиме)']));
+    box.appendChild(fnBtn_('＋ Зберегти норму', 'primary', function () {
+      apiCall('saveNorm', { estimate_id: estimate.id, calc_key: line.value, material_name: mat.value, unit: unit.value, consumption: cons.value, waste_pct: waste.value, pack_size: pack.value, pack_unit: packU.value, level: lvl.value, source: src.value, analogs: an.value, object_only: objOnly.checked, confirm: conf.checked })
+        .then(function () { closeModal(); toast('Норму збережено', 'success'); V63.openNorms(estimate, stage, plan); V60.refresh(); }).catch(V60.err);
+    }));
+    openModal('Норми матеріалів: ' + stage.name, box, { wide: true });
+  }).catch(V60.err);
+};
+// ---- аналоги
+V63.openAnalogs = function (it) {
+  apiCall('listAnalogs', { item_id: it.id }).then(function (r) {
+    var box = el('div');
+    if (!r.analogs.length) box.appendChild(el('div', { class: 'page-sub' }, ['Аналогів для цього матеріалу не задано. Додай їх у нормі («Аналоги через кому»).']));
+    r.analogs.forEach(function (a) {
+      box.appendChild(el('div', { style: 'display:flex;gap:8px;align-items:center;padding:4px 0;flex-wrap:wrap;' }, [
+        el('span', { style: 'flex:1;min-width:160px;' }, [a.name + (a.found ? '' : ' — немає в довіднику') + (a.price != null ? ' · ' + V62.money(a.price) + '/' + a.unit : '') + (a.unit_mismatch ? ' ⚠ інша одиниця' : '')]),
+        a.found ? fnBtn_('Замінити', 'small', function () {
+          apiCall('swapAnalog', { item_id: it.id, material_name: a.name }).then(function (res) {
+            if (res.need_confirm) { if (!confirm(res.reason + ' Замінити?')) return; return apiCall('swapAnalog', { item_id: it.id, material_name: a.name, confirm: true }); }
+            return res;
+          }).then(function (res) { if (res) { closeModal(); V60.refresh(); toast(res.no_price ? 'Замінено, але ціни в довіднику немає — введи вручну' : 'Замінено на аналог', res.no_price ? 'error' : 'success'); } }).catch(V60.err);
+        }) : null]));
+    });
+    openModal('Аналоги: ' + it.name, box);
+  }).catch(V60.err);
+};
+// ---- шаблони обʼєктів
+V63.openTemplates = function (estimate) {
+  apiCall('listObjectTemplates', {}).then(function (list) {
+    var box = el('div');
+    box.appendChild(el('p', { class: 'page-sub' }, ['Шаблон запамʼятовує набір етапів і введені параметри. При застосуванні додаються лише відсутні етапи; значення, які ти вже ввів, не перезаписуються.']));
+    if (!list.length) box.appendChild(el('div', { class: 'page-sub' }, ['Шаблонів ще немає.']));
+    list.forEach(function (t) {
+      box.appendChild(el('div', { style: 'display:flex;gap:8px;align-items:center;padding:4px 0;flex-wrap:wrap;' }, [el('span', { style: 'flex:1;min-width:160px;' }, [t.name + ' · ' + t.stages.length + ' етапів']),
+        fnBtn_('Застосувати', 'small primary', function () { apiCall('applyObjectTemplate', { estimate_id: estimate.id, template_id: t.id }).then(function (r) { closeModal(); V60.refresh(); toast('Додано етапів: ' + r.added.length + (r.kept_own ? ', твої значення збережено: ' + r.kept_own : ''), 'success'); }).catch(V60.err); }),
+        fnBtn_('✕', 'small danger', function () { if (!confirm('Видалити шаблон?')) return; apiCall('deleteObjectTemplate', { id: t.id }).then(function () { closeModal(); V63.openTemplates(estimate); }).catch(V60.err); })]));
+    });
+    var nm = fnIn_({ placeholder: 'Назва нового шаблону (з поточних етапів)', style: 'width:100%;' });
+    box.appendChild(el('div', { style: 'display:flex;gap:6px;margin-top:10px;' }, [nm, fnBtn_('Зберегти', 'primary', function () { apiCall('saveObjectTemplate', { estimate_id: estimate.id, name: nm.value }).then(function () { closeModal(); toast('Шаблон збережено', 'success'); }).catch(V60.err); })]));
+    openModal('Шаблони обʼєктів', box);
+  }).catch(V60.err);
+};
+// ---- імпорт цін з Excel/CSV + історія
+V63.parseRows = function (matrix) {
+  var rows = matrix.filter(function (r) { return r && r.some(function (c) { return String(c == null ? '' : c).trim() !== ''; }); });
+  if (!rows.length) return [];
+  var head = rows[0].map(function (c) { return String(c == null ? '' : c).trim().toLowerCase(); }), idx = { name: 0, unit: 1, price: 2, category: 3 };
+  var isHeader = isNaN(Number(String(rows[0][2] == null ? '' : rows[0][2]).replace(/\s/g, '').replace(',', '.'))) || head.some(function (h) { return /назва|name|ціна|price/.test(h); });
+  if (isHeader) {
+    head.forEach(function (h, i) { if (/назва|name|робота|матеріал/.test(h)) idx.name = i; else if (/одиниц|unit|од\./.test(h)) idx.unit = i; else if (/ціна|price|вартість/.test(h)) idx.price = i; else if (/категор|categ/.test(h)) idx.category = i; });
+    rows = rows.slice(1);
+  }
+  return rows.map(function (r) { return { name: r[idx.name], unit: r[idx.unit], price: String(r[idx.price] == null ? '' : r[idx.price]).replace(/\s/g, '').replace(',', '.'), category: r[idx.category] }; });
+};
+V63.parseText = function (text) {
+  var lines = String(text || '').split(/\r?\n/), sep = text.indexOf('\t') >= 0 ? '\t' : (text.indexOf(';') >= 0 ? ';' : ',');
+  return V63.parseRows(lines.map(function (l) { return l.split(sep); }));
+};
+V63.openImport = function () {
+  var box = el('div'), partners = STATE.db.partners || [];
+  var kind = fnSel_([['works', 'Прайс робіт BUDNEX'], ['materials', 'Довідник матеріалів'], ['partner', 'Ціни партнера']], 'works');
+  var ps = fnSel_(partners.map(function (p) { return [p.id, p.name]; }), partners[0] && partners[0].id);
+  var ta = el('textarea', { rows: '6', placeholder: 'Встав із Excel: Назва ⇥ Одиниця ⇥ Ціна ⇥ Категорія (перший рядок — заголовки, якщо є)', style: 'width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);' });
+  var file = el('input', { type: 'file', accept: '.csv,.txt,.xlsx,.xls' }), createNew = el('input', { type: 'checkbox' }), out = el('div', { style: 'margin-top:10px;' }), accBig = el('input', { type: 'checkbox' });
+  var payload = function (apply) { return { kind: kind.value === 'materials' ? 'materials' : 'works', partner_id: kind.value === 'partner' ? ps.value : '', rows: V63.parseText(ta.value), create_new: createNew.checked, apply: !!apply, confirm: !!apply, accept_big: accBig.checked }; };
+  file.onchange = function () {
+    var f = file.files[0]; if (!f) return;
+    if (/\.xlsx?$/i.test(f.name)) {
+      var go = function () { var rd = new FileReader(); rd.onload = function () { try { var wb = window.XLSX.read(rd.result, { type: 'array' }), ws = wb.Sheets[wb.SheetNames[0]], m = window.XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }); ta.value = m.map(function (r) { return r.join('\t'); }).join('\n'); toast('Файл прочитано: ' + m.length + ' рядків', 'success'); } catch (e) { toast('Не вдалося прочитати Excel. Збережи як CSV і спробуй ще раз.', 'error'); } }; rd.readAsArrayBuffer(f); };
+      if (window.XLSX) go(); else { var sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = go; sc.onerror = function () { toast('Немає звʼязку для читання .xlsx. Збережи файл як CSV або встав дані з Excel у поле.', 'error'); }; document.head.appendChild(sc); }
+    } else { var r2 = new FileReader(); r2.onload = function () { ta.value = String(r2.result); toast('Файл прочитано', 'success'); }; r2.readAsText(f, 'utf-8'); }
+  };
+  var show = function (res) {
+    out.innerHTML = '';
+    var L = { 'new': 'нова', changed: 'зміна', same: 'без змін', invalid: '⛔ помилка', not_found: '❓ не знайдено' };
+    out.appendChild(el('div', { class: 'page-sub' }, ['Нових: ' + res.counts['new'] + ' · змін: ' + res.counts.changed + ' · без змін: ' + res.counts.same + ' · не знайдено: ' + res.counts.not_found + ' · помилок: ' + res.counts.invalid]));
+    out.appendChild(V62.table(['Рядок', 'Назва', 'Було', 'Стане', 'Статус'], res.items.slice(0, 200).map(function (i) { return [String(i.row), i.name, i.old != null ? V62.money(i.old) : '—', isNaN(i.price) ? '—' : V62.money(i.price) + (i.pct != null ? ' (' + (i.pct > 0 ? '+' : '') + i.pct + '%' + (i.big ? ' ⚠' : '') + ')' : ''), (L[i.status] || i.status) + (i.why ? ': ' + i.why : '')]; })));
+    if (res.big) out.appendChild(el('label', { class: 'margin-warn', style: 'display:flex;gap:8px;align-items:center;margin-top:8px;' }, [accBig, 'Є зміни цін більше ніж на 50% (' + res.big + ') — перевірив, підтверджую']));
+    if (res.counts.changed + res.counts['new'] > 0) out.appendChild(fnBtn_('✔ Застосувати зміни', 'primary', function () {
+      apiCall('importPrices', payload(true)).then(function (r) { toast('Застосовано. Старі кошториси не змінено.', 'success'); closeModal(); }).catch(V60.err);
+    }));
+  };
+  box.appendChild(el('p', { class: 'page-sub' }, ['Спочатку «Переглянути» — нічого не змінюється. Зміни застосовуються лише після твого підтвердження; вже створені кошториси свої ціни зберігають. Кожна зміна ціни записується в історію.']));
+  box.appendChild(fnRow_('Що оновлюємо', kind)); box.appendChild(fnRow_('Партнер (для цін партнера)', ps)); box.appendChild(fnRow_('Файл (CSV / Excel)', file)); box.appendChild(ta);
+  box.appendChild(el('label', { style: 'display:flex;gap:8px;align-items:center;margin:6px 0;' }, [createNew, 'Додавати нові позиції, яких немає в каталозі']));
+  box.appendChild(el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;' }, [fnBtn_('Переглянути зміни', 'primary', function () { apiCall('importPrices', payload(false)).then(show).catch(V60.err); }),
+    fnBtn_('⬇ Завантажити поточний прайс (CSV)', '', function () {
+      apiCall('exportPrices', { kind: kind.value === 'materials' ? 'materials' : 'works' }).then(function (rows) {
+        var csv = 'Назва;Одиниця;Ціна;Категорія\n' + rows.map(function (r) { return [r.name, r.unit, r.price, r.category].map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';'); }).join('\n');
+        downloadText_('BUDNEX_prices.csv', '﻿' + csv, 'text/csv;charset=utf-8');
+      }).catch(V60.err); })]));
+  box.appendChild(out);
+  openModal('Імпорт цін з Excel / CSV', box, { wide: true });
+};
+V63.openHistory = function () {
+  apiCall('listPriceHistory', { limit: 200 }).then(function (rows) {
+    var box = el('div'); box.appendChild(el('p', { class: 'page-sub' }, ['Усі зміни цін у прайсі, довіднику матеріалів і цінах партнерів.']));
+    box.appendChild(rows.length ? V62.table(['Дата', 'Що', 'Було', 'Стало', 'Хто'], rows.map(function (r) { return [String(r.changed_at).replace('T', ' ').slice(0, 16), r.name + ' (' + ({ work: 'робота', material: 'матеріал', partner_price: 'партнер' }[r.target_type] || r.target_type) + ')', V62.money(r.old_price), V62.money(r.new_price), r.changed_by || '']; })) : el('div', { class: 'page-sub' }, ['Змін цін ще не було.']));
+    openModal('Історія цін', box, { wide: true });
+  }).catch(V60.err);
+};
+
+/* ===== ІТЕРАЦІЯ 5: документи, версії, план-факт ===== */
+var V64 = {};
+V64.xlsx = function (data) {
+  var go = function () {
+    try {
+      var wb = XLSX.utils.book_new();
+      data.sheets.forEach(function (s) { XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s.rows), String(s.name).slice(0, 31)); });
+      XLSX.writeFile(wb, data.filename + '.xlsx');
+    } catch (e) { V64.csv(data); }
+  };
+  if (window.XLSX) go(); else { var sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = go; sc.onerror = function () { toast('Excel-бібліотека недоступна — зберігаю як CSV.', 'error'); V64.csv(data); }; document.head.appendChild(sc); }
+};
+V64.csv = function (data) {
+  data.sheets.forEach(function (s, i) {
+    var t = s.rows.map(function (r) { return r.map(function (c) { c = c == null ? '' : String(c); return /[;"\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(';'); }).join('\n');
+    downloadText_(data.filename + (data.sheets.length > 1 ? '_' + (i + 1) : '') + '.csv', '﻿' + t, 'text/csv');
+  });
+};
+V64.doc = function (estimate, mode) {
+  apiCall('getClientDocument', { estimate_id: estimate.id, mode: mode }).then(function (r) {
+    var box = el('div'); var frame = el('div', { style: 'background:#fff;border-radius:6px;overflow:auto;max-height:60vh;' }); frame.innerHTML = r.html; box.appendChild(frame);
+    var bar = el('div', { style: 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;' });
+    bar.appendChild(fnBtn_('🖨 Друк / PDF', 'primary', function () { var w = window.open('', '_blank'); if (!w) { toast('Дозвольте спливаючі вікна', 'error'); return; } w.document.write('<!doctype html><meta charset="utf-8"><title>' + r.title + '</title>' + r.html); w.document.close(); w.focus(); setTimeout(function () { w.print(); }, 300); }));
+    bar.appendChild(fnBtn_('💾 Зберегти HTML', '', function () { downloadText_(r.filename, '<!doctype html><meta charset="utf-8">' + r.html, 'text/html'); }));
+    box.appendChild(bar); openModal(r.title, box, { wide: true });
+  }).catch(V60.err);
+};
+V64.versions = function (estimate) {
+  apiCall('listEstimateVersions', { estimate_id: estimate.id }).then(function (vs) {
+    var box = el('div'); box.appendChild(el('p', { class: 'page-sub' }, ['Збережені версії не змінюються й не видаляються. Нова версія створюється при затвердженні, погодженні клієнтом або вручну.']));
+    var money = function (n) { return V62.money ? V62.money(n) : String(n); };
+    box.appendChild(vs.length ? V62.table(['№', 'Назва', 'Тип', 'Позицій', 'Сума клієнту', 'Дата'], vs.map(function (v) { return ['v' + v.version_no, v.label || '', { manual: 'вручну', approved: 'затверджено', client_approved: 'погодив клієнт' }[v.kind] || v.kind, v.items_count, money(v.totals.client_total), String(v.created_at || '').replace('T', ' ').slice(0, 16)]; })) : el('p', { class: 'page-sub' }, ['Версій ще немає.']));
+    var bar = el('div', { style: 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;' });
+    if (canDo_('estimates', 'edit')) bar.appendChild(fnBtn_('📌 Зберегти поточний стан як версію', 'primary', function () { var l = prompt('Назва версії', ''); if (l === null) return; apiCall('saveEstimateVersion', { estimate_id: estimate.id, label: l }).then(function () { closeModal(); V64.versions(estimate); }).catch(V60.err); }));
+    if (vs.length) {
+      var opts = vs.map(function (v) { return [v.id, 'v' + v.version_no + ' ' + (v.label || '')]; });
+      var sel = fnSel_(opts, vs[0].id, {});
+      bar.appendChild(sel); bar.appendChild(fnBtn_('⇄ Порівняти з поточним', '', function () { V64.compare(estimate, sel.value); }));
+    }
+    box.appendChild(bar); openModal('Версії кошторису', box, { wide: true });
+  }).catch(V60.err);
+};
+V64.compare = function (estimate, vid) {
+  apiCall('compareVersions', { estimate_id: estimate.id, a: vid, b: 'current' }).then(function (r) {
+    var box = el('div'); box.appendChild(el('p', { class: 'page-sub' }, [r.a + '  →  ' + r.b]));
+    var money = function (n) { return V62.money ? V62.money(n) : String(n); };
+    var tr = Object.keys(r.totals).map(function (k) { var t = r.totals[k]; return [{ client_total: 'Сума клієнту', contractor_total: 'Собівартість', logistics_total: 'Логістика', profit: 'Прибуток' }[k] || k, money(t.from), money(t.to), (t.delta > 0 ? '+' : '') + money(t.delta)]; });
+    box.appendChild(V62.table(['Показник', 'Було', 'Стало', 'Різниця'], tr));
+    var sec = function (t, arr, f) { if (!arr.length) return; box.appendChild(el('h4', { style: 'margin:12px 0 4px;' }, [t + ' (' + arr.length + ')'])); box.appendChild(V62.table(['Етап', 'Позиція', 'Деталі'], arr.map(f))); };
+    sec('➕ Додано', r.added, function (x) { return [x.stage, x.name, x.q + ' · ' + money(x.total)]; });
+    sec('➖ Видалено', r.removed, function (x) { return [x.stage, x.name, x.q + ' · ' + money(x.total)]; });
+    sec('✏️ Змінено', r.changed, function (x) { return [x.stage, x.name, Object.keys(x.changes).map(function (k) { var c = x.changes[k]; return ({ q: 'к-сть', price: 'ціна', total: 'сума', cost_price: 'собівартість', supplied_by: 'хто купує' }[k] || k) + ': ' + c[0] + ' → ' + c[1]; }).join('; ')]; });
+    if (!r.added.length && !r.removed.length && !r.changed.length) box.appendChild(el('p', { class: 'page-sub' }, ['Відмінностей немає.']));
+    openModal('Порівняння версій', box, { wide: true });
+  }).catch(V60.err);
+};
+V64.planFact = function (estimate) {
+  apiCall('getPlanFact', { estimate_id: estimate.id }).then(function (r) {
+    var box = el('div'), money = function (n) { return V62.money ? V62.money(n) : String(n); };
+    var lab = { ok: '🟢', warn: '🟡 майже вичерпано', over: '🔴 перевищено', no_plan: '🟡 немає в плані' };
+    box.appendChild(el('p', { class: 'page-sub' }, [r.note]));
+    box.appendChild(V62.table(['Стаття', 'План', 'Факт', 'Залишок', '%', 'Стан'], r.rows.map(function (x) { return [x.label, money(x.plan), money(x.fact), money(x.diff), x.pct == null ? '—' : x.pct + '%', lab[x.status] || x.status]; }).concat([['РАЗОМ', money(r.total_plan), money(r.total_fact), money(r.total_plan - r.total_fact), '', lab[r.level] || '']])));
+    box.appendChild(el('p', { class: 'page-sub' }, ['Попередження при ' + r.warn_pct + '% і при перевищенні плану (налаштування budget_warn_pct).']));
+    openModal('План-факт за статтями', box, { wide: true });
+  }).catch(V60.err);
+};
+V64.card = function (container, estimate, items) {
+  if (!canDo_('estimates', 'view')) return;
+  var card = el('div', { class: 'card v64-card', style: 'margin-top:14px;' });
+  card.appendChild(el('div', { class: 'chart-title' }, ['📄 Документи і версії']));
+  var bar = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;' });
+  bar.appendChild(fnBtn_('📝 Коротка КП', 'small primary', function () { V64.doc(estimate, 'short'); }));
+  bar.appendChild(fnBtn_('📋 Детальний кошторис', 'small', function () { V64.doc(estimate, 'detailed'); }));
+  bar.appendChild(fnBtn_('📊 Excel для клієнта', 'small', function () { apiCall('getEstimateSheets', { estimate_id: estimate.id, mode: 'client' }).then(V64.xlsx).catch(V60.err); }));
+  if (canSeeCost_()) {
+    bar.appendChild(fnBtn_('🔒 Excel внутрішній', 'small', function () { apiCall('getEstimateSheets', { estimate_id: estimate.id, mode: 'internal' }).then(V64.xlsx).catch(V60.err); }, 'З собівартістю і прибутком — не для клієнта'));
+    bar.appendChild(fnBtn_('📈 План-факт', 'small', function () { V64.planFact(estimate); }));
+  }
+  bar.appendChild(fnBtn_('🗂 Версії', 'small', function () { V64.versions(estimate); }));
+  card.appendChild(bar); container.appendChild(card);
 };
 
 function boot() {
