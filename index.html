@@ -741,7 +741,7 @@ function uiRestore_(snap) {
 }
 function syncAll(ev) {
   var manual = !!(ev && ev.type === 'click');
-  document.getElementById('syncBtn').textContent = '🔄 Синхронізація...';
+  if (manual) document.getElementById('syncBtn').textContent = '🔄 Синхронізація...';
   return apiCall('bootstrap', {}).then(function (data) {
     var sig = bootSig_(data), unchanged = !manual && sig === syncSig_ && !!STATE.db;
     syncSig_ = sig;
@@ -11952,14 +11952,68 @@ V66.card = function (container, estimate, items) {
       body.appendChild(el('div', { style: 'margin-bottom:6px;' }, ['✅ Діє: відстань ' + st.distance_km + ' км, виїздів ' + d.visits + ' · чистий прибуток ' + V62.money(d.profit) + ' (' + d.margin_pct + '%) · ваш заробіток з часом ' + V62.money(d.owner_earnings)]));
       if (st.stale) body.appendChild(el('div', { class: 'margin-warn', style: 'margin-bottom:6px;' }, ['⚠ Обсяг або ціни робіт змінились після розрахунку — натисніть «Перерахувати», щоб ціни відповідали новому обсягу.']));
     } else body.appendChild(el('div', { class: 'page-sub', style: 'margin-bottom:6px;' }, [st.ready ? 'Вкажіть відстань — і ціна кожної роботи автоматично покриє дорогу, розхідники, ваш час і дасть бажаний прибуток. Великий обсяг — нижча ціна за одиницю, малий — вища.' : 'Спершу задайте модель заробітку (бажаний прибуток, розхідники, виїзди, ваш час) — кнопка нижче.']));
-    var bar = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;' }, [km, vis,
+    if (st.auto) body.insertBefore(el('div', { style: 'margin-bottom:6px;padding:6px 8px;border-left:4px solid var(--green);background:rgba(60,180,80,.08);font-size:13px;' }, ['⚡ Автоматичний режим: будь-яка робота, яку ви додаєте в кошторис (з прайсу чи вручну), одразу отримує ціну з урахуванням майстрам, розхідників, дороги, вашого часу, накладних і прибутку. Ціну можна вписати вручну — така позиція (✋) автоматикою не змінюється.' + (st.manual_count ? ' Ручних цін зараз: ' + st.manual_count + '.' : '')]), body.firstChild);
+    var autoBtn = fnBtn_(st.auto ? '⏸ Вимкнути автоматику' : '⚡ Рахувати автоматично', 'small ' + (st.auto ? '' : 'primary'), function () {
+      apiCall('setSmartAuto', { estimate_id: estimate.id, auto: !st.auto, distance_km: V66.num(km.value), visits_override: V66.num(vis.value) }).then(function () { V60.refresh(); toast(st.auto ? 'Автоматику вимкнено — ціни лишились як є' : 'Автоматичний розрахунок ціни ввімкнено', 'success'); })
+        .catch(function (e) { V60.err(e); if (/модель/i.test(String(e && e.message))) V66.openModel(); });
+    }, st.auto ? 'Поточні ціни лишаться, нові роботи рахуватимуться за звичайною націнкою' : 'Ціна кожної роботи рахуватиметься сама');
+    var bar = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;' }, [km, vis, autoBtn,
       fnBtn_(st.applied ? '🔄 Перерахувати' : '🧮 Розрахувати', 'small primary', function () { V66.preview(estimate, V66.num(km.value), V66.num(vis.value)); }),
-      fnBtn_('⚙ Моя модель', 'small', function () { V66.openModel(); })]);
+      fnBtn_('⚙ Моя модель', 'small', function () { V66.openModel(); }), fnBtn_('🧰 Розхідні', 'small', function () { V66.openConsumables(); }, 'Які розхідні закладати в ціну кожної роботи')]);
     if (st.applied) bar.appendChild(fnBtn_('↩ Скасувати', 'small', function () { if (!confirm('Повернути звичайну націнку й прибрати розумну ціну?')) return; apiCall('clearSmartPricing', { estimate_id: estimate.id }).then(function () { V60.refresh(); toast('Розумну ціну скасовано', 'success'); }).catch(V60.err); }));
+    if (st.auto && st.manual_count) bar.appendChild(fnBtn_('✋→⚡ Ручні ціни в авто (' + st.manual_count + ')', 'small', function () { if (!confirm('Замінити ' + st.manual_count + ' ручних цін автоматичними?')) return; apiCall('setSmartAuto', { estimate_id: estimate.id, auto: true, confirm_manual: true }).then(function () { V60.refresh(); toast('Ручні ціни замінено автоматичними', 'success'); }).catch(V60.err); }));
     body.appendChild(bar);
   }).catch(function (e) { body.innerHTML = ''; body.appendChild(el('div', { class: 'page-sub' }, ['Недоступно: ' + (e && e.message || e)])); });
 };
 V66.card = V64.silent(V66.card, 'z', /Рахую…/);
+
+
+/* ===== РОЗХІДНІ ПО РОБОТАХ + позначки «авто / вручну» біля цін робіт ===== */
+V66.openConsumables = function () {
+  apiCall('getConsumables', {}).then(function (r) {
+    var box = el('div'), q = fnIn_({ type: 'search', placeholder: 'знайти роботу (назва)…', style: 'width:100%;' }), list = el('div'), M = V62.money;
+    box.appendChild(el('p', { class: 'page-sub' }, ['Система закладає розхідні (диски, шпаклівка, клей, плівка, дрібний інструмент…) у ціну роботи. Порядок: «грн на одиницю» цієї роботи → «% цієї роботи» → «% категорії» → загальний % моделі' + (r.global == null ? ' (не задано)' : ' (' + r.global + '%)') + '. Нічого не вигадується — значення вводите ви.']));
+    box.appendChild(el('h4', { style: 'margin:8px 0 4px;' }, ['Категорії робіт, % від ціни майстра']));
+    r.categories.forEach(function (c) {
+      var inp = fnIn_({ type: 'number', min: '0', step: 'any', value: c.pct, placeholder: 'як у моделі', style: 'max-width:110px;', inputmode: 'decimal' });
+      inp.onchange = function () { apiCall('saveCategoryConsumables', { category: c.name, pct: V66.num(inp.value) }).then(function () { toast('Збережено: ' + c.name, 'success'); }).catch(V60.err); };
+      box.appendChild(el('div', { style: 'display:flex;gap:8px;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);' }, [el('span', { style: 'font-size:13px;' }, [c.name + ' (' + c.works + ')']), inp]));
+    });
+    box.appendChild(el('h4', { style: 'margin:12px 0 4px;' }, ['Окремі роботи (шукайте за назвою)']));
+    box.appendChild(q); box.appendChild(list);
+    var draw = function () {
+      list.innerHTML = ''; var t = q.value.trim().toLowerCase();
+      var rows = r.works.filter(function (w) { return t ? String(w.name).toLowerCase().indexOf(t) !== -1 : (w.pct !== '' || w.per_unit !== ''); }).slice(0, 30);
+      if (!rows.length) { list.appendChild(el('div', { class: 'page-sub' }, [t ? 'Нічого не знайдено.' : 'Окремих налаштувань ще немає — знайдіть роботу вище.'])); return; }
+      rows.forEach(function (w) {
+        var pc = fnIn_({ type: 'number', min: '0', step: 'any', value: w.pct, placeholder: '%', style: 'max-width:80px;', inputmode: 'decimal' }), pu = fnIn_({ type: 'number', min: '0', step: 'any', value: w.per_unit, placeholder: 'грн/' + (w.unit || 'од.'), style: 'max-width:100px;', inputmode: 'decimal' });
+        var sv = function () { apiCall('saveWorkConsumables', { work_id: w.id, pct: V66.num(pc.value), per_unit: V66.num(pu.value) }).then(function () { w.pct = V66.num(pc.value); w.per_unit = V66.num(pu.value); toast('Збережено: ' + w.name, 'success'); }).catch(V60.err); };
+        pc.onchange = sv; pu.onchange = sv;
+        list.appendChild(el('div', { style: 'display:flex;gap:6px;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;' }, [el('span', { style: 'font-size:13px;flex:1;min-width:150px;' }, [w.name + ' · майстру ' + M(w.master_price)]), pc, pu]));
+      });
+    };
+    q.oninput = draw; draw();
+    openModal('🧰 Розхідні по роботах', box, { wide: true });
+  }).catch(V60.err);
+};
+(function () {
+  var prev = V9.itemTags;
+  V9.itemTags = function (it) {
+    var box = prev(it);
+    try {
+      if (!box && it && it.item_type !== 'material' && canSeeCost_()) box = el('div', { style: 'margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;' }, []);
+      if (it && it.item_type !== 'material' && canSeeCost_() && box && box.appendChild) {
+        var est = byId(STATE.db.estimates, it.estimate_id) || {}, auto = String(est.smart_auto) === '1' || est.smart_auto === true;
+        if (it.markup_mode === 'smart') { var t = fnBadge_('🎯 авто', 'green'); t.title = 'Ціна розрахована автоматично: майстрам + розхідники + дорога + ваш час + прибуток'; box.appendChild(t); }
+        else if (auto && (it.markup_locked === '1' || it.markup_locked === 1 || it.markup_locked === true || String(it.markup_locked).toLowerCase() === 'true')) {
+          var b = fnBtn_('✋ вручну → авто', 'small', function (e) { if (e && e.stopPropagation) e.stopPropagation(); apiCall('releaseItemPrice', { estimate_id: it.estimate_id, item_id: it.id }).then(V60.refresh).catch(V60.err); }, 'Ціна введена вручну й не змінюється. Клікніть, щоб її рахувала система');
+          b.style.padding = '2px 7px'; b.style.fontSize = '11px'; box.appendChild(b);
+        }
+      }
+    } catch (e) { /* не критично */ }
+    return box && box.childNodes && !box.childNodes.length ? null : box;
+  };
+})();
 
 /* ===== ТИХЕ ОНОВЛЕННЯ ВСЮДИ =====
    Коли поточна сторінка перемальовується (після збереження, синхронізації, дії), стара картинка лишається на екрані
@@ -11998,6 +12052,60 @@ var V65 = { inflight: 0 };
       check(); setTimeout(finish, 4000);
     } catch (e) { try { if (ghost.parentNode) ghost.parentNode.removeChild(ghost); } catch (x) {} }
   };
+})();
+
+/* ===== ТИХЕ ОНОВЛЕННЯ НА РІВНІ БЛОКІВ =====
+   Багато блоків робили так: очистити → показати «Завантаження…» → довантажити дані → намалювати. Людина бачила, як усе зникає й зʼявляється.
+   Тепер, якщо блок очищено, а нові дані ще в дорозі (є запит до сервера), старе вмістиме лишається на екрані, а «Завантаження…» ховається;
+   щойно зʼявляється справжній вміст — старе тихо замінюється. Якщо дані так і не прийшли — старе прибирається, як і раніше. */
+var V68 = { on: true };
+(function () {
+  var d = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML'); if (!d || !d.set) return;
+  var LOAD = /(завантаж|рахую|зачекай|шукаю|оновлю|loading)|(…|\.\.\.)\s*$/i;
+  var isPh = function (n) {
+    if (n.nodeType === 3) return !n.nodeValue.trim() || (n.nodeValue.trim().length < 80 && LOAD.test(n.nodeValue));
+    if (n.nodeType !== 1) return true;
+    var t = (n.textContent || '').trim();
+    return (!t && !n.querySelector('input,select,textarea,img,canvas,svg,table')) || (t.length < 80 && LOAD.test(t) && !n.querySelector('input,select,textarea,button,table'));
+  };
+  var inArea = function (el) { var m = document.getElementById('main'), ov = document.getElementById('modalOverlay'); return !!(m && m !== el && m.contains(el) && !(ov && ov.contains(el)) && !el.closest('.ghost-refresh')); };
+  var hold = function (el, old) {
+    if (!(V65.inflight > 0) || !el.isConnected) return;
+    var kids = Array.prototype.slice.call(el.childNodes);
+    if (kids.some(function (n) { return !isPh(n); })) return;                       // уже є справжній вміст — нічого не робимо
+    if (!old.some(function (n) { return n.nodeType === 1 && (n.textContent || '').trim(); })) return;   // старе було порожнім — нема що тримати
+    var hidden = [];
+    kids.forEach(function (n) { if (n.nodeType === 1) { hidden.push([n, n.style.display]); n.style.display = 'none'; } else if (n.parentNode) { n.parentNode.removeChild(n); } });
+    var first = el.firstChild;
+    old.forEach(function (n) { el.insertBefore(n, first); });
+    var gone = false, obs = null, tm = null, release = function () {
+      if (gone) return; gone = true; try { obs.disconnect(); } catch (e) {} clearInterval(tm);
+      old.forEach(function (n) { if (n.parentNode === el) el.removeChild(n); });
+    };
+    obs = new MutationObserver(function (m) {
+      for (var i = 0; i < m.length; i++) for (var j = 0; j < m[i].addedNodes.length; j++) {
+        var n = m[i].addedNodes[j]; if (old.indexOf(n) !== -1 || hidden.some(function (h) { return h[0] === n; })) continue;
+        if (!isPh(n)) { release(); return; }
+        if (n.nodeType === 1) n.style.display = 'none';
+      }
+    });
+    obs.observe(el, { childList: true });
+    var quiet = 0;
+    tm = setInterval(function () {                                                   // запити завершились, а нового вмісту так і немає — повертаємо як було
+      if (V65.inflight > 0) { quiet = 0; return; }
+      if (++quiet >= 2) { hidden.forEach(function (h) { h[0].style.display = h[1]; }); release(); }
+    }, 150);
+    setTimeout(function () { if (!gone) { hidden.forEach(function (h) { h[0].style.display = h[1]; }); release(); } }, 15000);
+  };
+  Object.defineProperty(Element.prototype, 'innerHTML', {
+    configurable: true, enumerable: d.enumerable, get: d.get,
+    set: function (v) {
+      var el = this, old = null;
+      try { if (V68.on && v === '' && el.childNodes.length && inArea(el)) old = Array.prototype.slice.call(el.childNodes); } catch (e) { old = null; }
+      d.set.call(el, v);
+      if (old) { var f = function () { try { hold(el, old); } catch (e) {} }; (typeof queueMicrotask === 'function' ? queueMicrotask : function (g) { Promise.resolve().then(g); })(f); }
+    }
+  });
 })();
 
 function boot() {
