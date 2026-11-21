@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -2386,7 +2386,7 @@ function renderEstimateEditor(container, estimate) {
     toolbar.appendChild(dupBtn);
   }
   container.appendChild(toolbar);
-  try { addItemBtn.addEventListener('click', function () { V60.nextStage = null; }, true); addMatBtn.addEventListener('click', function () { V60.nextStage = null; }, true); V60.card(container, estimate, items); V62.card(container, estimate, items); V64.card(container, estimate, items); } catch (e60) { console.error(e60); }
+  try { addItemBtn.addEventListener('click', function () { V60.nextStage = null; }, true); addMatBtn.addEventListener('click', function () { V60.nextStage = null; }, true); V60.card(container, estimate, items); V62.card(container, estimate, items); V64.card(container, estimate, items); V66.card(container, estimate, items); } catch (e60) { console.error(e60); }
 
   // ЕТАП 41: роботи і матеріали — ОКРЕМО (окремі таблиці та окремі підсумки)
   var workItems = items.filter(function (x) { return x.item_type !== 'material'; });
@@ -3708,6 +3708,7 @@ function openWorkForm(existing) {
 /* ============================== ESTIMATES LIST ============================= */
 function renderEstimatesList(main) {
   main.appendChild(el('div', { class: 'page-title' }, ['Кошториси']));
+  if (canSeeCost_()) main.appendChild(el('div', { class: 'toolbar' }, [fnBtn_('📞 Швидка ціна для дзвінка', 'primary', function () { V66.openQuick(); }), el('div', { class: 'spacer' })]));
   if (!STATE.db.estimates.length) { main.appendChild(el('div', { class: 'empty-state' }, ['Ще немає кошторисів. Створи його на сторінці об’єкта.'])); return; }
   var csvBtn = el('button', { class: 'btn small' }, ['⬇ CSV']);
   csvBtn.onclick = function () { downloadText_('BUDNEX_кошториси.csv', arrayToCsv_(STATE.db.estimates), 'text/csv;charset=utf-8'); };
@@ -7016,7 +7017,7 @@ function renderCalc(main) {
   }
 }
 
-var SYNC_READONLY_ACTIONS = { getClientDocument: 1, getEstimateSheets: 1, listEstimateVersions: 1, compareVersions: 1, getPlanFact: 1, getOwnerExpenses: 1, createOwnerExpense: 1, updateOwnerExpense: 1, deleteOwnerExpense: 1, saveDocTemplates: 1, previewObjectStatus: 1, getProfitSplits: 1, saveProfitSplit: 1, getObjectTimeline: 1, getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
+var SYNC_READONLY_ACTIONS = { quickPrice: 1, getSmartModel: 1, getSmartStatus: 1, previewSmartPricing: 1, getClientDocument: 1, getEstimateSheets: 1, listEstimateVersions: 1, compareVersions: 1, getPlanFact: 1, getOwnerExpenses: 1, createOwnerExpense: 1, updateOwnerExpense: 1, deleteOwnerExpense: 1, saveDocTemplates: 1, previewObjectStatus: 1, getProfitSplits: 1, saveProfitSplit: 1, getObjectTimeline: 1, getWorkDays: 1, createWorkDay: 1, updateWorkDay: 1, finishWorkDay: 1, reopenWorkDay: 1, deleteWorkDay: 1, getObjectMoney: 1, getInsights: 1, getAutomation: 1, saveAutomationRule: 1, saveReportConfig: 1, runAutomationNow: 1, sendReportNow: 1, getMaterialCalcConfig: 1, getQuickCalcConfig: 1, calcMaterials: 1, ping: 1, login: 1, logout: 1, bootstrap: 1, v9Bootstrap: 1, getUsers: 1, getSettingsFull: 1,
   autoScope: 1, validateEstimate: 1, analyzePlan: 1, aiMarginAdvice: 1, aiPing: 1, exportEstimatePdf: 1, htmlToPdf: 1,
   getFinanceOverview: 1, getDigestSchedule: 1, sendDigestNow: 1, tgStatus: 1, tgLinkStart: 1, tgLinkCheck: 1, tgUnlink: 1, tgGroupTest: 1, tgSetupPanel: 1, tgDiag: 1, tgRelayInfo: 1, tgWebhookOn: 1, tgWebhookOff: 1, listInvoices: 1, listPurchases: 1, nextInvoiceNumber: 1, invoiceFromEstimate: 1, adminTables: 1, adminRows: 1, adminDependents: 1, getActivity: 1, getNotifyConfig: 1, tgFindChats: 1, testNotify: 1, checkPricesOnline: 1, aiSuggestWorks: 1, aiQuickAddParse: 1, calcLogistics: 1, findTeams: 1, getSheetExportInfo: 1,
   exportBackupJson: 1, changePassword: 1 };
@@ -7319,7 +7320,11 @@ function openAssignForm(o, preselect) {
   body.appendChild(fnRow_('Обсяг робіт бригади', scope));
   body.appendChild(fh_('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px;' }, [fnRow_('Початок', start), fnRow_('Планове завершення', end)]));
   if (money) {
-    body.appendChild(fnRow_('Сума для бригади, грн (скільки ви їй платите за цей обʼєкт)', price));
+    var pk = V67.picker(o, '', function (sum, cnt) { priceRow.style.display = cnt > 0 ? 'none' : ''; hint.style.display = cnt > 0 ? 'none' : ''; });
+    body.appendChild(fh_('div', { style: 'font-weight:600;margin-top:6px;' }, ['Які роботи виконує бригада (сума рахується з них)']));
+    body.appendChild(pk.node);
+    var priceRow = fnRow_('Або сума вручну, грн (якщо роботи не вибрано)', price);
+    body.appendChild(priceRow);
     body.appendChild(hint);
     Fin.load().then(function (d) {
       var s = Fin.obj(o.id);
@@ -7336,7 +7341,8 @@ function openAssignForm(o, preselect) {
     if (end.value && start.value && end.value < start.value) { toast('Дата завершення раніше за початок', 'error'); return; }
     var done = fnBusy_(save);
     var data = { object_id: o.id, partner_id: pSel.value, scope: scope.value.trim(), start_date: start.value, end_date: end.value };
-    if (money && price.value !== '') data.price = fnNum_(price.value);
+    var chosen = (typeof pk !== 'undefined' && pk && pk.ids) ? pk.ids() : [];
+    if (money && chosen.length) data.item_ids = chosen; else if (money && price.value !== '') data.price = fnNum_(price.value);
     apiCall('createAssignment', data).then(function (a) {
       fnUpsert_('assignments', a); Storage.saveCache(); closeModal(); toast('Бригаду призначено — вона позначена як зайнята', 'success');
       return fnAfterChange_();
@@ -7358,11 +7364,16 @@ function openAssignEdit(a) {
     money ? fnRow_('Сума для бригади, грн', price) : null]);
   var save = fnBtn_('Зберегти', 'primary', function () {
     if (end.value && start.value && end.value < start.value) { toast('Дата завершення раніше за початок', 'error'); return; }
-    var done = fnBusy_(save);
-    var data = { id: a.id, scope: scope.value.trim(), start_date: start.value, end_date: end.value };
-    if (money && price.value !== '') data.price = fnNum_(price.value);
-    apiCall('updateAssignment', data).then(function (r) { fnUpsert_('assignments', r); Storage.saveCache(); closeModal(); toast('Збережено', 'success'); return fnAfterChange_(); })
-      .catch(function (e) { done(); fnErr_(e); });
+    var run = function () {
+      var done = fnBusy_(save);
+      var data = { id: a.id, scope: scope.value.trim(), start_date: start.value, end_date: end.value };
+      if (money && price.value !== '') data.price = fnNum_(price.value);
+      apiCall('updateAssignment', data).then(function (r) { fnUpsert_('assignments', r); Storage.saveCache(); closeModal(); toast('Збережено', 'success'); return fnAfterChange_(); })
+        .catch(function (e) { done(); fnErr_(e); });
+    };
+    if (money && a.price_mode === 'items' && price.value !== '' && Math.abs(fnNum_(price.value) - fnNum_(a.price)) > 0.004) {
+      confirmAction('Сума бригади зараз рахується з вибраних робіт. Якщо ввести суму вручну, вона більше не змінюватиметься автоматично (поки не поверне розрахунок кнопкою «Роботи»). Продовжити?', run);
+    } else run();
   });
   body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]));
   openModal('Призначення бригади', body);
@@ -7396,12 +7407,14 @@ function renderObjectTeamTab(container, o) {
       var price = fnNum_(a.price), paid = fnNum_(a.advance);
       card.appendChild(fh_('div', { style: 'margin-top:6px;font-size:13px;' }, ['Погоджено ', fh_('b', {}, [fmtMoney(price)]), ' · виплачено ', fh_('b', {}, [fmtMoney(paid)]), ' · ',
         fh_('b', { style: 'color:' + (price - paid > 0.5 ? 'var(--gold)' : 'var(--green)') + ';' }, ['залишок ' + fmtMoney(price - paid)])]));
+      card.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:2px 0 0;font-size:11px;' }, [a.price_mode === 'items' ? '🧱 сума рахується з вибраних робіт кошторису (матеріали не входять)' : (a.price_mode === 'manual' ? '✋ сума введена вручну' : '')]));
     }
     var btns = fh_('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;' });
     if (eff !== 'done' && canEdit) btns.appendChild(fnBtn_('✔ Роботу виконано', 'small primary', function () { fnCompleteAsg_(a); }));
     if (eff === 'done' && canEdit && o.status !== 'завершено') btns.appendChild(fnBtn_('↩ Повернути в роботу', 'small', function () {
       apiCall('reopenAssignment', { id: a.id }).then(function (r) { fnUpsert_('assignments', r); return fnAfterChange_(); }).catch(fnErr_); }));
     if (money && canDo_('finance', 'create')) btns.appendChild(fnBtn_('💸 Виплата', 'small', function () { openPaymentForm({ object_id: o.id, direction: 'out', partner_id: pid }); }));
+    if (money && canEdit && o.status !== 'завершено') btns.appendChild(fnBtn_('🧱 Роботи', 'small', function () { V67.openWorks(a); }, 'Які роботи кошторису виконує ця бригада'));
     if (canEdit) btns.appendChild(fnBtn_('✎ Змінити', 'small', function () { openAssignEdit(a); }));
     if (canDel) btns.appendChild(fnBtn_('✕ Зняти', 'small danger', function () {
       confirmAction('Зняти бригаду «' + fnPartnerName_(pid) + '» з обʼєкта? Виплати, що вже внесені, залишаться в обліку.', function () {
@@ -10632,6 +10645,22 @@ V53.card = function (s) {
   kids.push(R('Разом мені, коли все розрахується', M(w.mine_total), { color: w.mine_total < -0.5 ? 'var(--red)' : 'var(--green)', big: true }));
   var c = V52.group('💰 Розподіл грошей по обʼєкту', kids);
   c.className += ' v53-wallet'; c.style.marginBottom = '10px';
+  // звʼязок із «Розумною ціною»: план (закладені дорога, розхідники, ваш час, прибуток) проти факту
+  if (s && s.estimate_id && typeof canSeeCost_ === 'function' && canSeeCost_()) {
+    apiCall('getSmartStatus', { estimate_id: s.estimate_id }).then(function (st) {
+      if (!st || !st.applied || !st.data) return;
+      var d = st.data, cst = d.cost || {}, diff = V53.r2_(w.mine_total - d.owner_earnings);
+      var box = fh_('div', { style: 'border-top:1px solid var(--border);margin-top:8px;padding-top:6px;' });
+      box.appendChild(fh_('div', { 'class': 'chart-title', style: 'margin:2px 0 4px;font-size:12px;' }, ['🎯 За розумною ціною (план)']));
+      box.appendChild(R('Планований чистий прибуток', M(d.profit) + ' (' + d.margin_pct + '%)', { color: 'var(--green)' }));
+      box.appendChild(R('   закладено у ціну: розхідники ' + M(cst.consumables) + ' · дорога ' + M((cst.fuel || 0) + (cst.amortization || 0)) + ' · ваш час ' + M(cst.owner_time) + ' · накладні ' + M(cst.fixed), '', { dim: true }));
+      box.appendChild(R('Планований заробіток (прибуток + ваш час)', M(d.owner_earnings)));
+      box.appendChild(R('Фактично зараз «разом мені»', M(w.mine_total), { color: w.mine_total < d.owner_earnings - 0.5 ? 'var(--gold)' : 'var(--green)' }));
+      box.appendChild(R('   відхилення від плану', (diff > 0 ? '+' : '') + M(diff), { dim: true, color: diff < -0.5 ? 'var(--red)' : '' }));
+      if (st.stale) box.appendChild(fh_('div', { style: 'color:var(--gold);font-size:12px;padding:4px 0;' }, ['⚠ Обсяг або ціни в кошторисі змінились після розрахунку розумної ціни — перерахуйте її в кошторисі.']));
+      c.appendChild(box);
+    }).catch(function () {});
+  }
   return c;
 };
 
@@ -11773,6 +11802,164 @@ V64.silent = function (cardFn, key, loadingRe) {
 };
 V60.card = V64.silent(V60.card, 's', /Завантажую етапи/);
 V62.card = V64.silent(V62.card, 'e', /Рахую…/);
+
+/* ===== БРИГАДИ: вибір робіт з кошторису (лише роботи, без матеріалів) ===== */
+var V67 = {};
+// asgId — бригада, яку редагуємо (або '' для нової). onChange(sum, count) викликається при кожній зміні вибору.
+V67.picker = function (o, asgId, onChange) {
+  var M = function (n) { return (Number(n) || 0).toLocaleString('uk-UA', { maximumFractionDigits: 2 }) + ' грн'; };
+  var box = fh_('div', { style: 'border:1px solid var(--border);border-radius:6px;padding:8px;margin:6px 0;' }), list = fh_('div', { style: 'max-height:280px;overflow:auto;' }), info = fh_('div', { 'class': 'page-sub', style: 'margin:6px 0 0;' }), state = { works: [], checks: {} };
+  var api = { node: box, ids: function () { return state.works.filter(function (w) { return state.checks[w.id]; }).map(function (w) { return w.id; }); }, count: 0, sum: 0, loaded: false };
+  function recalc() {
+    var sum = 0, cnt = 0, take = {};
+    state.works.forEach(function (w) { if (state.checks[w.id]) { sum += w.cost; cnt++; if (w.assignment_id && w.assignment_id !== asgId) { take[w.holder] = take[w.holder] || { s: 0, n: 0 }; take[w.holder].s += w.cost; take[w.holder].n++; } } });
+    api.sum = sum; api.count = cnt;
+    var t = 'Вибрано робіт: ' + cnt + ' · сума для бригади: ' + M(sum);
+    var parts = Object.keys(take).map(function (k) { return k + ' — ' + M(take[k].s) + ' (' + take[k].n + ')'; });
+    info.textContent = t + (parts.length ? '. Буде знято з інших бригад: ' + parts.join('; ') : '');
+    if (onChange) onChange(sum, cnt);
+  }
+  box.appendChild(fh_('div', { 'class': 'page-sub', style: 'margin:0 0 6px;' }, ['Лише роботи — матеріали бригаді не призначаються. Сума бригади = собівартість вибраних робіт і сама оновлюється, якщо в кошторисі змінюється обсяг чи ціна.']));
+  box.appendChild(fh_('div', { style: 'display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;' }, [
+    fnBtn_('Вибрати вільні', 'small', function () { state.works.forEach(function (w) { if (!w.assignment_id) state.checks[w.id] = true; }); draw(); }),
+    fnBtn_('Вибрати всі', 'small', function () { state.works.forEach(function (w) { state.checks[w.id] = true; }); draw(); }),
+    fnBtn_('Зняти всі', 'small', function () { state.checks = {}; draw(); })]));
+  box.appendChild(list); box.appendChild(info);
+  function draw() {
+    list.innerHTML = '';
+    var lastStage = null;
+    state.works.forEach(function (w) {
+      if (w.stage !== lastStage) { lastStage = w.stage; if (w.stage) list.appendChild(fh_('div', { style: 'font-size:11px;opacity:.7;margin:6px 0 2px;text-transform:uppercase;' }, [w.stage])); }
+      var cb = fh_('input', { type: 'checkbox' }); cb.checked = !!state.checks[w.id];
+      cb.onchange = function () { state.checks[w.id] = cb.checked; recalc(); };
+      var holder = w.assignment_id ? (w.assignment_id === asgId ? '' : ' · зараз: ' + w.holder) : ' · вільна';
+      list.appendChild(fh_('label', { style: 'display:flex;gap:8px;align-items:flex-start;padding:4px 0;border-bottom:1px solid var(--border);cursor:pointer;' }, [cb,
+        fh_('span', { style: 'flex:1;font-size:13px;' }, [w.name + ' — ' + w.quantity + ' ' + (w.unit || ''), fh_('span', { style: 'opacity:.65;font-size:11px;' }, [holder])]),
+        fh_('b', { style: 'white-space:nowrap;font-size:13px;' }, [M(w.cost)])]));
+    });
+    if (!state.works.length) list.appendChild(fh_('div', { 'class': 'page-sub' }, ['У договірному кошторисі немає робіт для розподілу.']));
+    recalc();
+  }
+  apiCall('listAssignableWorks', { object_id: o.id }).then(function (r) {
+    state.works = r.works; state.checks = {};
+    r.works.forEach(function (w) { if (asgId ? w.assignment_id === asgId : !w.assignment_id) state.checks[w.id] = true; });
+    api.loaded = true; api.total = r.total_cost; draw();
+  }).catch(function () { box.style.display = 'none'; });
+  return api;
+};
+V67.openWorks = function (a) {
+  var o = byId(STATE.db.objects, a.object_id) || {}, pk = V67.picker(o, a.id), body = fh_('div');
+  body.appendChild(fh_('div', { 'class': 'page-sub' }, [fnPartnerName_(fnAsgPartner_(a)) + ' · ' + (o.name || '')]));
+  body.appendChild(pk.node);
+  var save = fnBtn_('Зберегти', 'primary', function () {
+    var done = fnBusy_(save);
+    apiCall('setAssignmentItems', { assignment_id: a.id, item_ids: pk.ids() }).then(function (r) {
+      (r.assignments || []).forEach(function (x) { fnUpsert_('assignments', x); }); Storage.saveCache(); closeModal();
+      toast('Роботи бригади збережено' + (r.moved && r.moved.length ? ' · знято з інших: ' + r.moved.map(function (m) { return m.name + ' ' + fmtMoney(m.amount); }).join(', ') : ''), 'success');
+      return fnAfterChange_();
+    }).catch(function (e) { done(); fnErr_(e); });
+  });
+  body.appendChild(fh_('div', { 'class': 'form-actions' }, [fnBtn_('Скасувати', '', closeModal), save]));
+  openModal('Роботи бригади', body, { wide: true });
+};
+
+/* ===== РОЗУМНА ЦІНА: швидкий розрахунок для дзвінка + ціна в кошторисі ===== */
+var V66 = {};
+V66.num = function (v) { return (v === '' || v == null) ? '' : Number(String(v).replace(',', '.')); };
+V66.openModel = function (after) {
+  apiCall('getSmartModel', {}).then(function (m) {
+    var box = el('div'), inputs = {}, fin = {};
+    box.appendChild(el('p', { class: 'page-sub' }, ['Це ваші правила заробітку. Нічого не вигадано: що не заповнено — не враховується (і система про це попереджає). Задайте один раз — далі все рахується само.']));
+    Object.keys(m.labels).forEach(function (k) { inputs[k] = fnIn_({ type: 'number', step: 'any', min: '0', value: m.values[k] == null ? '' : m.values[k], inputmode: 'decimal' }); box.appendChild(fnRow_(m.labels[k], inputs[k])); });
+    box.appendChild(el('h4', { style: 'margin:14px 0 4px;' }, ['Паливо й авто']));
+    [['fuel_price', 'Ціна пального, грн/л'], ['fuel_consumption', 'Витрата, л/100 км'], ['amortization_rate', 'Амортизація авто, грн/км']].forEach(function (f) { fin[f[0]] = fnIn_({ type: 'number', step: 'any', min: '0', value: m.fuel[f[0]] }); box.appendChild(fnRow_(f[1], fin[f[0]])); });
+    box.appendChild(fnBtn_('💾 Зберегти модель', 'primary', function () {
+      var vals = {}, fuel = {}; Object.keys(inputs).forEach(function (k) { vals[k] = V66.num(inputs[k].value); }); Object.keys(fin).forEach(function (k) { fuel[k] = V66.num(fin[k].value); });
+      apiCall('saveSmartModel', { values: vals, fuel: fuel }).then(function () { closeModal(); toast('Модель збережено', 'success'); if (after) after(); }).catch(V60.err);
+    }));
+    openModal('⚙ Моя модель заробітку', box, { wide: true });
+  }).catch(V60.err);
+};
+V66.result = function (r, box) {
+  var M = V62.money; box.innerHTML = '';
+  r.jobs.forEach(function (j) {
+    box.appendChild(el('div', { style: 'padding:10px 12px;margin:6px 0;border-left:4px solid #F2C200;background:rgba(242,194,0,.08);border-radius:4px;' }, [
+      el('div', { style: 'font-size:12px;opacity:.8;' }, [j.name + ' · ' + j.qty + ' ' + (j.unit || '')]),
+      el('div', { style: 'font-size:24px;font-weight:800;' }, ['Назвіть: ' + M(j.price) + ' / ' + (j.unit || 'од.')]),
+      el('div', { style: 'font-size:12px;opacity:.8;' }, ['Нижня межа (мін. прибуток): ' + (j.min_price == null ? 'задайте мін. прибуток у моделі' : M(j.min_price)) + ' · ціна майстру ' + M(j.master_price) + ' · разом ' + M(j.total)])]));
+  });
+  var c = r.cost;
+  box.appendChild(V62.table(['Куди йдуть гроші', 'Сума'], [['Майстрам', M(c.masters)], ['Розхідні та дрібні матеріали', M(c.consumables)], ['Паливо', M(c.fuel)], ['Амортизація авто', M(c.amortization)], ['Ваш час (' + r.hours + ' год)', M(c.owner_time)], ['Накладні на обʼєкт', M(c.fixed)], ['Собівартість разом', M(c.total)], ['Клієнт платить', M(r.revenue)], ['Чистий прибуток (' + r.margin_pct + '%)', M(r.profit)], ['Ваш заробіток (час + прибуток)', M(r.owner_earnings)]]));
+  box.appendChild(el('p', { class: 'page-sub' }, ['Виїздів: ' + r.visits + ' · відстань ' + r.distance_km + ' км в один бік · коефіцієнт до ціни майстра ×' + r.multiplier]));
+  var j0 = r.jobs[0] || { name: r.scen_name || '', unit: r.scen_unit || '' };
+  if (r.scenarios && r.scenarios.length) { box.appendChild(el('h4', { style: 'margin:10px 0 4px;' }, ['А якби обсяг був іншим (' + j0.name + ')?'])); box.appendChild(V62.table(['Обсяг', 'Ціна за од.', 'Разом', 'Виїздів'], r.scenarios.map(function (s) { return [s.qty + ' ' + (j0.unit || ''), M(s.price), M(s.total), s.visits]; }))); }
+  r.warnings.forEach(function (w) { box.appendChild(el('div', { class: 'margin-warn', style: 'margin-top:6px;' }, ['⚠ ' + w])); });
+  r.info.forEach(function (w) { box.appendChild(el('div', { class: 'page-sub', style: 'margin-top:4px;' }, ['ℹ ' + w])); });
+};
+V66.openQuick = function () {
+  var works = (STATE.db.works || []).filter(function (w) { return String(w.active) !== 'false' && String(w.active) !== '0'; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'uk'); });
+  var opts = [['', '— оберіть роботу —']].concat(works.map(function (w) { return [w.id, w.name + ' (' + (w.unit || '') + ')']; }));
+  var box = el('div'), rows = el('div'), out = el('div', { style: 'margin-top:10px;' }), lines = [];
+  var km = fnIn_({ type: 'number', min: '0', step: 'any', placeholder: 'напр. 25', inputmode: 'decimal' }), vis = fnIn_({ type: 'number', min: '0', step: '1', placeholder: 'авто' }), timer = null;
+  var calc = function () {
+    clearTimeout(timer); timer = setTimeout(function () {
+      var jobs = lines.map(function (l) { return { work_id: l.sel.value, qty: V66.num(l.qty.value) }; }).filter(function (j) { return j.work_id && j.qty > 0; });
+      if (!jobs.length) { out.innerHTML = ''; out.appendChild(el('div', { class: 'page-sub' }, ['Оберіть роботу й вкажіть орієнтовний обсяг — ціна зʼявиться одразу.'])); return; }
+      apiCall('quickPrice', { jobs: jobs, distance_km: V66.num(km.value), visits: V66.num(vis.value) }).then(function (r) {
+        V66.result(r, out);
+        out.appendChild(fnBtn_('📋 Скопіювати для клієнта', 'small', function () { try { navigator.clipboard.writeText(r.text); toast('Скопійовано', 'success'); } catch (e) { toast(r.text, 'success'); } }));
+      }).catch(function (e) {
+        out.innerHTML = ''; out.appendChild(el('div', { class: 'margin-warn' }, ['⚠ ' + (e && e.message || e)]));
+        if (/задайте|Спершу/i.test(String(e && e.message))) out.appendChild(fnBtn_('⚙ Налаштувати модель', 'primary', function () { V66.openModel(calc); }));
+      });
+    }, 300);
+  };
+  var addLine = function () {
+    var sel = fnSel_(opts, ''), qty = fnIn_({ type: 'number', min: '0', step: 'any', placeholder: 'обсяг', inputmode: 'decimal', style: 'max-width:110px;' }), l = { sel: sel, qty: qty };
+    var row = el('div', { style: 'display:flex;gap:6px;margin:4px 0;align-items:center;' }, [sel, qty, fnBtn_('✕', 'small', function () { if (lines.length > 1) { lines.splice(lines.indexOf(l), 1); row.remove(); calc(); } })]);
+    sel.onchange = calc; qty.oninput = calc; lines.push(l); rows.appendChild(row);
+  };
+  addLine(); km.oninput = calc; vis.oninput = calc;
+  box.appendChild(el('p', { class: 'page-sub' }, ['Швидка ціна для гарячого дзвінка: робота + орієнтовний обсяг + відстань → ціна за одиницю з урахуванням дороги, розхідників, вашого часу й бажаного прибутку. Нічого не зберігається.']));
+  box.appendChild(rows); box.appendChild(fnBtn_('＋ ще робота', 'small', addLine));
+  box.appendChild(fnRow_('Відстань до обʼєкта, км (в один бік)', km)); box.appendChild(fnRow_('Кількість виїздів (якщо знаєте; інакше — автоматично)', vis));
+  box.appendChild(fnBtn_('⚙ Моя модель заробітку', 'small', function () { V66.openModel(calc); }));
+  box.appendChild(out); calc(); openModal('📞 Швидка ціна', box, { wide: true });
+};
+V66.preview = function (estimate, km, visits) {
+  apiCall('previewSmartPricing', { estimate_id: estimate.id, distance_km: km, visits_override: visits }).then(function (r) {
+    var M = V62.money, box = el('div'), out = el('div'), anyManual = r.jobs.some(function (j) { return j.locked_manual; }), conf = el('input', { type: 'checkbox' });
+    box.appendChild(el('p', { class: 'page-sub' }, ['Ціна кожної роботи включає свою частку дороги, розхідників, вашого часу й накладних. Матеріали й ручні ціни не змінюються без підтвердження.']));
+    box.appendChild(V62.table(['Робота', 'К-сть', 'Майстру/од.', 'Було/од.', 'Стане/од.', 'Сума'], r.jobs.map(function (j) { return [j.name + (j.locked_manual ? ' ✋' : ''), j.qty + ' ' + (j.unit || ''), M(j.master_price), M(j.old_price), M(j.price), M(j.total)]; })));
+    V66.result({ jobs: [], cost: r.cost, hours: r.hours, revenue: r.revenue, profit: r.profit, margin_pct: r.margin_pct, owner_earnings: r.owner_earnings, visits: r.visits, distance_km: r.distance_km, multiplier: r.multiplier, scenarios: r.scenarios, scen_name: r.jobs[0] && r.jobs[0].name, scen_unit: r.jobs[0] && r.jobs[0].unit, warnings: r.warnings, info: r.info }, out);
+    box.appendChild(out);
+    if (anyManual) box.appendChild(el('label', { style: 'display:flex;gap:8px;align-items:center;margin:8px 0;' }, [conf, 'Замінити й ручні ціни (✋) — з підтвердженням']));
+    box.appendChild(fnBtn_('✔ Застосувати до кошторису', 'primary', function () {
+      apiCall('applySmartPricing', { estimate_id: estimate.id, distance_km: km, visits_override: visits, confirm_manual: conf.checked }).then(function (res) { closeModal(); V60.refresh(); toast('Розумну ціну застосовано' + (res.skipped_manual.length ? ' (ручних пропущено: ' + res.skipped_manual.length + ')' : ''), 'success'); }).catch(V60.err);
+    }));
+    openModal('🎯 Розумна ціна для обʼєкта', box, { wide: true });
+  }).catch(function (e) { V60.err(e); if (/задайте|Спершу/i.test(String(e && e.message))) V66.openModel(); });
+};
+V66.card = function (container, estimate, items) {
+  if (!canSeeCost_() || estimate.kind === 'addendum') return;
+  var card = el('div', { class: 'card v66-card', style: 'margin-top:14px;' }), body = el('div', {}, ['Рахую…']);
+  card.appendChild(el('div', { class: 'chart-title' }, ['🎯 Розумна ціна (дорога, розхідники, ваш час)'])); card.appendChild(body); container.appendChild(card);
+  apiCall('getSmartStatus', { estimate_id: estimate.id }).then(function (st) {
+    body.innerHTML = '';
+    var km = fnIn_({ type: 'number', min: '0', step: 'any', value: st.distance_km || '', placeholder: 'км в один бік', style: 'max-width:150px;', inputmode: 'decimal' }), vis = fnIn_({ type: 'number', min: '0', step: '1', value: st.visits_override || '', placeholder: 'виїздів (авто)', style: 'max-width:150px;' });
+    if (st.applied) {
+      var d = st.data;
+      body.appendChild(el('div', { style: 'margin-bottom:6px;' }, ['✅ Діє: відстань ' + st.distance_km + ' км, виїздів ' + d.visits + ' · чистий прибуток ' + V62.money(d.profit) + ' (' + d.margin_pct + '%) · ваш заробіток з часом ' + V62.money(d.owner_earnings)]));
+      if (st.stale) body.appendChild(el('div', { class: 'margin-warn', style: 'margin-bottom:6px;' }, ['⚠ Обсяг або ціни робіт змінились після розрахунку — натисніть «Перерахувати», щоб ціни відповідали новому обсягу.']));
+    } else body.appendChild(el('div', { class: 'page-sub', style: 'margin-bottom:6px;' }, [st.ready ? 'Вкажіть відстань — і ціна кожної роботи автоматично покриє дорогу, розхідники, ваш час і дасть бажаний прибуток. Великий обсяг — нижча ціна за одиницю, малий — вища.' : 'Спершу задайте модель заробітку (бажаний прибуток, розхідники, виїзди, ваш час) — кнопка нижче.']));
+    var bar = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;' }, [km, vis,
+      fnBtn_(st.applied ? '🔄 Перерахувати' : '🧮 Розрахувати', 'small primary', function () { V66.preview(estimate, V66.num(km.value), V66.num(vis.value)); }),
+      fnBtn_('⚙ Моя модель', 'small', function () { V66.openModel(); })]);
+    if (st.applied) bar.appendChild(fnBtn_('↩ Скасувати', 'small', function () { if (!confirm('Повернути звичайну націнку й прибрати розумну ціну?')) return; apiCall('clearSmartPricing', { estimate_id: estimate.id }).then(function () { V60.refresh(); toast('Розумну ціну скасовано', 'success'); }).catch(V60.err); }));
+    body.appendChild(bar);
+  }).catch(function (e) { body.innerHTML = ''; body.appendChild(el('div', { class: 'page-sub' }, ['Недоступно: ' + (e && e.message || e)])); });
+};
+V66.card = V64.silent(V66.card, 'z', /Рахую…/);
 
 /* ===== ТИХЕ ОНОВЛЕННЯ ВСЮДИ =====
    Коли поточна сторінка перемальовується (після збереження, синхронізації, дії), стара картинка лишається на екрані
